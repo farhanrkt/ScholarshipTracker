@@ -1,0 +1,160 @@
+import type { EligibilityFlags } from "@/lib/types/database";
+
+interface Row {
+  label: string;
+  value: string;
+  /** true when the value is a hurdle the applicant has to clear. */
+  demanding: boolean;
+}
+
+/**
+ * Absent is not false.
+ *
+ * A row extracted from a page carries only the flags that page stated, so a
+ * missing `requires_research_proposal` means nobody has read one way or the
+ * other — printing "Not required" there would be inventing a fact in the
+ * student's favour, which is the worst direction to be wrong in. Every branch
+ * below therefore has three outcomes, not two.
+ */
+type Flags = Partial<EligibilityFlags> | null | undefined;
+
+const NOT_STATED = "Not stated";
+
+function describeBoolean(
+  value: boolean | null | undefined,
+  whenTrue: string,
+  whenFalse: string,
+): Row["value"] {
+  if (typeof value !== "boolean") return NOT_STATED;
+  return value ? whenTrue : whenFalse;
+}
+
+function buildRows(flags: Flags): Row[] {
+  const tests = flags?.accepted_language_tests;
+  const languageTests =
+    Array.isArray(tests) && tests.length > 0 ? tests.join(", ") : null;
+
+  const scoreParts: string[] = [];
+  if (typeof flags?.min_toefl_ibt === "number") {
+    scoreParts.push(`TOEFL iBT ${flags.min_toefl_ibt}`);
+  }
+  if (typeof flags?.min_ielts === "number") {
+    scoreParts.push(`IELTS ${flags.min_ielts}`);
+  }
+
+  const nationalities = flags?.restricted_to_nationalities;
+  const hasNationalities =
+    Array.isArray(nationalities) && nationalities.length > 0;
+
+  return [
+    {
+      label: "Age limit",
+      value:
+        typeof flags?.max_age === "number" ? `${flags.max_age} years` : "No age cap",
+      demanding: typeof flags?.max_age === "number",
+    },
+    {
+      label: "Minimum GPA",
+      value:
+        typeof flags?.min_gpa_4_scale === "number"
+          ? `${flags.min_gpa_4_scale.toFixed(1)} / 4.0`
+          : "Not published",
+      demanding:
+        typeof flags?.min_gpa_4_scale === "number" && flags.min_gpa_4_scale >= 3.5,
+    },
+    {
+      label: "Work experience",
+      value:
+        typeof flags?.min_work_experience_years !== "number"
+          ? NOT_STATED
+          : flags.min_work_experience_years > 0
+            ? `${flags.min_work_experience_years}+ years`
+            : "None required",
+      demanding:
+        typeof flags?.min_work_experience_years === "number" &&
+        flags.min_work_experience_years > 0,
+    },
+    {
+      label: "Language test",
+      value:
+        typeof flags?.language_test_required !== "boolean"
+          ? NOT_STATED
+          : flags.language_test_required
+            ? `Required${languageTests ? ` — ${languageTests}` : ""}`
+            : "Not required",
+      demanding: flags?.language_test_required === true,
+    },
+    {
+      label: "Minimum scores",
+      value: scoreParts.length > 0 ? scoreParts.join(" · ") : "Not published",
+      demanding: false,
+    },
+    {
+      label: "Admission first",
+      value: describeBoolean(
+        flags?.requires_university_admission_first,
+        "Need a university offer before applying",
+        "Apply without an offer",
+      ),
+      demanding: flags?.requires_university_admission_first === true,
+    },
+    {
+      label: "Nomination",
+      value: describeBoolean(
+        flags?.requires_government_nomination,
+        "Embassy / government nomination required",
+        "Apply directly",
+      ),
+      demanding: flags?.requires_government_nomination === true,
+    },
+    {
+      label: "Research proposal",
+      value: describeBoolean(
+        flags?.requires_research_proposal,
+        "Required",
+        "Not required",
+      ),
+      demanding: flags?.requires_research_proposal === true,
+    },
+    {
+      label: "Nationality",
+      value: hasNationalities
+        ? `Restricted to ${nationalities.join(", ")}`
+        : "Open to all nationalities",
+      demanding: hasNationalities,
+    },
+  ];
+}
+
+export function EligibilityList({ flags }: { flags: Flags }) {
+  const rows = buildRows(flags);
+
+  return (
+    <div className="flex flex-col">
+      <dl className="divide-y">
+        {rows.map((row) => (
+          <div key={row.label} className="grid grid-cols-[9rem_1fr] gap-3 py-2 text-sm">
+            <dt className="text-muted-foreground">{row.label}</dt>
+            <dd
+              className={
+                row.demanding
+                  ? "font-medium"
+                  : row.value === NOT_STATED
+                    ? "text-muted-foreground"
+                    : undefined
+              }
+            >
+              {row.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      {flags?.notes && (
+        <p className="bg-muted/60 text-muted-foreground mt-3 rounded-md p-3 text-xs leading-relaxed">
+          {flags.notes}
+        </p>
+      )}
+    </div>
+  );
+}
