@@ -59,6 +59,13 @@ export interface GroundedExtraction {
   caveats: string[];
   /** Page that actually stated the dates. Becomes the row's source_url. */
   bestSourceUrl: string;
+  /**
+   * A date was published to the month but not the day, and survives as an
+   * undated timeline stage. Tracked explicitly because `isEmpty` would
+   * otherwise read that stage as "no dates found" and bin the extraction —
+   * which is the outcome the rescue exists to prevent.
+   */
+  hasMonthOnlyDate: boolean;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -165,6 +172,28 @@ export function groundExtraction(
   };
   const sourceFor: Partial<Record<GroundedField, string>> = {};
 
+  /**
+   * Dates the page states to the MONTH but not the day.
+   *
+   * "Applications will open again in September 2026" is a real, quoted,
+   * grounded fact, and the precision rule below correctly refuses to turn it
+   * into 2026-09-01 — a day nobody published. But refusing the day is not a
+   * reason to discard the month: "opens in September" is most of what a student
+   * planning a year ahead actually needs, and dropping it silently was leaving
+   * the row emptier than the page.
+   *
+   * So it becomes an undated timeline stage carrying the page's own wording.
+   * The schema already models exactly this — a named stage with a null date —
+   * so nothing has to be invented and no column has to change.
+   */
+  const monthOnly: GroundedExtraction["proposed"]["timeline"] = [];
+
+  const STAGE_FOR: Record<GroundedField, { key: string; label: string } | null> = {
+    cycle_label: null,
+    opens_date: { key: "opens", label: "Applications open" },
+    deadline_date: { key: "closes", label: "Applications close" },
+  };
+
   for (const field of GROUNDED_FIELDS) {
     const claim = extraction[field];
     const sourceUrl = locateQuote(corpus, claim.evidence_quote);
@@ -198,6 +227,17 @@ export function groundExtraction(
         ungroundedFields.push(
           `${field} (claimed "${claim.value}", but the quote does not state the ${precision.missing.join(" or ")} — "${claim.evidence_quote}")`,
         );
+
+        // Only the day is missing: the month and year ARE on the page, so keep
+        // them as an undated stage rather than losing the fact entirely.
+        const stage = STAGE_FOR[field];
+        if (stage && precision.missing.length === 1 && precision.missing[0] === "day") {
+          monthOnly.push({
+            ...stage,
+            date: null,
+            note: `The page gives the month but not the day: "${claim.evidence_quote}"`,
+          });
+        }
         continue;
       }
       if (CONDITIONAL.test(claim.evidence_quote ?? "")) {
@@ -241,11 +281,18 @@ export function groundExtraction(
         ungroundedFields.push(
           `timeline[${index}].${stage.key} (claimed "${stage.date}", quote lacks the ${precision.missing.join(" or ")})`,
         );
+        // The stage survives without its date. When the page did give a month,
+        // say so in the note — "interviews in March" is worth knowing, and the
+        // alternative reads as though nothing was published at all.
+        const dayOnly =
+          precision.missing.length === 1 && precision.missing[0] === "day";
         return {
           key: stage.key,
           label: stage.label,
           date: null,
-          note: stage.note,
+          note: dayOnly
+            ? `${stage.note ? `${stage.note} · ` : ""}The page gives the month but not the day: "${stage.evidence_quote}"`
+            : stage.note,
         };
       }
       if (CONDITIONAL.test(stage.evidence_quote ?? "")) {
@@ -265,6 +312,15 @@ export function groundExtraction(
     };
   });
 
+  // Rescued month-only dates go in only where the model did not already publish
+  // a stage of the same name — its own timeline entry is the better record.
+  const named = new Set(timeline.map((stage) => stage.key));
+  for (const stage of monthOnly) {
+    if (named.has(stage.key)) continue;
+    named.add(stage.key);
+    timeline.push(stage);
+  }
+
   return {
     proposed: {
       cycle_label: keep.cycle_label,
@@ -283,12 +339,21 @@ export function groundExtraction(
       firstStageSource ??
       sourceFor.cycle_label ??
       entryUrl,
+    hasMonthOnlyDate: monthOnly.length > 0,
   };
 }
 
-/** True when the cycle extraction produced nothing worth a reviewer's time. */
+/**
+ * True when the cycle extraction produced nothing worth a reviewer's time.
+ *
+ * A timeline of purely undated stages counts as nothing — a list of stage names
+ * with no dates tells a reviewer only that the programme has stages. A rescued
+ * month-only date is different: it is a quoted fact about WHEN, just not to the
+ * day, and it is exactly what this row was missing.
+ */
 export function isEmpty(grounded: GroundedExtraction): boolean {
   const { opens_date, deadline_date, timeline } = grounded.proposed;
+  if (grounded.hasMonthOnlyDate) return false;
   return (
     opens_date === null &&
     deadline_date === null &&
@@ -317,17 +382,59 @@ export interface GroundedProfile {
     document_checklist: ChecklistDocument[];
     post_study_obligations: string | null;
     language_training_included: boolean | null;
+    fields_of_study: string[];
+    award_duration: string | null;
+    number_of_awards: string | null;
   };
   evidence: Record<string, FieldEvidence>;
   ungroundedFields: string[];
   caveats: string[];
 }
 
-/** Numbers as written, with thousands separators removed: "1,347" -> 1347. */
+/**
+ * Words that are numbers.
+ *
+ * Eligibility pages overwhelmingly spell small numbers out — "a minimum of five
+ * years of full-time professional experience", "under the age of thirty-five".
+ * A digits-only check called those unsupported and threw away correctly
+ * extracted, properly quoted values: the quote was real, the number was real,
+ * and the comparison was the only thing that failed.
+ */
+const NUMBER_WORDS: Record<string, number> = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7,
+  eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13,
+  fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18,
+  nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60,
+  seventy: 70, eighty: 80, ninety: 90,
+};
+
+/**
+ * Every number the text states, in digits or in words.
+ *
+ * "1,347" -> 1347. "five" -> 5. "twenty-five" -> 25 (and also 20 and 5, since
+ * the parts are legitimate readings too and this list is only ever searched,
+ * never summed).
+ */
 function numbersIn(text: string): number[] {
-  return (text.match(/\d+(?:,\d{3})*(?:\.\d+)?/g) ?? [])
+  const found = (text.match(/\d+(?:,\d{3})*(?:\.\d+)?/g) ?? [])
     .map((token) => Number(token.replace(/,/g, "")))
     .filter((value) => Number.isFinite(value));
+
+  const words = text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  for (const [index, word] of words.entries()) {
+    const value = NUMBER_WORDS[word];
+    if (value === undefined) continue;
+
+    found.push(value);
+
+    // "twenty-five" and "twenty five" both arrive here as two tokens.
+    const next = NUMBER_WORDS[words[index + 1] ?? ""];
+    if (value >= 20 && value % 10 === 0 && next !== undefined && next < 10) {
+      found.push(value + next);
+    }
+  }
+
+  return found;
 }
 
 /**
@@ -347,6 +454,34 @@ function detailSupported(detail: string, quote: string): boolean {
   return numbersIn(detail).every((needed) =>
     available.some((found) => found === needed),
   );
+}
+
+/**
+ * Is this named thing in the quote, allowing for the acronym convention?
+ *
+ * A page writes "Test of English as a Foreign Language (TOEFL)" and the model
+ * returns either the full name or the acronym; a quote containing one does not
+ * literally contain the other. Requiring an exact substring discarded a value
+ * whose evidence was sitting right there.
+ *
+ * Both readings are checked against the quote, so this loosens the comparison
+ * without loosening the requirement: the quote must still be verbatim page
+ * text, and the name must still appear in it in one of the two forms the page
+ * itself offered.
+ */
+function nameSupported(value: string, normalisedQuote: string): boolean {
+  const candidates = [value];
+
+  const parenthesised = /\(([^)]+)\)/.exec(value)?.[1];
+  if (parenthesised) {
+    candidates.push(parenthesised);
+    candidates.push(value.replace(/\s*\([^)]*\)\s*/, " "));
+  }
+
+  return candidates.some((candidate) => {
+    const needle = normalise(candidate);
+    return needle.length >= 2 && normalisedQuote.includes(needle);
+  });
 }
 
 function slugify(value: string): string {
@@ -497,7 +632,7 @@ export function groundProfile(
     }
 
     const quote = normalise(claim.evidence_quote ?? "");
-    const supported = values.filter((value) => quote.includes(normalise(value)));
+    const supported = values.filter((value) => nameSupported(value, quote));
     const dropped = values.filter((value) => !supported.includes(value));
 
     if (dropped.length > 0) {
@@ -580,6 +715,66 @@ export function groundProfile(
     }
   }
 
+  /* ------------------------------------------------- scope of the award */
+
+  /**
+   * Duration and award count are quoted prose carrying a figure, so they are
+   * held to the same rule as a stipend amount: the quote must be on a page, and
+   * every number in the value must be in the quote. "Up to 3 years" backed by a
+   * quote that says two is exactly the kind of near-miss that reads as
+   * authoritative and is wrong.
+   */
+  const scopeText = (
+    field: string,
+    claim: { value: string | null; evidence_quote: string | null },
+  ): string | null => {
+    const sourceUrl = locateQuote(corpus, claim.evidence_quote);
+    record(field, claim.evidence_quote, sourceUrl);
+
+    const value = typeof claim.value === "string" ? claim.value.trim() : "";
+    if (!value) return null;
+
+    if (!sourceUrl) {
+      ungroundedFields.push(
+        `${field} (claimed "${value}", quote not found on any fetched page)`,
+      );
+      return null;
+    }
+    if (!detailSupported(value, claim.evidence_quote ?? "")) {
+      ungroundedFields.push(
+        `${field} (claimed "${value}", but the quote does not contain that figure — "${claim.evidence_quote}")`,
+      );
+      return null;
+    }
+    return value;
+  };
+
+  const awardDuration = scopeText("award_duration", profile.award_duration);
+  const numberOfAwards = scopeText("number_of_awards", profile.number_of_awards);
+
+  const fieldsClaim = profile.fields_of_study;
+  const fieldsSource = locateQuote(corpus, fieldsClaim.evidence_quote);
+  record("fields_of_study", fieldsClaim.evidence_quote, fieldsSource);
+
+  let fieldsOfStudy: string[] = [];
+  const claimedFields = Array.isArray(fieldsClaim.values) ? fieldsClaim.values : [];
+  if (claimedFields.length > 0) {
+    if (!fieldsSource) {
+      ungroundedFields.push(
+        `fields_of_study (claimed ${claimedFields.length} value(s), quote not found on any fetched page)`,
+      );
+    } else {
+      const quote = normalise(fieldsClaim.evidence_quote ?? "");
+      fieldsOfStudy = claimedFields.filter((value) => nameSupported(value, quote));
+      const dropped = claimedFields.filter((value) => !fieldsOfStudy.includes(value));
+      if (dropped.length > 0) {
+        ungroundedFields.push(
+          `fields_of_study (dropped ${dropped.map((value) => `"${value}"`).join(", ")} — not in the quote)`,
+        );
+      }
+    }
+  }
+
   // Conditional language means the same thing here as it does for a deadline:
   // the value is real, and something on the page decides when it applies.
   for (const [field, quote] of Object.entries(evidence)) {
@@ -595,6 +790,9 @@ export function groundProfile(
       document_checklist: documents,
       post_study_obligations: postStudy,
       language_training_included: languageTraining,
+      fields_of_study: fieldsOfStudy,
+      award_duration: awardDuration,
+      number_of_awards: numberOfAwards,
     },
     evidence,
     ungroundedFields,
@@ -604,12 +802,20 @@ export function groundProfile(
 
 /** True when nothing in the profile survived grounding. */
 export function isEmptyProfile(profile: GroundedProfile): boolean {
-  const { coverage_matrix, eligibility_flags, document_checklist } = profile.proposed;
+  const {
+    coverage_matrix,
+    eligibility_flags,
+    document_checklist,
+    fields_of_study,
+  } = profile.proposed;
   return (
     Object.keys(coverage_matrix).length === 0 &&
     Object.keys(eligibility_flags).length === 0 &&
     document_checklist.length === 0 &&
+    fields_of_study.length === 0 &&
     profile.proposed.post_study_obligations === null &&
-    profile.proposed.language_training_included === null
+    profile.proposed.language_training_included === null &&
+    profile.proposed.award_duration === null &&
+    profile.proposed.number_of_awards === null
   );
 }

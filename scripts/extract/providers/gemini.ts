@@ -12,8 +12,16 @@ import {
 
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
-/** Override with GEMINI_MODEL. `--models` lists what your key can reach. */
-const DEFAULT_MODEL = "gemini-3.5-flash";
+/**
+ * Override with GEMINI_MODEL. `--models` lists what your key can reach.
+ *
+ * The lite model, and the `-latest` alias rather than a pinned version, because
+ * this pipeline runs on the free tier and quotas are PER MODEL: a pinned id
+ * silently stops being the one Google grants free capacity on. Extraction is a
+ * copying task constrained by a verbatim-quote check, so model capability moves
+ * yield rather than correctness — an ungrounded value is discarded either way.
+ */
+const DEFAULT_MODEL = "gemini-flash-lite-latest";
 
 /**
  * Free-tier requests per minute. Gemini's free tier is request-bound rather
@@ -21,6 +29,21 @@ const DEFAULT_MODEL = "gemini-3.5-flash";
  * requests is what actually matters. Override with GEMINI_RPM.
  */
 const DEFAULT_RPM = 15;
+
+/**
+ * How long to wait for one completion. Override with GEMINI_TIMEOUT_MS.
+ *
+ * Raised from 180s after every profile call in a three-programme Chevening run
+ * died on `The operation was aborted due to timeout`. That is the expensive
+ * failure: the profile call is the half that reads coverage, eligibility and
+ * the document checklist, so a timeout costs the entire depth of a row while
+ * the cycle call still succeeds and makes the run look fine.
+ *
+ * The profile response is several thousand tokens of JSON, each value carrying
+ * its own verbatim quote, and a lite model emitting that off a 45k-character
+ * prompt is simply slower than three minutes some of the time.
+ */
+const DEFAULT_TIMEOUT_MS = 300_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -162,7 +185,9 @@ export class GeminiProvider implements ExtractionProvider {
             temperature: 0,
           },
         }),
-        signal: AbortSignal.timeout(180_000),
+        signal: AbortSignal.timeout(
+          Number(process.env.GEMINI_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS,
+        ),
       },
     );
 

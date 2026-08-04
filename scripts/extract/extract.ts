@@ -58,7 +58,18 @@ Eligibility:
 Documents:
 - List every document the pages tell an applicant to prepare or submit, in the order given.
 - required=false for anything the pages describe as optional, conditional, or "if applicable".
-- Put constraints in "note": how many copies, certified, translated, word or page limits, who must write it.`;
+- Put constraints in "note": how many copies, certified, translated, word or page limits, who must write it.
+
+Scope of the award:
+- fields_of_study is a RESTRICTION on the ACADEMIC SUBJECT you may study, and nothing else. Fill it only when the pages say an applicant in the wrong subject is ineligible: "open only to applicants in STEM disciplines", "for students of public policy", "applications outside these faculties will not be considered".
+- These are NOT subject restrictions, and must be left out:
+  - thematic priorities, focus areas, or "areas of impact" the funder cares about ("climate change and sustainability", "economic growth", "human rights") — an applicant in any subject can work on these;
+  - what the funder would "welcome", "encourage", "prefer", or "particularly like to see";
+  - a list of example, popular, or eligible COURSES;
+  - the departments that happen to host past recipients.
+  If in doubt, leave it empty. An empty list means "open to any subject", so a wrong entry here hides the award from students who are in fact eligible — the costliest direction to be wrong in.
+- award_duration and number_of_awards are copied as the page words them, with their qualifiers: "up to 3 years", "the normal duration of the programme", "approximately 1,500 annually". Never convert a duration into a number of years and never turn "around 1,500" into 1500.
+- If the pages state a figure only for a different award on the same site, that is not this programme's figure. Return null.`;
 
 export interface ExtractionResult<T> {
   extraction: T;

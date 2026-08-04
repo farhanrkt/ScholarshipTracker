@@ -242,6 +242,27 @@ export const ProfileExtractionSchema = z.object({
     "Does the award include a language course before or during study?",
   ),
 
+  /**
+   * Three facts a student weighs BEFORE reading anything else, and which the
+   * pipeline could read and had nowhere to put.
+   *
+   * Free text rather than parsed numbers, deliberately. "Up to three years, or
+   * four for a PhD" and "approximately 1,500 awards annually" do not survive
+   * being forced into an integer, and a number we invent to fill a column is
+   * the failure mode this whole design exists to prevent. Stored as the page
+   * words it, grounded like a coverage figure: every digit in the value has to
+   * appear in the quote backing it.
+   */
+  fields_of_study: StringsClaim.describe(
+    "Academic subjects the award is RESTRICTED to, e.g. ['Engineering', 'Public health']. Empty array when open to any subject. A funder's thematic priorities or focus areas ('climate change', 'economic growth') are NOT subject restrictions — an applicant in any subject can work on those.",
+  ),
+  award_duration: TextClaim.describe(
+    "How long the funding lasts, as the page words it: 'up to 3 years', 'one academic year', 'the normal duration of the course'.",
+  ),
+  number_of_awards: TextClaim.describe(
+    "How many awards are offered, as the page words it: 'around 1,500 each year', 'up to 20'. Null unless the pages state a number.",
+  ),
+
   notes_for_reviewer: z
     .string()
     .describe("Anything ambiguous or contradictory. Empty string if nothing."),
