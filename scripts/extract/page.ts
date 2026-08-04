@@ -71,7 +71,13 @@ export function htmlToText(html: string): string {
   return decodeEntities(
     html
       .replace(/<!--[\s\S]*?-->/g, " ")
-      .replace(/<(script|style|noscript|svg|head)\b[\s\S]*?<\/\1>/gi, " ")
+      // `nav` and `footer` carry the same twenty link labels on every page of a
+      // site. As TEXT they are pure noise: they crowd real prose out of the
+      // passage budget and give the model month names to misread as deadlines.
+      // Their LINKS are still harvested, because extractLinks reads the raw
+      // HTML — which is the arrangement we want, since navigation is a
+      // hand-written index of the pages worth crawling.
+      .replace(/<(script|style|noscript|svg|head|nav|footer)\b[\s\S]*?<\/\1>/gi, " ")
       // Block-level boundaries become newlines so adjacent cells and list items
       // do not silently fuse into one phantom sentence.
       .replace(/<\/(p|div|li|tr|td|th|h[1-6]|section|article|br)\s*>/gi, "\n")
@@ -87,70 +93,510 @@ export function htmlToText(html: string): string {
 /* robots.txt                                                                 */
 /* -------------------------------------------------------------------------- */
 
-const robotsCache = new Map<string, string[]>();
+/** Our own token, as it appears in a robots.txt User-agent line. */
+const ROBOTS_TOKEN = "scholartrackbot";
+
+interface RobotsRule {
+  /** Path pattern, may contain `*` and a trailing `$`. */
+  pattern: string;
+  allow: boolean;
+}
+
+interface RobotsPolicy {
+  rules: RobotsRule[];
+  /** Seconds the site asks us to wait between requests, if it says. */
+  crawlDelayMs: number | null;
+  /**
+   * Sitemaps the site advertises.
+   *
+   * `Sitemap:` is global to the file rather than scoped to a User-agent group,
+   * which is why it is collected outside the groups below. It is also the one
+   * place a site volunteers a complete index of its own pages — worth far more
+   * to discovery than any link we could find by crawling.
+   */
+  sitemaps: string[];
+}
+
+const robotsCache = new Map<string, RobotsPolicy>();
 
 /**
- * Minimal robots.txt support: collect Disallow rules under `*` and our own
- * agent. Not a full spec implementation — deliberately errs toward respecting
- * more than required. A missing or unreadable robots.txt is treated as allow.
+ * robots.txt, parsed the way the standard actually works.
+ *
+ * The previous version collected `Disallow` lines and ignored everything else,
+ * which is not "conservative" — it is wrong in both directions:
+ *
+ *  - **No `Allow` support.** A site whose robots.txt reads `Disallow: /`
+ *    followed by `Allow: /scholarships/` is explicitly inviting us to the one
+ *    section we want, and we refused to fetch any of it.
+ *  - **Groups were merged.** Rules under `User-agent: Googlebot` were applied
+ *    to us, and a `User-agent: *` group followed by any other group lost its
+ *    rules entirely, because one flag was overwritten line by line.
+ *
+ * The rule now: collect every group, prefer the one naming us over `*`, and
+ * within it let the LONGEST matching pattern win — allow beating disallow on a
+ * tie, which is what the major crawlers do.
  */
-async function disallowedPaths(origin: string): Promise<string[]> {
+function parseRobots(body: string): RobotsPolicy {
+  const groups = new Map<string, { rules: RobotsRule[]; crawlDelay: number | null }>();
+  const sitemaps: string[] = [];
+  let currentAgents: string[] = [];
+  // Consecutive User-agent lines share one block of rules; a rule line ends the
+  // run of agents so the next User-agent starts a fresh group.
+  let collectingAgents = false;
+
+  const ensure = (agent: string) => {
+    const existing = groups.get(agent);
+    if (existing) return existing;
+    const created = { rules: [] as RobotsRule[], crawlDelay: null as number | null };
+    groups.set(agent, created);
+    return created;
+  };
+
+  for (const rawLine of body.split("\n")) {
+    const line = rawLine.split("#")[0]?.trim() ?? "";
+    if (!line) continue;
+
+    const separator = line.indexOf(":");
+    if (separator === -1) continue;
+    const key = line.slice(0, separator).trim().toLowerCase();
+    const value = line.slice(separator + 1).trim();
+
+    if (key === "user-agent") {
+      if (!collectingAgents) currentAgents = [];
+      collectingAgents = true;
+      currentAgents.push(value.toLowerCase());
+      continue;
+    }
+
+    // Global directive: it belongs to the file, not to whichever group happens
+    // to precede it, so it is read before the group check below.
+    if (key === "sitemap") {
+      if (value) sitemaps.push(value);
+      continue;
+    }
+
+    collectingAgents = false;
+    if (currentAgents.length === 0) continue;
+
+    for (const agent of currentAgents) {
+      const group = ensure(agent);
+      if (key === "disallow") {
+        // An empty Disallow means "allow everything" — not "block everything".
+        if (value) group.rules.push({ pattern: value, allow: false });
+      } else if (key === "allow") {
+        if (value) group.rules.push({ pattern: value, allow: true });
+      } else if (key === "crawl-delay") {
+        const seconds = Number(value);
+        if (Number.isFinite(seconds) && seconds > 0) group.crawlDelay = seconds;
+      }
+    }
+  }
+
+  const chosen =
+    [...groups.entries()].find(([agent]) => agent && ROBOTS_TOKEN.startsWith(agent))?.[1] ??
+    groups.get("*");
+
+  return {
+    rules: chosen?.rules ?? [],
+    crawlDelayMs: chosen?.crawlDelay ? chosen.crawlDelay * 1_000 : null,
+    sitemaps,
+  };
+}
+
+/** robots.txt patterns support `*` (any run) and `$` (end of path). */
+function matchLength(pattern: string, path: string): number {
+  const anchored = pattern.endsWith("$");
+  const body = anchored ? pattern.slice(0, -1) : pattern;
+
+  if (!body.includes("*")) {
+    if (anchored) return path === body ? body.length : -1;
+    return path.startsWith(body) ? body.length : -1;
+  }
+
+  const escaped = body
+    .split("*")
+    .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&"))
+    .join(".*");
+  const regex = new RegExp(`^${escaped}${anchored ? "$" : ""}`);
+  return regex.test(path) ? body.length : -1;
+}
+
+async function policyFor(origin: string): Promise<RobotsPolicy> {
   const cached = robotsCache.get(origin);
   if (cached) return cached;
 
-  let rules: string[] = [];
+  let policy: RobotsPolicy = { rules: [], crawlDelayMs: null, sitemaps: [] };
   try {
     const response = await fetch(`${origin}/robots.txt`, {
       headers: { "user-agent": USER_AGENT },
       signal: AbortSignal.timeout(10_000),
     });
-
-    if (response.ok) {
-      let applies = false;
-      for (const rawLine of (await response.text()).split("\n")) {
-        const line = rawLine.split("#")[0]?.trim() ?? "";
-        const [field, ...rest] = line.split(":");
-        const key = field?.trim().toLowerCase();
-        const value = rest.join(":").trim();
-
-        if (key === "user-agent") {
-          applies = value === "*" || USER_AGENT.toLowerCase().startsWith(value.toLowerCase());
-        } else if (key === "disallow" && applies && value) {
-          rules.push(value);
-        }
-      }
-    }
+    // A missing or unreadable robots.txt is treated as allow, per the standard.
+    if (response.ok) policy = parseRobots(await response.text());
   } catch {
-    rules = [];
+    policy = { rules: [], crawlDelayMs: null, sitemaps: [] };
   }
 
-  robotsCache.set(origin, rules);
-  return rules;
+  robotsCache.set(origin, policy);
+  return policy;
 }
 
 export async function isAllowed(url: string): Promise<boolean> {
   const parsed = new URL(url);
-  const rules = await disallowedPaths(parsed.origin);
-  return !rules.some((rule) => parsed.pathname.startsWith(rule));
+  const { rules } = await policyFor(parsed.origin);
+  const path = parsed.pathname + parsed.search;
+
+  let verdict = true;
+  let strongest = -1;
+
+  for (const rule of rules) {
+    const length = matchLength(rule.pattern, path);
+    // Longest match wins; Allow wins ties, which is how Google and Bing read it
+    // and the reading a site owner writing an exception intends.
+    if (length > strongest || (length === strongest && rule.allow)) {
+      strongest = length;
+      verdict = rule.allow;
+    }
+  }
+
+  return verdict;
+}
+
+/** Sitemaps this origin advertises in robots.txt, if any. */
+export async function declaredSitemaps(url: string): Promise<string[]> {
+  try {
+    return (await policyFor(new URL(url).origin)).sitemaps;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch a non-HTML text resource — a sitemap — under the same politeness and
+ * robots rules as a page.
+ *
+ * Separate from `fetchPage` because that function is built for documents we
+ * intend to READ: it converts HTML to text, hashes it for change detection, and
+ * rejects anything under 200 characters as JavaScript-rendered. None of that
+ * applies to XML we only intend to pull URLs out of, and the content-type check
+ * in particular rejects the `application/xml` most sitemaps are served as.
+ *
+ * THE ACCEPT HEADER IS NOT COSMETIC. `fetchWithRetry` defaults to
+ * `text/html,application/xhtml+xml` because that is what a page crawl wants,
+ * and a server that honours content negotiation answers a request for XML with
+ * **406 Not Acceptable** when told we only read HTML. Nottingham does exactly
+ * that: its sitemap 406s under the HTML header and returns 19,917 URLs — 269 of
+ * them scholarship-shaped — under a neutral one. The failure is silent, because
+ * a 406 looks like any other "this origin has no sitemap".
+ */
+export async function fetchText(url: string, maxBytes = 5_000_000): Promise<string> {
+  if (!(await isAllowed(url))) {
+    throw new Error(`robots.txt disallows fetching ${url}`);
+  }
+
+  const { host } = new URL(url);
+  const delay = Math.max(FETCH_DELAY_MS, (await crawlDelayFor(url)) ?? 0);
+  const response = await schedulePerHost(host, delay, () =>
+    fetchWithRetry(url, ACCEPT_XML),
+  );
+
+  if (!response.ok) throw new Error(`HTTP ${response.status} fetching ${url}`);
+
+  const body = await response.text();
+  // Big sites publish enormous sitemaps; there is no value in holding one in
+  // memory beyond the point where it stops being worth reading.
+  return body.length > maxBytes ? body.slice(0, maxBytes) : body;
+}
+
+/** How long this origin asks us to wait between requests, if it says at all. */
+export async function crawlDelayFor(url: string): Promise<number | null> {
+  try {
+    return (await policyFor(new URL(url).origin)).crawlDelayMs;
+  } catch {
+    return null;
+  }
 }
 
 /* -------------------------------------------------------------------------- */
 /* Fetch                                                                      */
 /* -------------------------------------------------------------------------- */
 
-export async function fetchPage(url: string): Promise<FetchedPage> {
+/** Statuses that mean "not now" rather than "no". */
+const TRANSIENT = new Set([429, 500, 502, 503, 504]);
+
+const MAX_ATTEMPTS = 3;
+
+/**
+ * How long to wait for a page, and how hard to try when nothing comes back.
+ *
+ * These two numbers were the largest avoidable cost in a run. At 30 seconds and
+ * three attempts, a page that never responds costs 30+2+30+4+30 ≈ 96 seconds,
+ * and a single Chevening run spent about four and a half minutes on three such
+ * pages. The whole run was 15:07 of wall-clock for 2.4 seconds of CPU.
+ *
+ * A server that has not sent a byte in fifteen seconds is not thinking, it is
+ * gone — and unlike a 503, which is the server telling us to come back, a
+ * timeout carries no such promise. So timeouts get one retry rather than two:
+ * a slow page is retried once in case the network hiccuped, and then abandoned
+ * to the twelve other pages waiting behind it.
+ *
+ * Status-based retries are UNCHANGED at three attempts. A 429 or 503 is an
+ * explicit "later", frequently with a Retry-After, and that is worth honouring.
+ */
+const FETCH_TIMEOUT_MS = 15_000;
+const MAX_TIMEOUT_ATTEMPTS = 2;
+
+/** Did this failure mean "no answer", as opposed to "not now"? */
+function isTimeout(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "TimeoutError" || error.name === "AbortError")
+  );
+}
+
+/**
+ * One fetch, retried only when the server said the failure was temporary.
+ *
+ * A 404 is an answer and is not retried. A 429 or a 503 is the server asking us
+ * to come back, and abandoning the page loses a programme's entire coverage
+ * section over a momentary rate limit — which is exactly what was happening on
+ * the busier university sites.
+ *
+ * `Retry-After` is honoured when present, because a server that tells you how
+ * long to wait has earned being listened to.
+ */
+/** What we tell the server we can read. See the 406 note on `fetchText`. */
+const ACCEPT_HTML = "text/html,application/xhtml+xml";
+const ACCEPT_XML = "application/xml,text/xml;q=0.9,*/*;q=0.8";
+
+async function fetchWithRetry(url: string, accept = ACCEPT_HTML): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "user-agent": USER_AGENT,
+          accept,
+        },
+        redirect: "follow",
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+
+      if (response.ok || !TRANSIENT.has(response.status)) return response;
+
+      lastError = new Error(`HTTP ${response.status} fetching ${url}`);
+      if (attempt === MAX_ATTEMPTS) return response;
+
+      const retryAfter = Number(response.headers.get("retry-after"));
+      const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(retryAfter * 1_000, 30_000)
+        : attempt * 2_000;
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    } catch (error) {
+      // A DNS or connection failure is worth one more try; a bad URL fails the
+      // same way again and costs two seconds. A TIMEOUT gets a lower ceiling —
+      // see FETCH_TIMEOUT_MS: no answer is not a promise of a later one, and
+      // the pages queued behind this one are worth more than a third attempt.
+      lastError = error instanceof Error ? error : new Error(String(error));
+      const ceiling = isTimeout(error) ? MAX_TIMEOUT_ATTEMPTS : MAX_ATTEMPTS;
+      if (attempt >= ceiling) throw lastError;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 2_000));
+    }
+  }
+
+  throw lastError ?? new Error(`Could not fetch ${url}`);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Per-host politeness                                                        */
+/* -------------------------------------------------------------------------- */
+
+/** When each host was last hit, and the queue of work waiting on it. */
+const lastFetchAt = new Map<string, number>();
+const hostQueue = new Map<string, Promise<unknown>>();
+
+/**
+ * Serialises requests to ONE host, with the gap, while letting different hosts
+ * run at the same time.
+ *
+ * Politeness used to live in the callers: every crawl loop slept 1.5s between
+ * fetches. That works only while exactly one crawl exists. The moment two
+ * programmes are extracted concurrently — and three of them can share a host,
+ * as the Chevening rows do — caller-side sleeps stop meaning anything and the
+ * site gets simultaneous hits.
+ *
+ * Putting the gate here makes the guarantee structural: a host is never fetched
+ * faster than its delay allows no matter how many crawls are in flight, and
+ * callers cannot get it wrong by forgetting to sleep.
+ */
+function schedulePerHost<T>(host: string, delayMs: number, task: () => Promise<T>): Promise<T> {
+  const previous = hostQueue.get(host) ?? Promise.resolve();
+
+  const run = previous.then(async () => {
+    const waitFor = (lastFetchAt.get(host) ?? 0) + delayMs - Date.now();
+    if (waitFor > 0) await new Promise((resolve) => setTimeout(resolve, waitFor));
+    try {
+      return await task();
+    } finally {
+      // Measured from the END of the request, so a slow page does not get
+      // followed instantly by the next one.
+      lastFetchAt.set(host, Date.now());
+    }
+  });
+
+  // Swallow rejection on the CHAIN only — the caller still sees the real error.
+  // Without this an unhandled rejection would take down the process.
+  hostQueue.set(host, run.catch(() => undefined));
+  return run;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Within-run page cache                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One fetch per URL per run, however many crawls want it.
+ *
+ * Programmes on the same site overlap almost completely. Three Chevening rows
+ * were observed crawling the SAME sixteen pages — 48 requests where 16 would
+ * do — because each row runs its own crawl and nothing remembered the last one.
+ * MEXT did the same across two rows.
+ *
+ * That is three times the wall-clock, and three times the load on a funder's
+ * server for no new information. The politeness gate makes it slow rather than
+ * rude, which is the right trade but not a reason to do it at all: the fastest
+ * and politest request is the one you do not send.
+ *
+ * PROMISES ARE CACHED, NOT RESULTS. Concurrent crawls request the same page at
+ * the same time — that is the normal case with `--concurrency 3` on one host —
+ * so storing the in-flight promise means the second caller awaits the first
+ * rather than starting a second identical request.
+ *
+ * Rejections are evicted: a page that 404s for one programme should still be
+ * ATTEMPTED for the next, since the failure may have been transient and
+ * `fetchWithRetry` has its own view on that.
+ *
+ * `fetchedAt` on a cache hit is the time of the original fetch, not of the hit.
+ * That is the honest value — it is when the bytes were actually read — and it
+ * is what gets stored as the extraction's `fetched_at`.
+ */
+/**
+ * Bounded by BYTES, not by entry count.
+ *
+ * A cached page holds its raw HTML as well as its text, because the crawler
+ * reads links out of the HTML. University pages routinely run to several
+ * hundred kilobytes of markup, so a 500-entry cap is somewhere between 5 MB and
+ * 250 MB depending on which sites a run happens to touch — a limit that does
+ * not limit anything you can predict. A byte budget does.
+ */
+const MAX_CACHE_BYTES = 64 * 1024 * 1024;
+/** Belt and braces: a pathological run of tiny pages should not grow forever. */
+const MAX_CACHED_PAGES = 1_000;
+
+const pageCache = new Map<string, Promise<FetchedPage>>();
+/** Resolved sizes, so eviction can account for what is actually held. */
+const cachedBytes = new Map<string, number>();
+let totalCachedBytes = 0;
+
+let cacheHits = 0;
+let cacheMisses = 0;
+
+function forget(key: string): void {
+  pageCache.delete(key);
+  const size = cachedBytes.get(key);
+  if (size !== undefined) {
+    totalCachedBytes -= size;
+    cachedBytes.delete(key);
+  }
+}
+
+/** Evicts oldest-first until both budgets are satisfied. */
+function trimCache(): void {
+  while (
+    (totalCachedBytes > MAX_CACHE_BYTES || pageCache.size > MAX_CACHED_PAGES) &&
+    pageCache.size > 1
+  ) {
+    const oldest = pageCache.keys().next();
+    if (oldest.done) break;
+    forget(oldest.value);
+  }
+}
+
+/**
+ * Requests served from the cache versus sent.
+ *
+ * Reported in the run summary so the saving is a number rather than a claim —
+ * a cache whose hit rate silently fell to zero looks exactly like one that is
+ * working.
+ */
+export function pageCacheStats(): { hits: number; misses: number } {
+  return { hits: cacheHits, misses: cacheMisses };
+}
+
+/** Drops the cache. Exists for tests and long-lived processes. */
+export function clearPageCache(): void {
+  pageCache.clear();
+  cachedBytes.clear();
+  totalCachedBytes = 0;
+  cacheHits = 0;
+  cacheMisses = 0;
+}
+
+function cacheKey(url: string): string {
+  try {
+    return canonicaliseUrl(new URL(url));
+  } catch {
+    return url;
+  }
+}
+
+export function fetchPage(url: string): Promise<FetchedPage> {
+  const key = cacheKey(url);
+
+  const cached = pageCache.get(key);
+  if (cached) {
+    cacheHits++;
+    return cached;
+  }
+
+  cacheMisses++;
+  const pending = fetchPageUncached(url).then((page) => {
+    const size = page.html.length + page.text.length;
+    if (pageCache.has(key)) {
+      cachedBytes.set(key, size);
+      totalCachedBytes += size;
+    }
+
+    // Also key on where we LANDED. Two different URLs that redirect to one page
+    // are one page, and the next crawl should get it without the round trip.
+    const landed = cacheKey(page.url);
+    if (landed !== key && !pageCache.has(landed)) {
+      pageCache.set(landed, Promise.resolve(page));
+      cachedBytes.set(landed, size);
+      totalCachedBytes += size;
+    }
+
+    // Oldest first: a crawl's early pages are the least likely to be wanted
+    // again, and Map iterates in insertion order.
+    trimCache();
+    return page;
+  });
+
+  pending.catch(() => forget(key));
+
+  pageCache.set(key, pending);
+  return pending;
+}
+
+async function fetchPageUncached(url: string): Promise<FetchedPage> {
   if (!(await isAllowed(url))) {
     throw new Error(`robots.txt disallows fetching ${url}`);
   }
 
-  const response = await fetch(url, {
-    headers: {
-      "user-agent": USER_AGENT,
-      accept: "text/html,application/xhtml+xml",
-    },
-    redirect: "follow",
-    signal: AbortSignal.timeout(30_000),
-  });
+  const { host } = new URL(url);
+  const delay = Math.max(FETCH_DELAY_MS, (await crawlDelayFor(url)) ?? 0);
+  const response = await schedulePerHost(host, delay, () => fetchWithRetry(url));
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} fetching ${url}`);

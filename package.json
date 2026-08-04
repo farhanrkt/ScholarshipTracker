@@ -8,9 +8,12 @@
     "start": "next start",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"scripts/**/*.test.ts\" \"src/**/*.test.ts\"",
+    "check": "npm run typecheck && npm run lint && npm run test",
     "extract": "node --env-file=.env.local scripts/extract/run.ts",
     "discover": "node --env-file=.env.local scripts/discover/run.ts",
-    "discover:verify": "node scripts/discover/verify-seeds.ts"
+    "discover:verify": "node scripts/discover/verify-seeds.ts",
+    "discover:find-seeds": "node scripts/discover/find-seeds.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

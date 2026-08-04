@@ -22,12 +22,59 @@ const PROGRAMME_WORDS = [
 ];
 
 const REJECT_PATH =
-  /\/(news|blog|press|stories|events|privacy|cookie|terms|contact|search|login|account|sitemap|tag|category|author|feed)(\/|$)/i;
+  /\/(news|newsroom|newsletter|news-and-events|latest-[a-z-]*news|blog|press|stories|events|privacy|cookie|terms|contact|search|login|account|sitemap|tag|category|author|feed)(\/|$)/i;
+
+/**
+ * Dated path segments — the shape of a blog archive, not of a programme.
+ *
+ * `/september-2015/gates-foundation-grants` and
+ * `/students/newsletter/october-2015/discretionary-funding-available-apply-now`
+ * are newsletter posts. They score WELL: "funding" and "grants" are programme
+ * words, the paths are deep, and the month-and-year that makes them archives is
+ * read by the date scorer as a positive. Edinburgh's first sitemap harvest came
+ * back as five of these.
+ *
+ * Anchor text used to hide the problem — "Read the October newsletter" scores
+ * nothing. A sitemap has no anchor text at all, so the path has to carry the
+ * whole judgement, and a segment that is nothing but a date is the clearest
+ * signal an archive gives.
+ *
+ * Only a segment that is ENTIRELY a date counts. `chevening-2026` and
+ * `2026-intake` are programme pages and must survive.
+ */
+const ARCHIVE_PATH =
+  /\/((19|20)\d{2}|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-_](19|20)\d{2}|(19|20)\d{2}[-_]\d{1,2})(\/|$)/i;
+
+/**
+ * Pages about a programme, written for someone who is not an applicant.
+ *
+ * Fulbright's `/host-institutions/flta-program/flta-during-the-program` and
+ * `/host-institutions/flta-program/flta-thinking-of-applying` are guidance for
+ * universities hosting fellows. Both describe the FLTA programme, so the
+ * classifier said "yes, a programme" to each — and staged the same award twice,
+ * from two pages that never mention what it pays.
+ *
+ * These sections are where a site keeps material for people already inside the
+ * programme: current grantees, alumni, host institutions, advisers, staff.
+ * Nothing an applicant needs lives there.
+ *
+ * `current-*` is matched broadly and then carved back, rather than listed:
+ * the people-noun after it is whatever the funder calls its own alumni
+ * (`/current-fulbrighters/`, `/current-grantees/`, `/current-chevening-
+ * scholars/`), and no list will predict them all. What must NOT be swept up is
+ * `/current-scholarships/` — a thing-noun, and a perfectly good index of open
+ * awards — so the funding words are excluded by lookahead and everything else
+ * after `current-` is still treated as an audience.
+ */
+const INTERNAL_AUDIENCE_PATH =
+  /\/(host-institutions?|current-(?!scholarships?\b|awards?\b|grants?\b|fellowships?\b|opportunit|funding\b|competitions?\b)[a-z-]+|alumni|scholar-support|for-(advisers|advisors|partners|staff|institutions)|staff|faculty-resources|program-resources|panelist)s?(\/|$)/i;
 
 /** Does this link look like it points at a programme rather than an article? */
 export function scoreCandidate(label: string, url: string): number {
   const parsed = new URL(url);
   if (REJECT_PATH.test(parsed.pathname)) return -1;
+  if (ARCHIVE_PATH.test(parsed.pathname)) return -1;
+  if (INTERNAL_AUDIENCE_PATH.test(parsed.pathname)) return -1;
 
   const haystack = `${label} ${decodeURIComponent(parsed.pathname).replace(/[-_/]/g, " ")}`.toLowerCase();
   let score = 0;
@@ -135,6 +182,67 @@ export function findPaginationLinks(page: FetchedPage, links: PageLink[]): strin
 /** How many links on a page look like programmes — the "is this a list?" signal. */
 export function countProgrammeLinks(links: PageLink[]): number {
   return links.filter((link) => scoreCandidate(link.label, link.url) >= 10).length;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Identity                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A title reduced to what makes two names the SAME programme.
+ *
+ * Exact matching on a lowercased title let "Chevening Scholarship" and
+ * "Chevening Scholarships" both into the database, where they now sit next to
+ * each other on the dashboard contradicting one another. One character of
+ * difference should not buy a second row.
+ *
+ * Punctuation goes, then a trailing `s` on every word — crude, and crude is
+ * fine here because both sides get the same treatment and the result is only
+ * ever compared, never displayed. "Studies" becoming "studie" costs nothing.
+ *
+ * Note what it deliberately does NOT do: any kind of fuzzy or substring match.
+ * "Chevening Fellowships" and "Chevening Scholarships" are different awards
+ * with different money and different deadlines, and quietly merging two real
+ * programmes is a worse failure than showing two rows.
+ */
+export function titleFingerprint(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(" ")
+    .map((word) => (word.length > 3 ? word.replace(/s$/, "") : word))
+    .join(" ");
+}
+
+/**
+ * The URL a page says it is, when it says so.
+ *
+ * `rel="canonical"` and `og:url` collapse the trailing-slash, tracking-param
+ * and print-view variants that otherwise queue as separate candidates. Only
+ * same-origin canonicals are honoured — a syndicated page pointing at someone
+ * else's site is not evidence about ours.
+ */
+export function canonicalUrl(page: FetchedPage): string {
+  const patterns = [
+    /<link\b[^>]*\brel\s*=\s*["']?canonical["']?[^>]*\bhref\s*=\s*["']([^"']+)["']/i,
+    /<link\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*\brel\s*=\s*["']?canonical["']?/i,
+    /<meta\b[^>]*\bproperty\s*=\s*["']og:url["'][^>]*\bcontent\s*=\s*["']([^"']+)["']/i,
+  ];
+
+  for (const pattern of patterns) {
+    const href = pattern.exec(page.html)?.[1];
+    if (!href) continue;
+    try {
+      const resolved = new URL(href, page.url);
+      if (resolved.origin !== new URL(page.url).origin) continue;
+      return canonicaliseUrl(resolved);
+    } catch {
+      continue;
+    }
+  }
+
+  return canonicaliseUrl(new URL(page.url));
 }
 
 /* -------------------------------------------------------------------------- */

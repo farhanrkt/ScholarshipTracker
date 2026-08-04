@@ -15,7 +15,7 @@
 
 import { countProgrammeLinks, findPaginationLinks, scoreCandidate } from "./candidates.ts";
 import { SEEDS } from "./seeds.ts";
-import { extractLinks, fetchPage, FETCH_DELAY_MS } from "../extract/page.ts";
+import { extractLinks, fetchPage } from "../extract/page.ts";
 
 const urls = process.argv.slice(2).filter((argument) => /^https?:\/\//.test(argument));
 const targets = urls.length > 0 ? urls : SEEDS.map((seed) => seed.url);
@@ -28,7 +28,7 @@ interface Row {
 
 const rows: Row[] = [];
 
-for (const [index, url] of targets.entries()) {
+for (const url of targets) {
   try {
     const page = await fetchPage(url);
     const links = extractLinks(page, { sameOriginOnly: false });
@@ -61,10 +61,6 @@ for (const [index, url] of targets.entries()) {
     rows.push({ url, ok: false, detail: message });
     console.log(`\n✗ ${url}`);
     console.log(`    ${message}`);
-  }
-
-  if (index < targets.length - 1) {
-    await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
   }
 }
 
