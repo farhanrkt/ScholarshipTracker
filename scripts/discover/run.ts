@@ -6,6 +6,8 @@
  *   npm run discover -- --per-seed 15       # programme pages classified per seed
  *   npm run discover -- --max-listing 12    # listing/pagination pages per seed
  *   npm run discover -- --min medium        # keep only medium/high confidence
+ *   npm run discover -- --no-sitemap        # skip the sitemap harvest
+ *   npm run discover -- --sitemap-urls 300  # sitemap URLs taken per seed
  *
  * Finds programmes we do not have rows for yet. It never writes dates: a
  * promoted candidate becomes a dateless, unverified skeleton, and the
@@ -24,15 +26,19 @@
 import { createClient } from "@supabase/supabase-js";
 
 import {
+  canonicalUrl,
   countProgrammeLinks,
   findPaginationLinks,
   normaliseCountry,
   scoreCandidate,
+  titleFingerprint,
 } from "./candidates.ts";
+import { classifyAuthority, sameOrganisation } from "./authority.ts";
 import { classifyPage } from "./classify.ts";
 import { prefilterPage } from "./prefilter.ts";
 import { SEEDS } from "./seeds.ts";
-import { extractLinks, fetchPage, FETCH_DELAY_MS, type FetchedPage } from "../extract/page.ts";
+import { discoverFromSitemap } from "./sitemap.ts";
+import { extractLinks, fetchPage, type FetchedPage } from "../extract/page.ts";
 import { DailyLimitError, pickProvider } from "../extract/providers/index.ts";
 
 /* -------------------------------------------------------------------------- */
@@ -51,6 +57,9 @@ const seedFilter = option("seed");
 const perSeed = Number(option("per-seed") ?? 20);
 const maxListings = Number(option("max-listing") ?? 8);
 const minConfidence = (option("min") ?? "low") as "low" | "medium" | "high";
+/** Sitemaps are on by default — they are the cheapest volume there is. */
+const useSitemap = !flag("no-sitemap");
+const sitemapUrls = Number(option("sitemap-urls") ?? 150);
 
 const CONFIDENCE_RANK = { low: 0, medium: 1, high: 2 } as const;
 
@@ -97,19 +106,33 @@ async function main() {
 
   // Everything we already know about, so we never queue a duplicate.
   const [{ data: existing }, { data: queued }] = await Promise.all([
-    supabase.from("scholarships").select("title, official_portal_url, source_url"),
+    supabase.from("scholarships").select("id, title, official_portal_url, source_url"),
     supabase.from("scholarship_candidates").select("url, programme_name"),
   ]);
 
   const knownUrls = new Set<string>();
   const knownTitles = new Set<string>();
-  const normaliseTitle = (value: string) =>
-    value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  /**
+   * Fingerprint → the row it belongs to, so a "duplicate" can be recorded as a
+   * SECOND SOURCE rather than dropped.
+   *
+   * Finding Chevening described on a university's site is not a failure to
+   * de-duplicate; it is the cross-verification input arriving for free. It was
+   * being thrown away only because there was nowhere to put it.
+   */
+  const rowByTitle = new Map<string, { id: string; portalUrl: string }>();
+  // Plural-insensitive: see titleFingerprint. Exact matching is what let
+  // "Chevening Scholarship" and "Chevening Scholarships" both through.
+  const normaliseTitle = titleFingerprint;
   const normaliseUrl = (value: string) =>
     value.replace(/\/$/, "").replace(/^https?:\/\/(www\.)?/, "");
 
   for (const row of existing ?? []) {
     knownTitles.add(normaliseTitle(row.title));
+    rowByTitle.set(normaliseTitle(row.title), {
+      id: row.id,
+      portalUrl: row.official_portal_url,
+    });
     if (row.official_portal_url) knownUrls.add(normaliseUrl(row.official_portal_url));
     if (row.source_url) knownUrls.add(normaliseUrl(row.source_url));
   }
@@ -127,6 +150,9 @@ async function main() {
   let duplicates = 0;
   let prefiltered = 0;
   let listingsFollowed = 0;
+  let sitemapFound = 0;
+  let sourcesRecorded = 0;
+  let warnedAboutSources = false;
   let inputTokens = 0;
   let outputTokens = 0;
 
@@ -200,9 +226,6 @@ async function main() {
       if (!isSeedItself) listingsFollowed++;
       readListing(page);
 
-      if (listingQueue.length > 0 && listingsFetched < maxListings) {
-        await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
-      }
     }
 
     if (listingsFetched === 0) continue;
@@ -210,6 +233,45 @@ async function main() {
     console.log(
       `    ${listingsFetched} listing page(s) → ${pool.size} candidate link(s)`,
     );
+
+    /* ---------------------------------------------------------------- */
+    /* Level 1b: the site's own sitemap                                  */
+    /* ---------------------------------------------------------------- */
+
+    // Everything above this point is limited to what a site links from the
+    // pages we happened to fetch. A sitemap is the site listing its own
+    // inventory, so it reaches awards that are not linked from any index we
+    // can see — which is the ceiling that curating more seeds cannot lift.
+    if (useSitemap) {
+      const before = pool.size;
+      try {
+        const urls = await discoverFromSitemap(seed.url, {
+          maxUrls: sitemapUrls,
+          onProgress: (line) => console.log(line),
+        });
+
+        let added = 0;
+        for (const url of urls) {
+          const key = normaliseUrl(url);
+          if (listingSeen.has(key) || pool.has(key)) continue;
+          // No anchor text exists in a sitemap; scoreCandidate already judged
+          // the path, and its score is recomputed here for the shared ranking.
+          pool.set(key, { url, label: "", score: scoreCandidate("", url) });
+          added++;
+        }
+
+        sitemapFound += added;
+        if (added > 0) {
+          console.log(
+            `    ⤷ sitemap: +${added} candidate(s) not linked from any listing (${before} → ${pool.size})`,
+          );
+        }
+      } catch (error) {
+        console.log(
+          `    · sitemap unavailable: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+    }
 
     /* ---------------------------------------------------------------- */
     /* Level 2: classify the programme-shaped links                      */
@@ -265,7 +327,6 @@ async function main() {
       }
       if (listingSeen.has(key)) continue;
 
-      await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
       fetchBudget--;
 
       try {
@@ -306,6 +367,44 @@ async function main() {
         }
         if (knownTitles.has(normaliseTitle(found.programme_name))) {
           duplicates++;
+
+          // Not a wasted fetch: this is another site describing a programme we
+          // track, which is the input cross-verification needs and the reason
+          // this pipeline needs no search engine to get one.
+          const row = rowByTitle.get(normaliseTitle(found.programme_name));
+          const sourceUrl = canonicalUrl(page);
+
+          if (row && !dryRun && !sameOrganisation(sourceUrl, row.portalUrl)) {
+            const authority = classifyAuthority(sourceUrl, {
+              funderUrl: row.portalUrl,
+            });
+
+            const { error } = await supabase.from("scholarship_sources").upsert(
+              {
+                scholarship_id: row.id,
+                url: sourceUrl,
+                authority,
+                found_via: seed.label,
+                discovered_at: new Date().toISOString(),
+              },
+              { onConflict: "scholarship_id,url", ignoreDuplicates: true },
+            );
+
+            if (error) {
+              // Once per run: the table is either there or it is not, and one
+              // line per candidate would bury the actual findings.
+              if (!warnedAboutSources) {
+                warnedAboutSources = true;
+                console.log(
+                  `    ! cannot record second sources (${error.message}).` +
+                    ` Apply supabase/migrations/011_cross_verification.sql.`,
+                );
+              }
+            } else {
+              sourcesRecorded++;
+              console.log(`    ↳ second source for ${found.programme_name} (${authority})`);
+            }
+          }
           continue;
         }
 
@@ -315,7 +414,7 @@ async function main() {
           `    + ${found.programme_name} (${hostCountry ?? "?"}, ${found.confidence})`,
         );
 
-        knownUrls.add(normaliseUrl(page.url));
+        knownUrls.add(normaliseUrl(canonicalUrl(page)));
         knownTitles.add(normaliseTitle(found.programme_name));
 
         if (dryRun) {
@@ -324,7 +423,9 @@ async function main() {
         }
 
         const { error } = await supabase.from("scholarship_candidates").insert({
-          url: page.url,
+          // What the page says it is, so trailing-slash and tracking variants
+          // of one page cannot queue as two candidates.
+          url: canonicalUrl(page),
           found_via: seed.label,
           fetched_at: page.fetchedAt,
           model: `${provider.name}/${result.model}`,
@@ -360,7 +461,6 @@ async function main() {
         if (listingSeen.has(normaliseUrl(url))) continue;
         listingSeen.add(normaliseUrl(url));
 
-        await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
         try {
           const page = await fetchPage(url);
           listingsFetched++;
@@ -382,7 +482,10 @@ async function main() {
   }
 
   console.log(
-    `\n${staged} new candidate(s) · ${listingsFollowed} extra listing page(s) followed · ${prefiltered} filtered without a model call · ${rejected} classified as not programmes · ${duplicates} already known`,
+    `\n${staged} new candidate(s) · ${listingsFollowed} extra listing page(s) followed` +
+      (useSitemap ? ` · ${sitemapFound} found via sitemap` : "") +
+      (sourcesRecorded > 0 ? ` · ${sourcesRecorded} second source(s) recorded` : "") +
+      ` · ${prefiltered} filtered without a model call · ${rejected} classified as not programmes · ${duplicates} already known`,
   );
   console.log(
     `${provider.name}: ${inputTokens.toLocaleString()} in / ${outputTokens.toLocaleString()} out` +

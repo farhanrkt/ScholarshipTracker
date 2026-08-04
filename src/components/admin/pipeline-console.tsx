@@ -78,6 +78,8 @@ interface JobState {
   dryRun: boolean;
   datesOnly: boolean;
   escalate: boolean;
+  verify: boolean;
+  force: boolean;
   filter: string;
   count: string;
   depth: string;
@@ -87,6 +89,8 @@ const INITIAL: JobState = {
   dryRun: true,
   datesOnly: false,
   escalate: false,
+  verify: false,
+  force: false,
   filter: "",
   count: "",
   depth: "",
@@ -129,6 +133,8 @@ export function PipelineConsole({ job }: { job: JobName }) {
           dryRun: state.dryRun,
           datesOnly: state.datesOnly,
           escalate: state.escalate,
+          verify: state.verify,
+          force: state.force,
           filter: state.filter,
           count: state.count,
           depth: state.depth,
@@ -226,6 +232,28 @@ export function PipelineConsole({ job }: { job: JobName }) {
               Escalate
               <span className="text-muted-foreground text-xs">
                 (retry empties on the paid provider)
+              </span>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={state.verify}
+                disabled={running}
+                onCheckedChange={(value) => set("verify", value === true)}
+              />
+              Cross-verify dates
+              <span className="text-muted-foreground text-xs">
+                (reads other sources — slower, needs migration 011)
+              </span>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={state.force}
+                disabled={running}
+                onCheckedChange={(value) => set("force", value === true)}
+              />
+              Force
+              <span className="text-muted-foreground text-xs">
+                (re-read rows that are unchanged or already awaiting review)
               </span>
             </label>
           </>

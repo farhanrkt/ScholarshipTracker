@@ -37,6 +37,20 @@ export interface JobRequest {
   /** extract only. */
   datesOnly?: boolean;
   escalate?: boolean;
+  /**
+   * Cross-check the cycle dates against other sources (migration 011).
+   * Costs a crawl and a model call per source, so it is never a default.
+   */
+  verify?: boolean;
+  /**
+   * Re-extract rows that are unchanged or already have a proposal waiting.
+   *
+   * Exposed because without it a re-run of a recently-extracted programme does
+   * nothing and reports "unchanged", which reads as a broken runner. It is
+   * still opt-in: forcing every row is how the review queue fills with
+   * duplicate proposals of the same programme.
+   */
+  force?: boolean;
 }
 
 export interface BuiltJob {
@@ -115,6 +129,8 @@ export function buildJob(
   if (name === "extract") {
     if (body.datesOnly === true) args.push("--dates-only");
     if (body.escalate === true) args.push("--escalate");
+    if (body.verify === true) args.push("--verify");
+    if (body.force === true) args.push("--force");
   }
 
   return {
