@@ -1,3 +1,4 @@
+import { safeText, textList } from "@/lib/format";
 import type { EligibilityFlags } from "@/lib/types/database";
 
 interface Row {
@@ -30,9 +31,11 @@ function describeBoolean(
 }
 
 function buildRows(flags: Flags): Row[] {
-  const tests = flags?.accepted_language_tests;
-  const languageTests =
-    Array.isArray(tests) && tests.length > 0 ? tests.join(", ") : null;
+  // textList rather than a length check: the model occasionally returns objects
+  // inside a list of strings, and those render as "[object Object]" — quieter
+  // than a crash and just as wrong.
+  const tests = textList(flags?.accepted_language_tests);
+  const languageTests = tests.length > 0 ? tests.join(", ") : null;
 
   const scoreParts: string[] = [];
   if (typeof flags?.min_toefl_ibt === "number") {
@@ -42,9 +45,8 @@ function buildRows(flags: Flags): Row[] {
     scoreParts.push(`IELTS ${flags.min_ielts}`);
   }
 
-  const nationalities = flags?.restricted_to_nationalities;
-  const hasNationalities =
-    Array.isArray(nationalities) && nationalities.length > 0;
+  const nationalities = textList(flags?.restricted_to_nationalities);
+  const hasNationalities = nationalities.length > 0;
 
   return [
     {
@@ -150,9 +152,9 @@ export function EligibilityList({ flags }: { flags: Flags }) {
         ))}
       </dl>
 
-      {flags?.notes && (
+      {safeText(flags?.notes) && (
         <p className="bg-muted/60 text-muted-foreground mt-3 rounded-md p-3 text-xs leading-relaxed">
-          {flags.notes}
+          {safeText(flags?.notes)}
         </p>
       )}
     </div>

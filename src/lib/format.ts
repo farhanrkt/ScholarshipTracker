@@ -202,6 +202,175 @@ export function describeVerification(
 /* Checklist                                                                  */
 /* -------------------------------------------------------------------------- */
 
+/* -------------------------------------------------------------------------- */
+/* Has anyone actually read this programme's details?                         */
+/* -------------------------------------------------------------------------- */
+
+function countEntries(value: unknown): number {
+  if (Array.isArray(value)) return value.length;
+  if (value && typeof value === "object") return Object.keys(value).length;
+  return 0;
+}
+
+/**
+ * True when something has read this programme's details off its official pages.
+ *
+ * A row promoted from discovery starts with empty coverage, empty eligibility
+ * and no documents. That is indistinguishable, field by field, from a programme
+ * that genuinely offers nothing — which is why several badges need to know the
+ * difference before they open their mouths.
+ */
+export function hasProfileData(
+  scholarship: Pick<
+    Scholarship,
+    "coverage_matrix" | "eligibility_flags" | "document_checklist"
+  >,
+): boolean {
+  return (
+    countEntries(scholarship.coverage_matrix) > 0 ||
+    countEntries(scholarship.eligibility_flags) > 0 ||
+    countEntries(scholarship.document_checklist) > 0
+  );
+}
+
+export type CommitmentState = "obligation" | "none" | "unknown";
+
+export interface CommitmentInfo {
+  state: CommitmentState;
+  label: string;
+  detail: string;
+}
+
+/**
+ * Post-study obligation: bonded, explicitly not bonded, or nobody knows.
+ *
+ * THE BUG THIS FIXES. A null `post_study_obligations` used to render "No bond"
+ * — so every skeleton row from discovery advertised freedom nobody had checked,
+ * and the dashboard showed "Chevening Scholarship · Post-study obligation" next
+ * to "Chevening Scholarships · No bond": the same programme, opposite claims,
+ * one of them invented.
+ *
+ * Null is not "no". It only becomes "no" once the row has been profiled at all,
+ * because then the absence is a reading of the page rather than the absence of
+ * a reading. A bond is a multi-year commitment to return home; claiming there
+ * isn't one is the most expensive direction to be wrong in.
+ */
+export function describeCommitment(
+  scholarship: Pick<
+    Scholarship,
+    | "post_study_obligations"
+    | "coverage_matrix"
+    | "eligibility_flags"
+    | "document_checklist"
+  >,
+): CommitmentInfo {
+  if (scholarship.post_study_obligations?.trim()) {
+    return {
+      state: "obligation",
+      label: "Post-study obligation",
+      detail: scholarship.post_study_obligations,
+    };
+  }
+
+  if (hasProfileData(scholarship)) {
+    return {
+      state: "none",
+      label: "No bond",
+      detail: "The official pages state no return or service requirement.",
+    };
+  }
+
+  return {
+    state: "unknown",
+    label: "Bond not stated",
+    detail:
+      "Nobody has read this programme's terms yet — check the official page before assuming there is no commitment.",
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Country names                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Legacy rows spell countries however the page that produced them did, so the
+ * filter sidebar grew both "UK" and "United Kingdom" as separate facets.
+ *
+ * Discovery normalises on write now (scripts/discover/candidates.ts) and
+ * migration 008 fixes the stored values, but display-time folding costs
+ * nothing and keeps one badly-spelled row from splitting a facet again.
+ * Anything outside the six targets is shown exactly as stored.
+ */
+const COUNTRY_DISPLAY: Record<string, string> = {
+  "united kingdom": "UK",
+  "great britain": "UK",
+  britain: "UK",
+  england: "UK",
+  scotland: "UK",
+  wales: "UK",
+  "united states": "USA",
+  "united states of america": "USA",
+  us: "USA",
+  america: "USA",
+  "republic of korea": "South Korea",
+  korea: "South Korea",
+  "people's republic of china": "China",
+  "mainland china": "China",
+};
+
+export function displayCountry(country: string): string {
+  return COUNTRY_DISPLAY[country.trim().toLowerCase()] ?? country;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Rendering guards                                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The three guards every component needs before it renders extracted JSON.
+ *
+ * `src/lib/types/database.ts` describes what the columns are SUPPOSED to hold,
+ * and TypeScript believes it, but nothing between Gemini and React enforces it:
+ * `document_checklist` is `JSONB NOT NULL` with no shape constraint, a row
+ * promoted from discovery starts as `[]`, a hand-seeded one can hold `{}`, and
+ * a partial model response can leave a null inside an otherwise fine array.
+ * Each of those reaches a component as a value whose type is a promise the
+ * database never made.
+ *
+ * The consequence is not a bad number, it is a blank page: `.map` on a non-array
+ * throws, a null element throws on property access, and an object rendered as a
+ * React child throws "Objects are not valid as a React child". All three take
+ * the whole route down, including the parts of it that were fine.
+ */
+
+/** Non-empty strings out of a value that is supposed to be `string[]`. */
+export function textList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is string => typeof item === "string" && item.trim().length > 0,
+  );
+}
+
+/**
+ * Object elements out of a value that is supposed to be an array of records.
+ *
+ * Drops nulls and primitives; keeps the type assertion at this one boundary so
+ * callers can stay declarative.
+ */
+export function recordList<T>(value: unknown): T[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is T => typeof item === "object" && item !== null,
+  );
+}
+
+/** A value safe to render as text, or null if there is nothing to say. */
+export function safeText(value: unknown): string | null {
+  if (typeof value === "string") return value.trim() || null;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return null;
+}
+
 export interface ChecklistStats {
   completed: number;
   total: number;

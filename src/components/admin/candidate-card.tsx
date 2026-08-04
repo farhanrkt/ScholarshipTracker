@@ -8,6 +8,7 @@ import { promoteCandidate, rejectCandidate } from "@/app/actions/review";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { textList } from "@/lib/format";
 import type { ScholarshipCandidate } from "@/lib/types/database";
 import { cn } from "@/lib/utils";
 
@@ -74,7 +75,7 @@ export function CandidateCard({
             {candidate.host_country && (
               <Badge variant="secondary">{candidate.host_country}</Badge>
             )}
-            {candidate.degree_levels.map((level) => (
+            {textList(candidate.degree_levels).map((level) => (
               <Badge key={level} variant="outline" className="font-normal">
                 {level}
               </Badge>

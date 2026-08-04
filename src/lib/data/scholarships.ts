@@ -49,7 +49,8 @@ const TOGGLE_PREDICATES: Record<
     operator: "eq",
     value: "true",
   },
-  noBond: { path: "post_study_obligations", operator: "is", value: null },
+  // Handled inline: "no bond" needs evidence, not just a null. See below.
+  noBond: null,
   verifiedOnly: {
     path: "verification_status",
     operator: "eq",
@@ -92,6 +93,15 @@ export async function fetchScholarships(
   // grounds to rule a programme out, only grounds to go and check it.
   if (filters.toggles.upcomingOnly) {
     query = query.or(`deadline_date.gte.${todayIso()},deadline_date.is.null`);
+  }
+
+  // "No bond" is the one filter where an unknown must NOT pass. A null
+  // `post_study_obligations` means "no obligation recorded", which on an
+  // unread row means nothing at all — and a multi-year service commitment is
+  // the worst thing to discover after accepting an award. So the row must also
+  // have been profiled: something read its pages and did not find one.
+  if (filters.toggles.noBond) {
+    query = query.is("post_study_obligations", null).eq("is_profiled", true);
   }
 
   for (const [key, predicate] of Object.entries(TOGGLE_PREDICATES)) {

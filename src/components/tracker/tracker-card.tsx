@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { summariseChecklist } from "@/lib/format";
+import { displayCountry, summariseChecklist, textList } from "@/lib/format";
 import {
   TARGET_STATUSES,
   TARGET_STATUS_LABELS,
@@ -110,8 +110,8 @@ export function TrackerCard({ target }: { target: UserTargetWithScholarship }) {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-            <Badge variant="secondary">{scholarship.country}</Badge>
-            {scholarship.degree_levels.map((level) => (
+            <Badge variant="secondary">{displayCountry(scholarship.country)}</Badge>
+            {textList(scholarship.degree_levels).map((level) => (
               <Badge key={level} variant="outline" className="font-normal">
                 {level}
               </Badge>

@@ -11,8 +11,10 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import {
+  describeCommitment,
   describeVerification,
   describeWindow,
+  type CommitmentState,
   type VerificationState,
   type WindowTone,
 } from "@/lib/format";
@@ -94,15 +96,42 @@ export function VerificationBadge({
   );
 }
 
-/** Language training + post-study obligations. */
+const COMMITMENT_STYLES: Record<CommitmentState, string> = {
+  obligation:
+    "border-amber-300 text-amber-800 dark:border-amber-800 dark:text-amber-200",
+  none: "border-emerald-300 text-emerald-800 dark:border-emerald-800 dark:text-emerald-200",
+  unknown: "border-dashed text-muted-foreground",
+};
+
+const COMMITMENT_ICONS: Record<CommitmentState, typeof ShieldCheck> = {
+  obligation: Handshake,
+  none: ShieldCheck,
+  unknown: CircleHelp,
+};
+
+/**
+ * Language training + post-study obligations.
+ *
+ * Both are three-valued and neither defaults to the reassuring answer — see
+ * `describeCommitment`. The language badge stays absent unless the pages say
+ * it is included, because "language training not stated" on every card is
+ * noise, while a wrongly-green "No bond" is a false promise.
+ */
 export function CommitmentBadges({
   scholarship,
 }: {
   scholarship: Pick<
     Scholarship,
-    "language_training_included" | "post_study_obligations"
+    | "language_training_included"
+    | "post_study_obligations"
+    | "coverage_matrix"
+    | "eligibility_flags"
+    | "document_checklist"
   >;
 }) {
+  const commitment = describeCommitment(scholarship);
+  const Icon = COMMITMENT_ICONS[commitment.state];
+
   return (
     <>
       {scholarship.language_training_included && (
@@ -112,23 +141,14 @@ export function CommitmentBadges({
         </Badge>
       )}
 
-      {scholarship.post_study_obligations ? (
-        <Badge
-          variant="outline"
-          className="gap-1 border-amber-300 text-amber-800 dark:border-amber-800 dark:text-amber-200"
-        >
-          <Handshake className="size-3" />
-          Post-study obligation
-        </Badge>
-      ) : (
-        <Badge
-          variant="outline"
-          className="gap-1 border-emerald-300 text-emerald-800 dark:border-emerald-800 dark:text-emerald-200"
-        >
-          <ShieldCheck className="size-3" />
-          No bond
-        </Badge>
-      )}
+      <Badge
+        variant="outline"
+        className={cn("gap-1", COMMITMENT_STYLES[commitment.state])}
+        title={commitment.detail}
+      >
+        <Icon className="size-3" />
+        {commitment.label}
+      </Badge>
     </>
   );
 }
