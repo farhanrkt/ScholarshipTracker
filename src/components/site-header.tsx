@@ -3,6 +3,7 @@ import { GraduationCap } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
 import { SiteNav } from "@/components/site-nav";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -43,16 +44,40 @@ export async function SiteHeader() {
 
   return (
     <header className="bg-background/80 sticky top-0 z-40 border-b backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4 sm:px-6">
-        <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+      {/* Skip link: the nav is the first thing in the tab order on every page,
+          and an admin has five items in it. Without this, reaching the content
+          by keyboard means tabbing past all of them, on every navigation. */}
+      <a
+        href="#main"
+        className="bg-background focus:ring-ring sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:border focus:px-3 focus:py-1.5 focus:text-sm focus:ring-2 focus:outline-none"
+      >
+        Skip to content
+      </a>
+
+      <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
+        <Link
+          href="/dashboard"
+          className="focus-visible:ring-ring flex shrink-0 items-center gap-2 rounded-md font-semibold focus-visible:ring-2 focus-visible:outline-none"
+        >
           <span className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md">
             <GraduationCap className="size-4" />
           </span>
-          <span className="tracking-tight">ScholarTrack</span>
+          {/* The wordmark is the first thing to go when space is tight — the
+              icon still identifies the app, and the nav is what people need. */}
+          <span className="hidden tracking-tight sm:inline">ScholarTrack</span>
         </Link>
 
-        <SiteNav trackedCount={trackedCount} isAdmin={await isAdmin()} />
-        <AccountMenu />
+        {/* Scrolls rather than wraps. With the admin links present the nav is
+            wider than a phone, and wrapping broke the header into two rows and
+            pushed the account control off the right edge entirely. */}
+        <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <SiteNav trackedCount={trackedCount} isAdmin={await isAdmin()} />
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <ThemeToggle />
+          <AccountMenu />
+        </div>
       </div>
     </header>
   );

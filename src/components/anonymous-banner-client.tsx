@@ -36,19 +36,30 @@ export function AnonymousBannerClient() {
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 text-sm sm:px-6">
         <Ghost className="size-4 shrink-0 opacity-70" />
 
+        {/* Two lengths of the same sentence. The full version ran to four lines
+            on a phone, pushing the actual scholarships below the fold on the
+            page whose entire job is showing them. */}
         <p className="min-w-0">
-          You are browsing anonymously. Everything you track is saved to this
-          browser only.{" "}
+          <span className="hidden sm:inline">
+            You are browsing anonymously. Everything you track is saved to this
+            browser only.{" "}
+          </span>
+          <span className="sm:hidden">Saved to this browser only. </span>
           {!expanded && (
             <button
               type="button"
               onClick={() => setExpanded(true)}
-              className="font-semibold underline underline-offset-4"
+              className="focus-visible:ring-ring rounded font-semibold underline underline-offset-4 focus-visible:ring-2 focus-visible:outline-none"
             >
               Link an email
             </button>
-          )}{" "}
-          {!expanded && "to keep your progress permanently."}
+          )}
+          {!expanded && (
+            <span className="hidden sm:inline">
+              {" "}
+              to keep your progress permanently.
+            </span>
+          )}
         </p>
 
         {expanded && (

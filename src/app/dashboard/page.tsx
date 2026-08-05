@@ -1,6 +1,7 @@
 import { SearchX } from "lucide-react";
 
 import { AnonymousBanner } from "@/components/anonymous-banner";
+import { ActiveFilters } from "@/components/filters/active-filters";
 import { FilterRail, FilterSheet } from "@/components/filters/filter-sidebar";
 import { ScholarshipCard } from "@/components/scholarship/scholarship-card";
 import {
@@ -60,6 +61,8 @@ export default async function DashboardPage({
           <FilterRail countries={countries} resultCount={scholarships.length} />
 
           <div className="min-w-0 flex-1">
+            <ActiveFilters resultCount={scholarships.length} />
+
             {scholarships.length === 0 ? (
               <EmptyState hasFilters={activeCount > 0} />
             ) : (

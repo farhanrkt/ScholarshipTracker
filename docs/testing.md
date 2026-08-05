@@ -22,6 +22,9 @@ silent and expensive.
 | `scripts/extract/relevance.ts` | Decides what gets crawled. A page that scores zero is never seen, and the row it would have filled stays empty for reasons nothing logs. |
 | `scripts/discover/candidates.ts` | Decides what becomes a row, and what counts as a duplicate. |
 | `src/lib/format.ts` | Decides what a card *claims*. "No bond" on an unread programme is a promise the data cannot keep. |
+| `scripts/extract/repair.ts` | Decides where a moved programme is looked for. Each candidate is a request to a funder, and a bad guess wastes a crawl. |
+| `src/lib/pipeline/jobs.ts` | The boundary between an HTTP request and a crawler that spends a paid quota. |
+| `src/lib/pipeline/runner.ts` | The bookkeeping that lets a multi-minute run survive a host where nothing outlives a request: which units run, that the cursor only moves forward, that a finished job is written back as finished. |
 
 Nothing here tests the model. Model output is checked at runtime by grounding,
 which is itself the thing under test.
@@ -47,8 +50,13 @@ in six months that is the only thing that makes the assertion worth keeping.
 
 ## What is not covered
 
-Server Components, the crawl loop, the discovery frontier and the pipeline
-runner have no automated tests. They are I/O-bound orchestration, and the
-honest way to exercise them is `--dry-run` against real sites, which is what
-the pipeline console is for. If you extract a pure decision out of one of them,
-test it here.
+Server Components, the crawl loop and the discovery frontier have no automated
+tests. They are I/O-bound orchestration, and the honest way to exercise them is
+`--dry-run` against real sites, which is what the pipeline console is for. If
+you extract a pure decision out of one of them, test it here.
+
+The pipeline runner is half-covered: its bookkeeping is tested against a fake
+Supabase client, and the crawling it drives is not. A test that needed a live
+database and twenty minutes of real fetching is a test nobody would run, so the
+seam is drawn at the store interfaces — `ExtractionStore` and `DiscoveryStore` —
+which is also what lets the CLI and the deployed runner share one pipeline.

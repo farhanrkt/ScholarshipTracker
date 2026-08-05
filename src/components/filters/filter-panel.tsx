@@ -168,7 +168,10 @@ export function FilterPanel({ countries, resultCount }: FilterPanelProps) {
                   toggleListValue(PARAM.country, country, selectedCountries)
                 }
                 className={cn(
-                  "rounded-full border px-3 py-1 text-xs transition-colors",
+                  // A visible focus ring, because these are the only controls
+                  // on the page that had none: a keyboard user tabbing the
+                  // country row had to guess where they were.
+                  "focus-visible:ring-ring rounded-full border px-3 py-1 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none",
                   active
                     ? "bg-primary text-primary-foreground border-primary"
                     : "hover:bg-muted",

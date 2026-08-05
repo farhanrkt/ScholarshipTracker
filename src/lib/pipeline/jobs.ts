@@ -1,144 +1,176 @@
 /**
- * The two pipeline scripts, and the only arguments the web UI may give them.
+ * What the web UI is allowed to ask the pipeline to do.
  *
- * WHY A WHITELIST AND NOT A COMMAND STRING. This turns an HTTP request into a
- * process on the machine running the app. The moment any part of that command
- * is assembled from request data, an admin session becomes remote code
- * execution — and "admin only" is not a defence, it is one stolen cookie away
- * from being no defence at all.
+ * WHY A WHITELIST. This used to turn an HTTP request into a process on the
+ * machine, where an unchecked value would have been remote code execution one
+ * stolen cookie away. That runner is gone — the pipeline now runs in-process on
+ * whatever host the app is on — but the reasoning survives the change: request
+ * data still reaches a crawler that fetches URLs, spends a paid quota, and
+ * writes rows. So every field is parsed into a number, a boolean, or a value
+ * matched against a narrow pattern, and anything else is REJECTED rather than
+ * quietly dropped.
  *
- * So: the script is chosen from a fixed map, every flag is a literal defined
- * here, and every value is parsed into a number or matched against a narrow
- * pattern before it is allowed near the argument list. Nothing is interpolated
- * into a string, and the child is spawned WITHOUT a shell, so quoting bugs
- * cannot become injection bugs either.
+ * Rejected, not dropped, because an operator who typed a filter that failed the
+ * pattern would otherwise watch a full unfiltered run start — which on extract
+ * means every unverified row in the database.
  */
 
 export const JOBS = ["extract", "discover"] as const;
 export type JobName = (typeof JOBS)[number];
 
-export const JOB_SCRIPTS: Record<JobName, string> = {
-  extract: "scripts/extract/run.ts",
-  discover: "scripts/discover/run.ts",
-};
-
 /** Free-text filters. Deliberately narrow — programme names, not shell. */
 const FILTER_PATTERN = /^[\p{L}\p{N} .,'&()/-]{1,60}$/u;
 
-export interface JobRequest {
-  job: JobName;
+export const CONFIDENCE_LEVELS = ["low", "medium", "high"] as const;
+export type ConfidenceLevel = (typeof CONFIDENCE_LEVELS)[number];
+
+export interface ExtractArgs {
+  kind: "extract";
   dryRun: boolean;
-  /** --title for extract, --seed for discover. */
-  filter?: string;
-  /** --limit for extract, --per-seed for discover. */
-  count?: number;
-  /** --pages for extract, --max-listing for discover. */
-  depth?: number;
-  /** extract only. */
-  datesOnly?: boolean;
-  escalate?: boolean;
-  /**
-   * Cross-check the cycle dates against other sources (migration 011).
-   * Costs a crawl and a model call per source, so it is never a default.
-   */
-  verify?: boolean;
-  /**
-   * Re-extract rows that are unchanged or already have a proposal waiting.
-   *
-   * Exposed because without it a re-run of a recently-extracted programme does
-   * nothing and reports "unchanged", which reads as a broken runner. It is
-   * still opt-in: forcing every row is how the review queue fills with
-   * duplicate proposals of the same programme.
-   */
-  force?: boolean;
+  /** Substring match on the programme title. */
+  title: string | null;
+  limit: number;
+  pages: number;
+  datesOnly: boolean;
+  escalate: boolean;
+  verify: boolean;
+  force: boolean;
+  fixUrls: boolean;
 }
 
-export interface BuiltJob {
-  args: string[];
-  /** Human-readable command, for the log header. Never executed. */
-  display: string;
+export interface DiscoverArgs {
+  kind: "discover";
+  dryRun: boolean;
+  /** Substring match on the seed label. */
+  seed: string | null;
+  perSeed: number;
+  maxListing: number;
+  minConfidence: ConfidenceLevel;
+  useSitemap: boolean;
 }
 
-function clamp(value: unknown, min: number, max: number): number | null {
+export type JobArgs = ExtractArgs | DiscoverArgs;
+
+export type ParseResult =
+  | { ok: true; args: JobArgs }
+  | { ok: false; error: string };
+
+function clamp(value: unknown, min: number, max: number, fallback: number): number {
+  if (value === undefined || value === null || value === "") return fallback;
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return null;
+  if (!Number.isFinite(parsed)) return Number.NaN;
   return Math.min(Math.max(Math.trunc(parsed), min), max);
 }
 
-function cleanFilter(value: unknown): string | null {
-  if (typeof value !== "string") return null;
+/** `=== true`, never truthiness: a JSON body carrying "false" must stay off. */
+function bool(value: unknown, fallback = false): boolean {
+  if (value === undefined) return fallback;
+  return value === true;
+}
+
+function cleanFilter(value: unknown): string | null | false {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string") return false;
+
   const trimmed = value.trim();
   if (!trimmed) return null;
 
-  // A value that looks like a flag is not exploitable — argv elements are never
-  // re-split, so "--provider x" arrives at the script as one string and is read
-  // as the title it was passed as. It is refused anyway: the day someone parses
-  // these differently, this is the line that would have stopped it, and no real
-  // programme name starts with a dash.
-  if (trimmed.startsWith("-")) return null;
+  // No real programme name starts with a dash. Nothing re-splits these into
+  // arguments any more, but a value shaped like a flag is a sign the caller
+  // thinks it is writing a command line, and guessing is worse than refusing.
+  if (trimmed.startsWith("-")) return false;
 
-  return FILTER_PATTERN.test(trimmed) ? trimmed : null;
+  return FILTER_PATTERN.test(trimmed) ? trimmed : false;
 }
 
-/**
- * Turns a request into an argv array, or explains why it will not.
- *
- * Invalid input is REJECTED, never silently dropped: an operator who typed a
- * filter that failed the pattern would otherwise watch a full unfiltered run
- * start, which on the extract job means every unverified row in the database.
- */
-export function buildJob(
-  body: Record<string, unknown>,
-): { ok: true; built: BuiltJob; job: JobName } | { ok: false; error: string } {
-  const job = body.job;
-  if (typeof job !== "string" || !(JOBS as readonly string[]).includes(job)) {
+const FILTER_REFUSED =
+  "That filter contains characters this runner will not accept. Use letters, numbers, spaces and . , ' & ( ) / -";
+
+export function parseJobRequest(body: Record<string, unknown>): ParseResult {
+  const kind = body.job;
+  if (typeof kind !== "string" || !(JOBS as readonly string[]).includes(kind)) {
     return { ok: false, error: `Unknown job. Expected one of: ${JOBS.join(", ")}` };
   }
-  const name = job as JobName;
 
-  const args: string[] = [];
+  // Dry run is the default, and staying opt-OUT means a malformed request
+  // writes nothing rather than everything.
+  const dryRun = body.dryRun !== false;
 
-  // Dry run is the default in the UI, and staying opt-out here means a
-  // malformed request writes nothing rather than everything.
-  if (body.dryRun !== false) args.push("--dry-run");
+  const filter = cleanFilter(body.filter);
+  if (filter === false) return { ok: false, error: FILTER_REFUSED };
 
-  if (body.filter !== undefined && body.filter !== "") {
-    const filter = cleanFilter(body.filter);
-    if (!filter) {
-      return {
-        ok: false,
-        error:
-          "That filter contains characters this runner will not pass to a script. Use letters, numbers, spaces and . , ' & ( ) / -",
-      };
+  if (kind === "extract") {
+    const limit = clamp(body.count, 1, 200, 50);
+    const pages = clamp(body.depth, 1, 40, 20);
+    if (Number.isNaN(limit) || Number.isNaN(pages)) {
+      return { ok: false, error: "Count and depth must be numbers." };
     }
-    args.push(name === "extract" ? "--title" : "--seed", filter);
+
+    return {
+      ok: true,
+      args: {
+        kind: "extract",
+        dryRun,
+        title: filter,
+        limit,
+        pages,
+        datesOnly: bool(body.datesOnly),
+        escalate: bool(body.escalate),
+        verify: bool(body.verify),
+        force: bool(body.force),
+        // The only toggle that defaults ON: leaving a dead URL in place means
+        // the row fails identically on every future run.
+        fixUrls: body.fixUrls !== false,
+      },
+    };
   }
 
-  if (body.count !== undefined && body.count !== "") {
-    const count = clamp(body.count, 1, name === "extract" ? 200 : 100);
-    if (count === null) return { ok: false, error: "Count must be a number." };
-    args.push(name === "extract" ? "--limit" : "--per-seed", String(count));
+  const perSeed = clamp(body.count, 1, 100, 20);
+  const maxListing = clamp(body.depth, 1, 30, 8);
+  if (Number.isNaN(perSeed) || Number.isNaN(maxListing)) {
+    return { ok: false, error: "Count and depth must be numbers." };
   }
 
-  if (body.depth !== undefined && body.depth !== "") {
-    const depth = clamp(body.depth, 1, name === "extract" ? 40 : 30);
-    if (depth === null) return { ok: false, error: "Depth must be a number." };
-    args.push(name === "extract" ? "--pages" : "--max-listing", String(depth));
-  }
-
-  if (name === "extract") {
-    if (body.datesOnly === true) args.push("--dates-only");
-    if (body.escalate === true) args.push("--escalate");
-    if (body.verify === true) args.push("--verify");
-    if (body.force === true) args.push("--force");
-  }
+  const confidence = body.minConfidence;
+  const minConfidence: ConfidenceLevel =
+    typeof confidence === "string" &&
+    (CONFIDENCE_LEVELS as readonly string[]).includes(confidence)
+      ? (confidence as ConfidenceLevel)
+      : "low";
 
   return {
     ok: true,
-    job: name,
-    built: {
-      args,
-      display: `npm run ${name} -- ${args.join(" ")}`.trim(),
+    args: {
+      kind: "discover",
+      dryRun,
+      seed: filter,
+      perSeed,
+      maxListing,
+      minConfidence,
+      useSitemap: body.useSitemap !== false,
     },
   };
+}
+
+/** One line describing what a job was asked to do, for the console header. */
+export function describeJob(args: JobArgs): string {
+  const parts: string[] = [args.kind];
+
+  if (args.kind === "extract") {
+    if (args.title) parts.push(`title~"${args.title}"`);
+    parts.push(`limit ${args.limit}`, `pages ${args.pages}`);
+    if (args.datesOnly) parts.push("dates only");
+    if (args.escalate) parts.push("escalate");
+    if (args.verify) parts.push("cross-verify");
+    if (args.force) parts.push("forced");
+    if (!args.fixUrls) parts.push("no URL repair");
+  } else {
+    if (args.seed) parts.push(`seed~"${args.seed}"`);
+    parts.push(`per-seed ${args.perSeed}`, `listings ${args.maxListing}`);
+    if (args.minConfidence !== "low") parts.push(`min ${args.minConfidence}`);
+    if (!args.useSitemap) parts.push("no sitemap");
+  }
+
+  if (args.dryRun) parts.push("DRY RUN");
+  return parts.join(" · ");
 }

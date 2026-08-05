@@ -3,6 +3,7 @@ import { Compass, ExternalLink, ScanSearch, ShieldQuestion } from "lucide-react"
 
 import { AdminDenied, checkAdmin } from "@/components/admin/admin-gate";
 import { PipelineConsole } from "@/components/admin/pipeline-console";
+import { AdminQueueBar } from "@/components/admin/queue-bar";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,8 @@ export default async function PipelinePage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-8 sm:px-6">
+      <AdminQueueBar current="/admin/pipeline" />
+
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Pipeline</h1>
         <p className="text-muted-foreground mt-1 text-sm leading-relaxed">

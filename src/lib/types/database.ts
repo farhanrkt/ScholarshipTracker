@@ -400,6 +400,57 @@ export type ScholarshipCandidate = {
 };
 
 /* -------------------------------------------------------------------------- */
+/* Pipeline runs (migration 012)                                              */
+/* -------------------------------------------------------------------------- */
+
+export const PIPELINE_STATUSES = [
+  "queued",
+  "running",
+  "done",
+  "failed",
+  "cancelled",
+] as const;
+export type PipelineStatus = (typeof PIPELINE_STATUSES)[number];
+
+/**
+ * A crawl, as a row rather than a process.
+ *
+ * The pipeline runs wherever the app runs, including a serverless host where
+ * nothing survives longer than a request — so the run's state lives here. Each
+ * tick works through a few more `units`, moves `cursor`, and stamps
+ * `heartbeat_at`; a job whose heartbeat has gone quiet was killed mid-tick and
+ * can be picked up again.
+ */
+export type PipelineJob = {
+  id: string;
+  kind: "extract" | "discover";
+  /** The validated arguments, as `parseJobRequest` produced them. */
+  args: Record<string, unknown>;
+  status: PipelineStatus;
+  /** The work list, fixed when the run starts so `cursor` keeps its meaning. */
+  units: Array<Record<string, unknown>>;
+  cursor: number;
+  total: number;
+  staged: number;
+  failed: number;
+  skipped: number;
+  error: string | null;
+  created_by: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  heartbeat_at: string | null;
+};
+
+export type PipelineJobLine = {
+  id: number;
+  job_id: string;
+  seq: number;
+  line: string;
+  created_at: string;
+};
+
+/* -------------------------------------------------------------------------- */
 /* Supabase client generic                                                    */
 /* -------------------------------------------------------------------------- */
 
@@ -511,6 +562,27 @@ export type Database = {
         Update: Partial<ScholarshipCandidate>;
         Relationships: [];
       };
+      pipeline_jobs: {
+        Row: PipelineJob;
+        Insert: Pick<PipelineJob, "kind"> & Partial<PipelineJob>;
+        Update: Partial<PipelineJob>;
+        Relationships: [];
+      };
+      pipeline_job_lines: {
+        Row: PipelineJobLine;
+        Insert: Pick<PipelineJobLine, "job_id" | "seq" | "line"> &
+          Partial<PipelineJobLine>;
+        Update: Partial<PipelineJobLine>;
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_job_lines_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "pipeline_jobs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     // `{ [_ in never]: never }` and not `Record<string, never>`: the latter
     // carries a string index signature, and postgrest-js intersects Views into
@@ -537,6 +609,15 @@ export type Database = {
       reject_candidate: {
         Args: { candidate_id: string; why?: string | null };
         Returns: undefined;
+      };
+      /**
+       * Returns the job when this caller may work on it, and NULL when another
+       * worker holds it with a fresh heartbeat — which is how two browser tabs
+       * are stopped from crawling the same site twice.
+       */
+      claim_pipeline_tick: {
+        Args: { job: string; stale_after?: string };
+        Returns: PipelineJob | null;
       };
     };
     Enums: { [_ in never]: never };

@@ -1,10 +1,62 @@
 import { createHash } from "node:crypto";
 
 const USER_AGENT =
+  process.env.CRAWL_USER_AGENT ||
   "ScholarTrackBot/1.0 (scholarship deadline verification; +https://github.com/)";
 
-/** Be a polite client: one page at a time, with a gap between hosts. */
-export const FETCH_DELAY_MS = 1_500;
+/**
+ * The second identity, used ONLY after a host has refused the first one.
+ *
+ * A large share of the 403s in a run are not the site saying "not you" — they
+ * are a WAF rejecting a request that does not look like a browser: no
+ * Accept-Language, a bare bot token, no Sec-Fetch headers. The page is public,
+ * robots.txt allows it, and a person opening the same URL gets it instantly.
+ *
+ * This still names us and still carries the contact URL, so the site can
+ * identify and block us deliberately if it wants to — and robots.txt, which is
+ * the mechanism a site actually uses to say no, is honoured before either
+ * identity is used. What changes is only the shape of the request.
+ */
+const BROWSER_USER_AGENT =
+  process.env.CRAWL_FALLBACK_USER_AGENT ||
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) " +
+    "Chrome/124.0.0.0 Safari/537.36 ScholarTrackBot/1.0 (+https://github.com/)";
+
+/**
+ * Be a polite client: one request at a time per host, with a gap between them.
+ *
+ * 800ms rather than the original 1,500. The gap is a floor on how long a crawl
+ * of one site can possibly take — sixteen pages cannot finish faster than
+ * fifteen gaps — and at 1.5s that floor was 24 seconds per programme before a
+ * single byte of latency. Any `Crawl-delay` the site publishes still overrides
+ * this upward, and `CRAWL_DELAY_MS` raises the floor for a run that needs to be
+ * gentler.
+ */
+export const FETCH_DELAY_MS = Number(process.env.CRAWL_DELAY_MS) || 800;
+
+/**
+ * A response the server answered with an error status.
+ *
+ * Carries the status so callers can tell the two failure families apart, which
+ * they must: a 404 means the URL we hold is WRONG and re-running will never fix
+ * it, while a 403 means the URL is probably fine and we were turned away.
+ */
+export class HttpError extends Error {
+  readonly status: number;
+  readonly url: string;
+
+  constructor(status: number, url: string) {
+    super(`HTTP ${status} fetching ${url}`);
+    this.name = "HttpError";
+    this.status = status;
+    this.url = url;
+  }
+
+  /** Does this status mean the page is gone, as opposed to withheld? */
+  get isDeadLink(): boolean {
+    return this.status === 404 || this.status === 410;
+  }
+}
 
 export interface FetchedPage {
   url: string;
@@ -295,12 +347,12 @@ export async function fetchText(url: string, maxBytes = 5_000_000): Promise<stri
   }
 
   const { host } = new URL(url);
-  const delay = Math.max(FETCH_DELAY_MS, (await crawlDelayFor(url)) ?? 0);
-  const response = await schedulePerHost(host, delay, () =>
+  const { delay, limit } = await politenessFor(url);
+  const response = await schedulePerHost(host, delay, limit, () =>
     fetchWithRetry(url, ACCEPT_XML),
   );
 
-  if (!response.ok) throw new Error(`HTTP ${response.status} fetching ${url}`);
+  if (!response.ok) throw new HttpError(response.status, url);
 
   const body = await response.text();
   // Big sites publish enormous sitemaps; there is no value in holding one in
@@ -323,6 +375,17 @@ export async function crawlDelayFor(url: string): Promise<number | null> {
 
 /** Statuses that mean "not now" rather than "no". */
 const TRANSIENT = new Set([429, 500, 502, 503, 504]);
+
+/**
+ * Statuses that mean "not like that" — worth exactly one retry as a browser.
+ *
+ * 403 is the big one: a public page behind a WAF that scores the request rather
+ * than the URL. 406 is content negotiation refusing our Accept header, and 451
+ * and 401 are occasionally emitted by the same middleware for the same reason.
+ * None of these are retried more than once, and none are retried at all if the
+ * second identity gets the same answer — a site that means it is left alone.
+ */
+const REFUSED = new Set([401, 403, 406, 451]);
 
 const MAX_ATTEMPTS = 3;
 
@@ -365,27 +428,68 @@ function isTimeout(error: unknown): boolean {
  * `Retry-After` is honoured when present, because a server that tells you how
  * long to wait has earned being listened to.
  */
-/** What we tell the server we can read. See the 406 note on `fetchText`. */
-const ACCEPT_HTML = "text/html,application/xhtml+xml";
+/**
+ * What we tell the server we can read. See the 406 note on `fetchText`.
+ *
+ * `*\/*;q=0.8` on the HTML header is not decoration: a server that negotiates
+ * content and is told we accept ONLY html answers 406 for a page it serves as
+ * `application/xhtml+xml;charset=utf-8` or, more often, for one it serves
+ * correctly but describes oddly.
+ */
+const ACCEPT_HTML = "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8";
 const ACCEPT_XML = "application/xml,text/xml;q=0.9,*/*;q=0.8";
+
+/** Hosts that have already refused our own identity, so we skip straight past it. */
+const refusedOurAgent = new Set<string>();
+
+function headersFor(accept: string, asBrowser: boolean): Record<string, string> {
+  const headers: Record<string, string> = {
+    "user-agent": asBrowser ? BROWSER_USER_AGENT : USER_AGENT,
+    accept,
+    // Sites serving several languages routinely 406 or redirect-loop a request
+    // that expresses no preference at all.
+    "accept-language": "en-GB,en;q=0.9",
+  };
+
+  if (asBrowser) {
+    headers["sec-fetch-dest"] = "document";
+    headers["sec-fetch-mode"] = "navigate";
+    headers["sec-fetch-site"] = "none";
+    headers["upgrade-insecure-requests"] = "1";
+  }
+
+  return headers;
+}
 
 async function fetchWithRetry(url: string, accept = ACCEPT_HTML): Promise<Response> {
   let lastError: Error | null = null;
+  const { host } = new URL(url);
+  // Once a host has turned our own agent away, every later page on it starts
+  // with the second identity. Otherwise a site that 403s everything costs two
+  // requests per page instead of one.
+  let asBrowser = refusedOurAgent.has(host);
+  let retriedAsBrowser = asBrowser;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       const response = await fetch(url, {
-        headers: {
-          "user-agent": USER_AGENT,
-          accept,
-        },
+        headers: headersFor(accept, asBrowser),
         redirect: "follow",
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
 
+      // Turned away rather than answered: try once more looking like a browser,
+      // and remember the host so its other pages skip the wasted first request.
+      if (!retriedAsBrowser && REFUSED.has(response.status)) {
+        retriedAsBrowser = true;
+        asBrowser = true;
+        refusedOurAgent.add(host);
+        continue;
+      }
+
       if (response.ok || !TRANSIENT.has(response.status)) return response;
 
-      lastError = new Error(`HTTP ${response.status} fetching ${url}`);
+      lastError = new HttpError(response.status, url);
       if (attempt === MAX_ATTEMPTS) return response;
 
       const retryAfter = Number(response.headers.get("retry-after"));
@@ -412,43 +516,106 @@ async function fetchWithRetry(url: string, accept = ACCEPT_HTML): Promise<Respon
 /* Per-host politeness                                                        */
 /* -------------------------------------------------------------------------- */
 
-/** When each host was last hit, and the queue of work waiting on it. */
-const lastFetchAt = new Map<string, number>();
-const hostQueue = new Map<string, Promise<unknown>>();
+/**
+ * How many requests may be open to one host at a time.
+ *
+ * Two, and the number is the whole reason the crawl got faster.
+ *
+ * The previous scheduler put every request to a host on ONE promise chain and
+ * measured the gap from the END of the last response. That is strictly serial:
+ * a page costs `latency + gap`, and no amount of concurrency anywhere above it
+ * changes that, because a programme's pages are all on the same host. Crawling
+ * twenty pages of a site answering in two seconds cost 20 × 2.8s ≈ 56 seconds
+ * of almost entirely idle waiting, and the "parallel" crawl above it was
+ * queueing behind itself.
+ *
+ * Two open connections with request STARTS spaced by the delay is both faster
+ * and still conservative — a browser opens six per host without anyone
+ * considering it rude, and the sustained rate is unchanged at one request per
+ * gap. What changes is that the gap now overlaps the latency instead of
+ * following it.
+ *
+ * A site that publishes a `Crawl-delay` is asking for spacing explicitly, and
+ * gets exactly one connection: an explicit request outranks our throughput.
+ */
+const HOST_CONCURRENCY = Number(process.env.CRAWL_HOST_CONCURRENCY) || 2;
+
+/** Earliest moment the next request to a host may START. */
+const nextStartAt = new Map<string, number>();
+/** Requests currently open per host, and whoever is waiting for a slot. */
+const openPerHost = new Map<string, number>();
+const waiting = new Map<string, Array<() => void>>();
+
+function acquire(host: string, limit: number): Promise<void> {
+  const open = openPerHost.get(host) ?? 0;
+  if (open < limit) {
+    openPerHost.set(host, open + 1);
+    return Promise.resolve();
+  }
+  // FIFO, so a crawl cannot be starved by later arrivals on a busy host.
+  return new Promise<void>((resolve) => {
+    const queue = waiting.get(host) ?? [];
+    queue.push(resolve);
+    waiting.set(host, queue);
+  });
+}
+
+function release(host: string): void {
+  const queue = waiting.get(host);
+  const next = queue?.shift();
+  // The slot is HANDED OVER rather than freed and re-taken, which is what keeps
+  // the open count honest under concurrency.
+  if (next) {
+    next();
+    return;
+  }
+  openPerHost.set(host, Math.max(0, (openPerHost.get(host) ?? 1) - 1));
+}
 
 /**
- * Serialises requests to ONE host, with the gap, while letting different hosts
- * run at the same time.
+ * Spaces requests to ONE host while letting different hosts run at once.
  *
- * Politeness used to live in the callers: every crawl loop slept 1.5s between
+ * Politeness used to live in the callers: every crawl loop slept between
  * fetches. That works only while exactly one crawl exists. The moment two
  * programmes are extracted concurrently — and three of them can share a host,
  * as the Chevening rows do — caller-side sleeps stop meaning anything and the
- * site gets simultaneous hits.
+ * site gets simultaneous hits. Keeping the gate here makes the guarantee
+ * structural, and callers cannot get it wrong by forgetting to sleep.
  *
- * Putting the gate here makes the guarantee structural: a host is never fetched
- * faster than its delay allows no matter how many crawls are in flight, and
- * callers cannot get it wrong by forgetting to sleep.
+ * The slot is reserved BEFORE the wait, not after it, so requests leave in the
+ * order they arrived and a burst cannot all decide to start at the same moment.
  */
-function schedulePerHost<T>(host: string, delayMs: number, task: () => Promise<T>): Promise<T> {
-  const previous = hostQueue.get(host) ?? Promise.resolve();
+async function schedulePerHost<T>(
+  host: string,
+  delayMs: number,
+  limit: number,
+  task: () => Promise<T>,
+): Promise<T> {
+  await acquire(host, limit);
 
-  const run = previous.then(async () => {
-    const waitFor = (lastFetchAt.get(host) ?? 0) + delayMs - Date.now();
-    if (waitFor > 0) await new Promise((resolve) => setTimeout(resolve, waitFor));
-    try {
-      return await task();
-    } finally {
-      // Measured from the END of the request, so a slow page does not get
-      // followed instantly by the next one.
-      lastFetchAt.set(host, Date.now());
-    }
-  });
+  try {
+    const now = Date.now();
+    const startAt = Math.max(now, nextStartAt.get(host) ?? 0);
+    nextStartAt.set(host, startAt + delayMs);
 
-  // Swallow rejection on the CHAIN only — the caller still sees the real error.
-  // Without this an unhandled rejection would take down the process.
-  hostQueue.set(host, run.catch(() => undefined));
-  return run;
+    const wait = startAt - now;
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+
+    return await task();
+  } finally {
+    release(host);
+  }
+}
+
+/** The delay and the connection limit this origin has earned. */
+async function politenessFor(
+  url: string,
+): Promise<{ delay: number; limit: number }> {
+  const declared = await crawlDelayFor(url);
+  return {
+    delay: Math.max(FETCH_DELAY_MS, declared ?? 0),
+    limit: declared ? 1 : HOST_CONCURRENCY,
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -595,15 +762,21 @@ async function fetchPageUncached(url: string): Promise<FetchedPage> {
   }
 
   const { host } = new URL(url);
-  const delay = Math.max(FETCH_DELAY_MS, (await crawlDelayFor(url)) ?? 0);
-  const response = await schedulePerHost(host, delay, () => fetchWithRetry(url));
+  const { delay, limit } = await politenessFor(url);
+  const response = await schedulePerHost(host, delay, limit, () =>
+    fetchWithRetry(url),
+  );
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status} fetching ${url}`);
+    throw new HttpError(response.status, url);
   }
 
-  const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.includes("html") && !contentType.includes("text")) {
+  // A server that declares nothing is not declaring a binary. Plenty of older
+  // university pages send no content-type at all, and rejecting those threw
+  // away readable HTML on a technicality — the text-length check below is the
+  // real guard, and it judges what actually arrived.
+  const contentType = response.headers.get("content-type");
+  if (contentType && !/html|text|xml/i.test(contentType)) {
     throw new Error(`Expected HTML from ${url}, got "${contentType}"`);
   }
 

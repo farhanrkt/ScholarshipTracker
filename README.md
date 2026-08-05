@@ -21,7 +21,7 @@ applies**, never a fact.
 | Backend   | Supabase (PostgreSQL + RLS)                          |
 | Auth      | Supabase anonymous auth — no sign-up wall            |
 | Language  | TypeScript, `strict` mode                            |
-| Deploy    | Vercel (app) + your machine (crawlers)               |
+| Deploy    | Vercel — app and crawlers both                       |
 
 ## Documentation
 
@@ -53,12 +53,16 @@ supabase/migrations/006_extraction_caveats.sql
 supabase/migrations/007_deep_extraction.sql
 supabase/migrations/008_normalise_countries.sql
 supabase/migrations/009_is_profiled.sql
+supabase/migrations/010_award_scope.sql
+supabase/migrations/011_cross_verification.sql
+supabase/migrations/012_pipeline_jobs.sql
 supabase/seed.sql
 ```
 
 `000_apply_all_pending.sql` bundles 002–004 for a fresh project, but predates
-005–009 — run those after it. Details in
-[data-model.md](docs/data-model.md#migrations).
+005–012 — run those after it. **012 is what lets the deployed app run the
+crawlers**; without it the pipeline console says so, and everything else still
+works. Details in [data-model.md](docs/data-model.md#migrations).
 
 **2. Enable anonymous sign-ins**: Authentication → Sign In / Providers → **Allow
 anonymous sign-ins**. Nothing works without this; it is what mints the ghost
@@ -106,6 +110,11 @@ npm run discover:verify  # check the seed list still yields programmes
 Both crawlers take `--dry-run`. Use it first. Full flag reference in
 [pipeline.md](docs/pipeline.md#tuning-reference).
 
+The same two crawlers run from **/admin/pipeline** in the browser — locally and
+on the deployed site — which is the easier path for a few programmes. The
+terminal is better for a full sweep: no function ceiling, one continuous log.
+See [deployment.md](docs/deployment.md#how-a-run-survives-a-serverless-host).
+
 ## Data accuracy
 
 The rule the whole design follows: **a blank field beats a plausible wrong one.**
@@ -123,7 +132,9 @@ plans a year of their life around, so:
 - **Absent is not false.** An unstated requirement shows as "Not stated", never
   "Not required".
 - **Provenance is never defaulted.** `last_verified_at` is NULL until a human
-  checks, and the UI says "Not verified" out loud.
+  checks, and the UI says "Not verified" out loud. `verified` is the one status
+  no crawler may write — it comes from a person, at
+  [`/admin/verify`](docs/operations.md#verifying-a-row--adminverify).
 
 The full trust model is in [pipeline.md § Grounding](docs/pipeline.md#grounding--the-control-everything-else-rests-on).
 
@@ -134,8 +145,9 @@ src/
 ├── proxy.ts                     # anonymous auth + session refresh
 ├── app/
 │   ├── actions/                 # Server Actions (auth, targets, review)
-│   ├── admin/pipeline/          # run the crawlers, stream their logs
-│   ├── api/admin/pipeline/      # spawns the scripts (local dev only)
+│   ├── admin/pipeline/          # run the crawlers from the browser, anywhere
+│   ├── admin/verify/            # the human check that mints "verified"
+│   ├── api/admin/pipeline/      # start / tick / cancel a run — works on Vercel
 │   ├── auth/confirm/            # email-link landing page (fragment flow)
 │   ├── auth/callback/route.ts   # redeems ?code / ?token_hash — sets cookies
 │   ├── dashboard/               # discovery + filters
@@ -148,7 +160,7 @@ src/
 │   └── ui/                      # shadcn primitives
 └── lib/
     ├── data/                    # server-side queries
-    ├── pipeline/                # job whitelist for the runner
+    ├── pipeline/                # argument whitelist + the tick runner
     ├── supabase/                # browser / server / session / account
     └── types/                   # strict schema + action types
 scripts/

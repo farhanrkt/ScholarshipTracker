@@ -207,6 +207,31 @@ export class GeminiProvider implements ExtractionProvider {
         );
       }
 
+      /**
+       * "This model is currently experiencing high demand" — a 503, and the
+       * one provider failure that is purely about timing.
+       *
+       * It was not retried, so a busy minute on Google's side cost the whole
+       * programme: both calls fail, the run reports `nothing extracted — needs
+       * manual verification`, and the row looks like a crawl problem when the
+       * pages were fetched perfectly. Observed taking out an entire run's
+       * extractions while the crawl half worked flawlessly.
+       *
+       * Short backoff, because unlike a rate limit this is not our budget being
+       * spent — it is a queue we are waiting for a place in.
+       */
+      if (
+        response.status === 503 ||
+        /high demand|overloaded|unavailable|try again later/i.test(message)
+      ) {
+        if (attempt < 3) {
+          const waitSeconds = 5 * (attempt + 1);
+          console.log(`    · ${this.model} is busy, retrying in ${waitSeconds}s`);
+          await sleep(waitSeconds * 1000);
+          return this.#call(request, useSchema, attempt + 1);
+        }
+      }
+
       if (response.status === 429) {
         // Free-tier daily caps reset at midnight Pacific; there is no point
         // sleeping through that inside a run.

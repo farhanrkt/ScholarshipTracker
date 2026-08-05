@@ -9,7 +9,7 @@ Day-to-day running of the app and its pipeline.
 2. promote    create a dateless skeleton               (human)
 3. extract    crawl it, read dates + profile           → /admin/review
 4. apply      merge the proposal onto the row          (human)
-5. verify     open the portal, confirm, mark verified  (human)
+5. verify     open the portal, confirm, mark verified  → /admin/verify
 ```
 
 Steps 2, 4 and 5 are human by design. Nothing a model produces reaches a student
@@ -19,23 +19,33 @@ without someone approving it.
 
 ### From the browser
 
-`/admin/pipeline` runs either crawler with a button and streams its output to the
-page. Admin-gated, and linked in the header only for admins.
+`/admin/pipeline` runs either crawler with a button and shows its log as it goes.
+Admin-gated, and linked in the header only for admins. **It works on the
+deployed site**, not only locally — see
+[deployment.md](deployment.md#how-a-run-survives-a-serverless-host) for how.
 
-It spawns the same scripts on the machine serving the page, which means **local
-development**. A deployed serverless instance has neither the repo nor
-`.env.local` on disk, so the runner returns a clear refusal there instead of
-failing halfway through a crawl.
+What that means in practice:
+
+- **Progress is saved as it goes.** Close the tab, come back, and the console
+  re-attaches to the run and carries on. Nothing is lost but the unit that was
+  in flight.
+- **Stop is safe.** It stops the run before the next unit; whatever was already
+  staged stays staged and reviewable.
+- **One run at a time**, enforced by a unique index rather than by a variable in
+  one server process — concurrent crawls double the request rate at the same
+  funders and race through one free-tier quota.
 
 The log is the feature. These runs take minutes and spend a rate-limited quota; a
-spinner cannot tell you a slow crawl from a stuck one, while the scripts already
+spinner cannot tell you a slow crawl from a stuck one, while the crawlers already
 print pages fetched per topic, what grounding discarded, and why.
 
-Two constraints: **one run at a time process-wide** (concurrent crawls fight over
-the same per-minute quota), and the argument list is built from a fixed
-whitelist — script chosen from a map, flags as literals, free-text filters
-pattern-matched before they go anywhere near `spawn`, which is called without a
-shell. An admin session should not be a way to run commands on your laptop.
+Every option is parsed against a whitelist before it reaches a crawler — numbers
+clamped, toggles matched with `=== true`, free-text filters pattern-checked.
+Dry run is the default, so a malformed request writes nothing rather than
+everything.
+
+**Needs migration 012.** Without it the console says which file to apply and
+does nothing else; the terminal path is unaffected.
 
 ### From a terminal
 
@@ -95,20 +105,43 @@ select apply_extraction('<extraction_id>');
 select reject_extraction('<extraction_id>', 'wrong cycle');
 ```
 
-## Verifying a row
+## Verifying a row — `/admin/verify`
 
-The only way a row becomes `verified`:
+`verified` is the one status no crawler may write. It means a person opened the
+programme's own page and confirmed what the row says, so it has to come from a
+person, and this is where.
 
-1. Open its official page — `source_url`, not the homepage.
-2. Read the real dates.
-3. Fill in `opens_date`, `deadline_date`, `cycle_label`, `timeline`,
-   `source_url`, `last_verified_at`.
-4. Set `verification_status = 'verified'`.
+The page is three queues:
 
-The Chevening block at the bottom of `supabase/seed.sql` is the worked example.
+| Tab | What is in it |
+| --- | --- |
+| **AI-extracted** | A model has read these and quoted the page for every value. Start here — confirming one costs a glance at the portal. |
+| **Never checked** | Promoted from discovery and never crawled. These have no dates to check yet; run extraction first. |
+| **Verified** | Already confirmed. Open it to send one back when a cycle rolls over. |
 
-**Extraction skips `verified` rows.** If you want one re-crawled — a new cycle,
-say — set it back to `unverified` first.
+Each card shows the dates, the **quote behind each one**, and a link to the page
+that quote came from. The job is to open the portal, check the two or three
+dates against it, and press **Mark verified** — which stamps the row with
+today's date.
+
+**Send one back** with *Needs another look*. A row an extraction has read
+returns to `ai_extracted` (its quotes are still real); one nothing has read
+returns to `unverified`, and its verification date is cleared with it.
+
+Nothing here needs SQL. If you prefer it anyway:
+
+```sql
+update scholarships
+set verification_status = 'verified', last_verified_at = now()
+where id = '<uuid>';
+```
+
+**Extraction skips `verified` rows.** When a cycle rolls over, send the row back
+from the Verified tab first — that is what puts it back in the crawler's queue.
+
+Staleness is never stored: a verified row starts reading as "may be out of date"
+90 days later, and as "cycle has rolled over" the moment its deadline passes.
+Neither needs undoing by hand.
 
 ## The worklist
 

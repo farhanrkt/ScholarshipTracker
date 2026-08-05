@@ -8,6 +8,7 @@
  *   npm run discover -- --min medium        # keep only medium/high confidence
  *   npm run discover -- --no-sitemap        # skip the sitemap harvest
  *   npm run discover -- --sitemap-urls 300  # sitemap URLs taken per seed
+ *   npm run discover -- --seed-concurrency 4  # seeds crawled at once
  *
  * Finds programmes we do not have rows for yet. It never writes dates: a
  * promoted candidate becomes a dateless, unverified skeleton, and the
@@ -25,20 +26,13 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-import {
-  canonicalUrl,
-  countProgrammeLinks,
-  findPaginationLinks,
-  normaliseCountry,
-  scoreCandidate,
-  titleFingerprint,
-} from "./candidates.ts";
-import { classifyAuthority, sameOrganisation } from "./authority.ts";
-import { classifyPage } from "./classify.ts";
-import { prefilterPage } from "./prefilter.ts";
 import { SEEDS } from "./seeds.ts";
-import { discoverFromSitemap } from "./sitemap.ts";
-import { extractLinks, fetchPage, type FetchedPage } from "../extract/page.ts";
+import {
+  buildKnowledge,
+  discoverSeed,
+  type Confidence,
+  type DiscoveryStore,
+} from "./seed-crawl.ts";
 import { DailyLimitError, pickProvider } from "../extract/providers/index.ts";
 
 /* -------------------------------------------------------------------------- */
@@ -56,15 +50,19 @@ const dryRun = flag("dry-run");
 const seedFilter = option("seed");
 const perSeed = Number(option("per-seed") ?? 20);
 const maxListings = Number(option("max-listing") ?? 8);
-const minConfidence = (option("min") ?? "low") as "low" | "medium" | "high";
+const minConfidence = (option("min") ?? "low") as Confidence;
 /** Sitemaps are on by default — they are the cheapest volume there is. */
 const useSitemap = !flag("no-sitemap");
 const sitemapUrls = Number(option("sitemap-urls") ?? 150);
-
-const CONFIDENCE_RANK = { low: 0, medium: 1, high: 2 } as const;
-
-/** Links worth expanding a rejected page for. Below this it is not a list. */
-const LISTING_LINK_THRESHOLD = 5;
+/**
+ * Seeds crawled at once.
+ *
+ * Three, matching the extraction runner, and for the same reason: the fetch
+ * layer spaces requests per host, so lanes on different hosts genuinely
+ * overlap, while the model provider's rate limiter keeps the classification
+ * calls inside one shared per-minute budget however many lanes there are.
+ */
+const seedConcurrency = Number(option("seed-concurrency") ?? 3);
 
 /* -------------------------------------------------------------------------- */
 /* Run                                                                        */
@@ -77,12 +75,6 @@ function requireEnv(name: string): string {
     process.exit(1);
   }
   return value;
-}
-
-interface PoolItem {
-  url: string;
-  label: string;
-  score: number;
 }
 
 async function main() {
@@ -110,39 +102,16 @@ async function main() {
     supabase.from("scholarship_candidates").select("url, programme_name"),
   ]);
 
-  const knownUrls = new Set<string>();
-  const knownTitles = new Set<string>();
-  /**
-   * Fingerprint → the row it belongs to, so a "duplicate" can be recorded as a
-   * SECOND SOURCE rather than dropped.
-   *
-   * Finding Chevening described on a university's site is not a failure to
-   * de-duplicate; it is the cross-verification input arriving for free. It was
-   * being thrown away only because there was nowhere to put it.
-   */
-  const rowByTitle = new Map<string, { id: string; portalUrl: string }>();
-  // Plural-insensitive: see titleFingerprint. Exact matching is what let
-  // "Chevening Scholarship" and "Chevening Scholarships" both through.
-  const normaliseTitle = titleFingerprint;
-  const normaliseUrl = (value: string) =>
-    value.replace(/\/$/, "").replace(/^https?:\/\/(www\.)?/, "");
-
-  for (const row of existing ?? []) {
-    knownTitles.add(normaliseTitle(row.title));
-    rowByTitle.set(normaliseTitle(row.title), {
-      id: row.id,
-      portalUrl: row.official_portal_url,
-    });
-    if (row.official_portal_url) knownUrls.add(normaliseUrl(row.official_portal_url));
-    if (row.source_url) knownUrls.add(normaliseUrl(row.source_url));
-  }
-  for (const row of queued ?? []) {
-    knownUrls.add(normaliseUrl(row.url));
-    knownTitles.add(normaliseTitle(row.programme_name));
-  }
+  const knowledge = buildKnowledge({
+    scholarships: existing ?? [],
+    candidates: queued ?? [],
+  });
 
   console.log(
-    `\n${seeds.length} seed(s) · ${provider.name}/${provider.model} · ${knownUrls.size} known URL(s)${dryRun ? " · DRY RUN" : ""}\n`,
+    `\n${seeds.length} seed(s) · ${provider.name}/${provider.model} · ${knowledge.urls.size} known URL(s)` +
+      (seeds.length > 1 && seedConcurrency > 1 ? ` · ${seedConcurrency} at a time` : "") +
+      (dryRun ? " · DRY RUN" : "") +
+      "\n",
   );
 
   let staged = 0;
@@ -152,334 +121,117 @@ async function main() {
   let listingsFollowed = 0;
   let sitemapFound = 0;
   let sourcesRecorded = 0;
-  let warnedAboutSources = false;
   let inputTokens = 0;
   let outputTokens = 0;
 
-  for (const seed of seeds) {
-    console.log(`\n=== ${seed.label} — ${seed.url}`);
+  /**
+   * One seed, start to finish, with its output buffered.
+   *
+   * Buffered because seeds now run several at a time and interleaved logs are
+   * unreadable: a line saying `+ Chevening Scholarships` has to appear under
+   * the seed that found it, not wherever it landed in time. Each seed's lines
+   * are printed as one block when it finishes, which is how the extraction
+   * runner has always done it.
+   */
+  /**
+   * The two writes discovery makes, done with the service-role client.
+   *
+   * The deployed runner implements the same interface against the signed-in
+   * admin's session, which is how discovery runs on Vercel without the
+   * service-role key going with it.
+   */
+  const store: DiscoveryStore = {
+    async stageCandidate(row) {
+      const { error } = await supabase.from("scholarship_candidates").insert(row);
+      return error ? { error: error.message } : {};
+    },
+    async recordSource(row) {
+      const { error } = await supabase
+        .from("scholarship_sources")
+        .upsert(row, { onConflict: "scholarship_id,url", ignoreDuplicates: true });
+      return error ? { error: error.message } : {};
+    },
+  };
 
-    const sameOriginOnly = !seed.followExternal;
-    const pool = new Map<string, PoolItem>();
-    const listingSeen = new Set<string>();
-    let listingsFetched = 0;
+  /**
+   * One seed, start to finish, with its output buffered.
+   *
+   * Buffered because seeds run several at a time and interleaved logs are
+   * unreadable: a line saying `+ Chevening Scholarships` has to appear under
+   * the seed that found it, not wherever it landed in time.
+   */
+  const processSeed = async (seed: (typeof SEEDS)[number]): Promise<string[]> => {
+    const lines: string[] = [];
 
-    /** Harvest programme-shaped links, keeping the best score seen for each. */
-    const addCandidates = (links: ReturnType<typeof extractLinks>) => {
-      let added = 0;
-      for (const link of links) {
-        const score = scoreCandidate(link.label, link.url);
-        if (score <= 0) continue;
+    const result = await discoverSeed({
+      seed,
+      provider,
+      knowledge,
+      store,
+      say: (line) => lines.push(line),
+      options: {
+        perSeed,
+        maxListings,
+        minConfidence,
+        useSitemap,
+        sitemapUrls,
+        dryRun,
+      },
+    });
 
-        const key = normaliseUrl(link.url);
-        if (listingSeen.has(key)) continue;
+    staged += result.staged;
+    rejected += result.rejected;
+    duplicates += result.duplicates;
+    prefiltered += result.prefiltered;
+    listingsFollowed += result.listingsFollowed;
+    sitemapFound += result.sitemapFound;
+    sourcesRecorded += result.sourcesRecorded;
+    inputTokens += result.inputTokens;
+    outputTokens += result.outputTokens;
 
-        const current = pool.get(key);
-        if (current && current.score >= score) continue;
-        if (!current) added++;
-        pool.set(key, { url: link.url, label: link.label, score });
-      }
-      return added;
-    };
+    return lines;
+  };
 
-    /* ---------------------------------------------------------------- */
-    /* Level 1: the seed, its pagination, and anything that paginates it */
-    /* ---------------------------------------------------------------- */
+  /**
+   * Seeds, several at a time.
+   *
+   * Safe for the same reason the extraction runner's pool is: politeness lives
+   * in the fetch layer, which spaces requests PER HOST, and seeds are different
+   * hosts. Two lanes on the same host queue behind each other exactly as one
+   * lane would. The model provider holds its own rate limiter, shared across
+   * lanes, so the classification calls stay inside the same per-minute budget
+   * they always did — they simply stop waiting on each other's page fetches.
+   *
+   * This is the single biggest lever on discovery's wall-clock: a run was
+   * strictly one request at a time across the whole seed list, so twenty-three
+   * seeds cost the sum of twenty-three crawls, most of it spent waiting.
+   */
+  const lanes = Math.min(Math.max(seedConcurrency, 1), 8);
+  let cursor = 0;
+  let stopped: unknown = null;
 
-    const listingQueue: string[] = [seed.url];
-    listingSeen.add(normaliseUrl(seed.url));
-    /** Pager URLs discovered while classifying; drained back into level 1. */
-    const deferredListings: string[] = [];
-
-    const readListing = (page: FetchedPage) => {
-      const links = extractLinks(page, { sameOriginOnly });
-      addCandidates(links);
-
-      for (const nextUrl of findPaginationLinks(page, links)) {
-        const key = normaliseUrl(nextUrl);
-        if (listingSeen.has(key)) continue;
-        listingSeen.add(key);
-        pool.delete(key);
-        listingQueue.push(nextUrl);
-      }
-    };
-
-    while (listingQueue.length > 0 && listingsFetched < maxListings) {
-      const url = listingQueue.shift()!;
-      const isSeedItself = listingsFetched === 0;
-
-      let page: FetchedPage;
-      try {
-        page = await fetchPage(url);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (isSeedItself) {
-          console.log(`    ✗ seed unreachable: ${message}`);
-          console.log(`      Fix or remove this entry in scripts/discover/seeds.ts`);
-          break;
-        }
-        console.log(`    · listing skipped ${url}: ${message}`);
-        continue;
-      }
-
-      listingsFetched++;
-      if (!isSeedItself) listingsFollowed++;
-      readListing(page);
-
-    }
-
-    if (listingsFetched === 0) continue;
-
-    console.log(
-      `    ${listingsFetched} listing page(s) → ${pool.size} candidate link(s)`,
-    );
-
-    /* ---------------------------------------------------------------- */
-    /* Level 1b: the site's own sitemap                                  */
-    /* ---------------------------------------------------------------- */
-
-    // Everything above this point is limited to what a site links from the
-    // pages we happened to fetch. A sitemap is the site listing its own
-    // inventory, so it reaches awards that are not linked from any index we
-    // can see — which is the ceiling that curating more seeds cannot lift.
-    if (useSitemap) {
-      const before = pool.size;
-      try {
-        const urls = await discoverFromSitemap(seed.url, {
-          maxUrls: sitemapUrls,
-          onProgress: (line) => console.log(line),
-        });
-
-        let added = 0;
-        for (const url of urls) {
-          const key = normaliseUrl(url);
-          if (listingSeen.has(key) || pool.has(key)) continue;
-          // No anchor text exists in a sitemap; scoreCandidate already judged
-          // the path, and its score is recomputed here for the shared ranking.
-          pool.set(key, { url, label: "", score: scoreCandidate("", url) });
-          added++;
-        }
-
-        sitemapFound += added;
-        if (added > 0) {
-          console.log(
-            `    ⤷ sitemap: +${added} candidate(s) not linked from any listing (${before} → ${pool.size})`,
-          );
-        }
-      } catch (error) {
-        console.log(
-          `    · sitemap unavailable: ${error instanceof Error ? error.message : error}`,
-        );
-      }
-    }
-
-    /* ---------------------------------------------------------------- */
-    /* Level 2: classify the programme-shaped links                      */
-    /* ---------------------------------------------------------------- */
-
-    const ranked = [...pool.values()].sort((a, b) => b.score - a.score);
-
-    /**
-     * Expand a page we have already fetched into more candidates.
-     *
-     * Free in fetches — the page is in hand — which is what makes it worth
-     * doing on a maybe rather than a certainty.
-     */
-    const expand = (page: FetchedPage, why: string) => {
-      const key = normaliseUrl(page.url);
-      if (listingsFetched >= maxListings || listingSeen.has(key)) return;
-
-      listingSeen.add(key);
-      listingsFetched++;
-      listingsFollowed++;
-
-      const before = pool.size;
-      const links = extractLinks(page, { sameOriginOnly });
-      addCandidates(links);
-      for (const nextUrl of findPaginationLinks(page, links)) {
-        if (!listingSeen.has(normaliseUrl(nextUrl))) deferredListings.push(nextUrl);
-      }
-
-      const added = pool.size - before;
-      console.log(`    ⤷ ${why}: +${added} candidate(s) from ${page.url}`);
-
-      if (added > 0) {
-        const present = new Set(ranked.map((item) => normaliseUrl(item.url)));
-        for (const item of pool.values()) {
-          if (!present.has(normaliseUrl(item.url))) ranked.push(item);
-        }
-        ranked.sort((a, b) => b.score - a.score);
-      }
-    };
-
-    // Pages that are not programmes still cost a fetch, so the loop needs its
-    // own ceiling — `perSeed` only counts the ones that reach the model.
-    let fetchBudget = perSeed * 2 + maxListings;
-    let classified = 0;
-
-    while (ranked.length > 0 && classified < perSeed && fetchBudget > 0) {
-      const candidate = ranked.shift()!;
-      const key = normaliseUrl(candidate.url);
-
-      if (knownUrls.has(key)) {
-        duplicates++;
-        continue;
-      }
-      if (listingSeen.has(key)) continue;
-
-      fetchBudget--;
+  const lane = async () => {
+    for (;;) {
+      if (stopped) return;
+      const seed = seeds[cursor++];
+      if (!seed) return;
 
       try {
-        const page = await fetchPage(candidate.url);
-
-        // Cheap rejection first: no model call for something a few string
-        // checks can rule out.
-        const verdict = prefilterPage(page.text);
-        if (verdict.kind === "listing") {
-          expand(page, "sub-listing");
-          continue;
-        }
-        if (!verdict.keep) {
-          prefiltered++;
-          continue;
-        }
-
-        classified++;
-        const result = await classifyPage(provider, page.url, page.text);
-        inputTokens += result.inputTokens;
-        outputTokens += result.outputTokens;
-
-        const { classification: found } = result;
-
-        if (!found.is_scholarship_programme || !found.programme_name) {
-          rejected++;
-          // The prefilter can miss a listing the model recognises as one. We
-          // are holding the page either way — check before dropping it.
-          const links = extractLinks(page, { sameOriginOnly });
-          if (countProgrammeLinks(links) >= LISTING_LINK_THRESHOLD) {
-            expand(page, "not a programme, but links to many");
-          }
-          continue;
-        }
-        if (CONFIDENCE_RANK[found.confidence] < CONFIDENCE_RANK[minConfidence]) {
-          rejected++;
-          continue;
-        }
-        if (knownTitles.has(normaliseTitle(found.programme_name))) {
-          duplicates++;
-
-          // Not a wasted fetch: this is another site describing a programme we
-          // track, which is the input cross-verification needs and the reason
-          // this pipeline needs no search engine to get one.
-          const row = rowByTitle.get(normaliseTitle(found.programme_name));
-          const sourceUrl = canonicalUrl(page);
-
-          if (row && !dryRun && !sameOrganisation(sourceUrl, row.portalUrl)) {
-            const authority = classifyAuthority(sourceUrl, {
-              funderUrl: row.portalUrl,
-            });
-
-            const { error } = await supabase.from("scholarship_sources").upsert(
-              {
-                scholarship_id: row.id,
-                url: sourceUrl,
-                authority,
-                found_via: seed.label,
-                discovered_at: new Date().toISOString(),
-              },
-              { onConflict: "scholarship_id,url", ignoreDuplicates: true },
-            );
-
-            if (error) {
-              // Once per run: the table is either there or it is not, and one
-              // line per candidate would bury the actual findings.
-              if (!warnedAboutSources) {
-                warnedAboutSources = true;
-                console.log(
-                  `    ! cannot record second sources (${error.message}).` +
-                    ` Apply supabase/migrations/011_cross_verification.sql.`,
-                );
-              }
-            } else {
-              sourcesRecorded++;
-              console.log(`    ↳ second source for ${found.programme_name} (${authority})`);
-            }
-          }
-          continue;
-        }
-
-        const hostCountry = normaliseCountry(found.host_country) ?? seed.country ?? null;
-
-        console.log(
-          `    + ${found.programme_name} (${hostCountry ?? "?"}, ${found.confidence})`,
-        );
-
-        knownUrls.add(normaliseUrl(canonicalUrl(page)));
-        knownTitles.add(normaliseTitle(found.programme_name));
-
-        if (dryRun) {
-          staged++;
-          continue;
-        }
-
-        const { error } = await supabase.from("scholarship_candidates").insert({
-          // What the page says it is, so trailing-slash and tracking variants
-          // of one page cannot queue as two candidates.
-          url: canonicalUrl(page),
-          found_via: seed.label,
-          fetched_at: page.fetchedAt,
-          model: `${provider.name}/${result.model}`,
-          programme_name: found.programme_name,
-          funder: found.funder,
-          host_country: hostCountry,
-          degree_levels: found.degree_levels,
-          is_fully_funded: found.is_fully_funded,
-          open_to_international: found.open_to_international,
-          confidence: found.confidence,
-          summary: found.summary,
-        });
-
-        // A unique-violation just means another run got there first.
-        if (error && !error.message.includes("duplicate key")) {
-          console.log(`    ✗ insert failed: ${error.message}`);
-          continue;
-        }
-        staged++;
+        for (const line of await processSeed(seed)) console.log(line);
       } catch (error) {
-        // A day-scale quota is not recoverable within this run; stop cleanly so
-        // the candidates already staged are reported rather than lost.
-        if (error instanceof DailyLimitError) throw error;
-        console.log(
-          `    · skipped ${candidate.url}: ${error instanceof Error ? error.message : error}`,
-        );
-      }
-
-      // A pager found on a sub-listing is another page of programmes; take it
-      // as soon as the classification loop pauses for breath.
-      while (deferredListings.length > 0 && listingsFetched < maxListings) {
-        const url = deferredListings.shift()!;
-        if (listingSeen.has(normaliseUrl(url))) continue;
-        listingSeen.add(normaliseUrl(url));
-
-        try {
-          const page = await fetchPage(url);
-          listingsFetched++;
-          listingsFollowed++;
-          const before = pool.size;
-          readListing(page);
-          if (pool.size > before) {
-            const present = new Set(ranked.map((item) => normaliseUrl(item.url)));
-            for (const item of pool.values()) {
-              if (!present.has(normaliseUrl(item.url))) ranked.push(item);
-            }
-            ranked.sort((a, b) => b.score - a.score);
-          }
-        } catch {
-          // A dead pager is normal — sites link to pages that 404.
+        // A day-scale quota is not recoverable within this run. Stop the other
+        // lanes so what is already staged gets reported.
+        if (error instanceof DailyLimitError) {
+          stopped ??= error;
+          return;
         }
+        console.log(`\n=== ${seed.label}`);
+        console.log(`    ✗ ${error instanceof Error ? error.message : String(error)}`);
       }
     }
-  }
+  };
+
+  await Promise.all(Array.from({ length: lanes }, lane));
 
   console.log(
     `\n${staged} new candidate(s) · ${listingsFollowed} extra listing page(s) followed` +
@@ -493,6 +245,15 @@ async function main() {
   );
   if (staged > 0 && !dryRun) {
     console.log(`\nReview at /admin/candidates\n`);
+  }
+
+  // Reported after the tally, so the candidates that did make it are visible
+  // rather than buried above a stack trace.
+  if (stopped) {
+    console.error(
+      `\nStopped early: ${stopped instanceof Error ? stopped.message : String(stopped)}\n`,
+    );
+    process.exitCode = 1;
   }
 }
 

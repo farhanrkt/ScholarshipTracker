@@ -212,7 +212,22 @@ through unchanged rather than being relabelled.
 | `--max-listing` | 8 | Listing/pagination pages fetched per seed |
 | `--sitemap-urls` | 150 | Sitemap URLs added to the pool per seed (`--no-sitemap` disables) |
 | `--min` | `low` | Minimum classifier confidence to stage |
+| `--seed-concurrency` | 3 | Seeds crawled at once |
 | internal | `perSeed × 2 + maxListing` | Ceiling on fetches, so pages that fail the prefilter cannot run a seed forever |
+
+Seeds run several at a time, which is safe for the same reason parallel
+extraction is: politeness lives in the fetch layer and is enforced per host, and
+seeds are different hosts. The provider's own rate limiter is shared across
+lanes, so the classification calls stay inside the same per-minute budget — they
+simply stop waiting on each other's page fetches. Each seed's log lines are
+buffered and printed as one block, because interleaved output from eight crawls
+is unreadable.
+
+Within a seed, the next two candidate pages are fetched while the current one is
+being classified. The loop otherwise alternates one fetch with one model call,
+each waiting on the other; `fetchPage` caches the in-flight promise, so warming
+the next addresses means their bytes arrive during the model call and the awaits
+that follow return immediately.
 
 ---
 
@@ -362,16 +377,70 @@ Not optional, and deliberately **not** the caller's job. `fetchPage` owns it:
   matters more than it sounds — a site with `Disallow: /` and
   `Allow: /scholarships/` is inviting us to exactly the section we want, and the
   earlier Disallow-only parser refused the entire origin.
-- **`Crawl-delay` is honoured** when published, overriding our own gap.
-- **A per-host gate** serialises requests to one host with that gap while
-  letting different hosts run concurrently. Putting this in the fetch layer is
-  what makes parallel extraction safe: three crawls that happen to share a host
-  still queue behind each other, and no caller can forget to sleep.
+- **`Crawl-delay` is honoured** when published, overriding our own gap — and a
+  site that publishes one is also dropped to a single connection. An explicit
+  request for spacing outranks our throughput.
+- **A per-host gate** spaces requests to one host while letting different hosts
+  run concurrently. Putting this in the fetch layer is what makes parallel
+  extraction safe: three crawls that happen to share a host are still spaced, and
+  no caller can forget to sleep.
+- **Two connections per host, with request _starts_ spaced by the gap.** This is
+  the difference between a crawl that takes 56 seconds and one that takes 20.
+  The gate used to run one chain per host and measure the gap from the END of
+  the last response, which is strictly serial: a page cost `latency + gap`, and
+  because a programme's pages are all on one host, no amount of concurrency
+  above it changed anything. Spacing _starts_ instead means the gap overlaps the
+  latency rather than following it. The sustained rate a site sees is unchanged
+  at one request per gap; a browser opens six connections per host without
+  anyone calling it rude.
 - **Transient failures are retried** — 429, 500, 502, 503, 504 — up to three
   attempts, honouring `Retry-After`. A 404 is an answer and is not retried.
   Losing a programme's whole coverage section to one momentary rate limit was a
   real and frequent loss on busier university sites.
+- **A refusal gets one second try, shaped like a browser.** A large share of
+  4xx failures are a WAF scoring the _request_ — no `Accept-Language`, a bare
+  bot token, no `Sec-Fetch-*` headers — on a public page that `robots.txt`
+  allows and a person loads instantly. So 401, 403, 406 and 451 are retried once
+  with browser-shaped headers, and the host is remembered so its other pages
+  skip the wasted first request. The retry still names us and still carries the
+  contact URL, `robots.txt` is still obeyed first, and a host that refuses both
+  identities is left alone.
+- **A failed status is carried, not flattened into a string.** `HttpError.status`
+  is what lets extraction tell "this URL is wrong" (404) from "we were turned
+  away" (403) — see URL repair below, which acts on the first and must not act
+  on the second.
 - A descriptive user-agent is sent, and binaries are skipped.
+
+### When the stored URL is dead — `scripts/extract/repair.ts`
+
+Funders reorganise their sites constantly. The URL in our row keeps pointing at
+where the page **was**, extraction fails with `HTTP 404`, and the row is listed
+as "fix these by hand" until somebody does — while the programme itself is fine
+and its new page is two segments away.
+
+A 404 is the one crawl failure that carries information: it says the address is
+wrong, which is something the pipeline can act on. So it probes, cheapest first:
+
+1. **Spellings of the same address** — trailing slash both ways, `www` toggled,
+   a leftover `index.php` dropped, `http` upgraded. Nothing new has to exist for
+   these to work.
+2. **Ancestors**, nearest first — `/funding/chevening/how-to-apply` gone means
+   `/funding/chevening` is where the programme probably lives now. Landing on a
+   section index is enough: the crawler takes a title hint and walks back down.
+3. **The site's own sitemap**, ranked by how well each path matches the
+   programme's distinctive words. The only step that can find a genuinely new
+   address.
+
+**It proposes addresses, never facts.** Whether the page it found is the right
+programme is decided downstream by `page_is_about_requested_programme`, exactly
+as for any other crawl. Only after that passes is the row re-pointed — so the
+worst case of a bad guess is a wasted crawl, never a row silently re-pointed at
+someone else's scholarship. This is the one place the pipeline writes
+`official_portal_url`, it never runs in a dry run, and `--no-fix-urls` turns the
+write off while leaving the recovery on.
+
+A 403 is **not** repaired. The address is probably right and we were refused;
+guessing more addresses at a host already turning us away is just more refusals.
 
 `<nav>` and `<footer>` are stripped before text extraction: as text they are the
 same twenty link labels on every page, crowding real prose out of the passage
@@ -415,8 +484,16 @@ list — each with its own verbatim quote — overruns the token ceiling of the
 free-tier providers this runs on, and a truncated response loses the dates too.
 Split, a failed profile call still leaves you the deadline.
 
-The two calls **share** the provider's prompt budget (55% cycle / 45% profile),
-because a rate limit is per minute and both calls happen inside the same minute.
+The two calls **share** the provider's prompt budget, because a rate limit is per
+minute and both calls happen inside the same minute. Dates are selected first,
+against 55% of it, and **whatever they do not spend goes to the profile** rather
+than expiring. That matters more than the split does: date passages are sparse
+by nature — a closing date lives in one or two sentences — so a fixed 45% share
+for the profile did not mean the profile _got_ 45%. It meant the cycle half used
+a fraction of its reservation, the remainder was discarded, and eligibility and
+coverage passages that would have fitted were dropped for want of room. On a
+real Chevening crawl this is the difference between ~45k and ~73k characters of
+evidence reaching the profile call.
 
 Failures are contained: either call can fail, time out, or return unparseable
 JSON, and the other still produces a proposal. `--dates-only` skips call two.
@@ -600,12 +677,39 @@ Two provider-specific traps worth knowing:
 | `--dry-run` | both | off | Crawl and extract, write nothing |
 | `--limit` | extract | 50 | Max programmes per run |
 | `--title` | extract | — | Match one programme by title |
-| `--pages` | extract | 16 | Crawl size per programme |
+| `--pages` | extract | 20 | Crawl size per programme |
+| `--concurrency` | extract | 3 | Programmes crawled at once |
 | `--dates-only` | extract | off | Skip the profile call |
-| `--escalate` | extract | off | Retry empties on the next provider |
+| `--escalate` | extract | off | Retry empties on the next provider — cycle **and** profile |
+| `--force` | extract | off | Re-read rows that are unchanged or already pending |
+| `--verify` | extract | off | Cross-check dates against other sources |
+| `--no-fix-urls` | extract | off | Find a moved page, but do not re-point the row |
 | `--models` | extract | — | List models your key can reach |
 | `--seed` | discover | — | Match seeds by label |
 | `--per-seed` | discover | 20 | Programmes classified per seed |
 | `--max-listing` | discover | 8 | Listing pages followed per seed |
+| `--seed-concurrency` | discover | 3 | Seeds crawled at once |
 | `--min` | discover | `low` | Minimum confidence to stage |
 | `--provider` | both | auto | Force a provider |
+
+Environment knobs for the fetch layer, all optional:
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `CRAWL_DELAY_MS` | 800 | Minimum gap between request starts to one host |
+| `CRAWL_HOST_CONCURRENCY` | 2 | Connections open to one host at once |
+| `CRAWL_USER_AGENT` | ScholarTrackBot/1.0 | How we announce ourselves |
+| `CRAWL_FALLBACK_USER_AGENT` | browser-shaped | Used only after a host refuses the first |
+
+### What a re-run costs
+
+A run over programmes that have not changed is the common case, and it used to
+be almost as expensive as the first one: the "unchanged" check ran **after** the
+crawl, so three unchanged Chevening rows still fetched 61 pages and took just
+under three minutes to announce there was no work to do.
+
+The answer depends on exactly one page — the one the last proposal was read
+from — so that is the only page fetched to find out. The same three rows now
+take eleven seconds. A failure on that one page is neither a skip nor an error:
+it falls through to the full crawl, which is where a dead URL gets diagnosed and
+repaired.

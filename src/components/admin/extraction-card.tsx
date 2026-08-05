@@ -152,7 +152,8 @@ export function ExtractionCard({
       }
       setResolved("applied");
       toast.success(`${scholarship.title} updated`, {
-        description: "Landed at ai_extracted — promote to verified once you have checked the portal.",
+        description:
+          "Landed at ai_extracted. Confirm it against the portal in Verify to make it verified.",
       });
     });
   }

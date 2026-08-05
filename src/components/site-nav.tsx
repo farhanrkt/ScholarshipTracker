@@ -14,6 +14,7 @@ const ADMIN_LINKS = [
   { href: "/admin/pipeline", label: "Pipeline" },
   { href: "/admin/review", label: "Review" },
   { href: "/admin/candidates", label: "Candidates" },
+  { href: "/admin/verify", label: "Verify" },
 ] as const;
 
 export function SiteNav({
@@ -27,7 +28,7 @@ export function SiteNav({
   const links = isAdmin ? [...LINKS, ...ADMIN_LINKS] : LINKS;
 
   return (
-    <nav className="flex items-center gap-1 text-sm">
+    <nav aria-label="Main" className="flex w-max items-center gap-1 text-sm">
       {links.map((link) => {
         const active = pathname === link.href;
         return (
@@ -36,7 +37,7 @@ export function SiteNav({
             href={link.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "hover:bg-muted flex items-center gap-2 rounded-md px-3 py-1.5 transition-colors",
+              "hover:bg-muted focus-visible:ring-ring flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none",
               active ? "bg-muted font-medium" : "text-muted-foreground",
             )}
           >

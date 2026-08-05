@@ -37,19 +37,29 @@ export function ScholarshipCard({ scholarship, tracked }: ScholarshipCardProps) 
 
   return (
     <>
-      <article
-        role="button"
-        tabIndex={0}
-        aria-haspopup="dialog"
-        onClick={() => setOpen(true)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            setOpen(true);
-          }
-        }}
-        className="bg-card focus-visible:ring-ring group flex cursor-pointer flex-col gap-3 rounded-xl border p-4 text-left transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:outline-none"
-      >
+      {/*
+        A real <button>, not a div wearing `role="button"`.
+
+        The old markup hand-rolled Enter and Space, and still did not announce
+        itself as anything: an `<article role="button">` gives a screen reader a
+        control with no accessible name beyond whatever text it happens to
+        contain — which here is a country, three coverage lines and four badges,
+        read out in full before you learn it opens a dialog. The button carries
+        the name; the heading inside it stays a heading, so the page still has an
+        outline you can navigate by.
+      */}
+      <article className="bg-card focus-within:ring-ring group relative flex flex-col gap-3 rounded-xl border p-4 transition-[box-shadow,transform] hover:shadow-md focus-within:ring-2 motion-safe:active:scale-[0.995]">
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-label={`${scholarship.title} — ${displayCountry(scholarship.country)}. Open details.`}
+          onClick={() => setOpen(true)}
+          // Stretched over the whole card, so the hit area is the card while the
+          // control stays a single stop in the tab order. Nothing else here is
+          // interactive — the badges are text — so covering them costs nothing.
+          className="absolute inset-0 z-10 cursor-pointer rounded-xl focus:outline-none"
+        />
+
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant="secondary">{displayCountry(scholarship.country)}</Badge>

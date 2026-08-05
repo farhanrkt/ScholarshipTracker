@@ -2,6 +2,7 @@ import { CircleCheck, Compass } from "lucide-react";
 
 import { AdminDenied, checkAdmin } from "@/components/admin/admin-gate";
 import { CandidateCard } from "@/components/admin/candidate-card";
+import { AdminQueueBar } from "@/components/admin/queue-bar";
 import { createClient } from "@/lib/supabase/server";
 import type { ScholarshipCandidate } from "@/lib/types/database";
 
@@ -39,6 +40,8 @@ export default async function CandidatesPage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
+      <AdminQueueBar current="/admin/candidates" />
+
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">
           Discovered candidates

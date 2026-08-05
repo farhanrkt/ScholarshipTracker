@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { CircleCheck, ShieldQuestion } from "lucide-react";
 
 import { AdminDenied, checkAdmin } from "@/components/admin/admin-gate";
 import { ExtractionCard } from "@/components/admin/extraction-card";
+import { AdminQueueBar } from "@/components/admin/queue-bar";
 import { createClient } from "@/lib/supabase/server";
 import type { PendingExtraction } from "@/lib/types/extraction";
 
@@ -43,6 +45,8 @@ export default async function ReviewPage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
+      <AdminQueueBar current="/admin/review" />
+
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">
           Extraction review
@@ -70,7 +74,11 @@ export default async function ReviewPage() {
             Applying lands the row at <strong>ai_extracted</strong>, not
             verified. Every value here already survived the grounding check —
             its quote was found verbatim on the page — but no person has opened
-            the portal. Promote to verified separately once you have.
+            the portal. Do that in{" "}
+            <Link href="/admin/verify" className="underline underline-offset-2">
+              Verify
+            </Link>
+            , which is the only place <strong>verified</strong> comes from.
           </p>
 
           <div className="flex flex-col gap-4">

@@ -12,6 +12,7 @@
  *   npm run extract -- --provider anthropic    # force a provider
  *   npm run extract -- --escalate              # retry empties on the other provider
  *   npm run extract -- --verify                # cross-check dates against other sources
+ *   npm run extract -- --no-fix-urls           # never rewrite a row's dead URL
  *   npm run extract -- --models                # list models your Groq key can reach
  *
  * TWO CALLS PER PROGRAMME. The crawl is shared; the extraction is not. Call one
@@ -28,31 +29,20 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-import { crawlProgramme, describeCrawl } from "./crawl.ts";
 import { pageCacheStats } from "./page.ts";
-import { extractCycle, extractProfile } from "./extract.ts";
 import {
-  groundExtraction,
-  groundProfile,
-  isEmpty,
-  isEmptyProfile,
-  type GroundedExtraction,
-  type GroundedProfile,
-} from "./ground.ts";
-import { selectPassages, type Passage } from "./passages.ts";
-import { verifyCycle } from "./verify.ts";
+  extractProgramme,
+  type ExtractionStore,
+  type ProgrammeTarget,
+} from "./programme.ts";
 import type { Authority } from "../discover/authority.ts";
-import type { FieldSources } from "../../src/lib/types/database.ts";
 import {
   DailyLimitError,
   listGeminiModels,
   listGroqModels,
   pickFallbackProvider,
   pickProvider,
-  TruncatedError,
-  type ExtractionProvider,
 } from "./providers/index.ts";
-import type { CycleExtraction } from "./schema.ts";
 
 /* -------------------------------------------------------------------------- */
 /* Arguments                                                                  */
@@ -70,7 +60,24 @@ function option(name: string): string | undefined {
 const dryRun = flag("dry-run");
 const limit = Number(option("limit") ?? 50);
 const titleFilter = option("title");
-const maxPages = Number(option("pages") ?? 16);
+/**
+ * Pages crawled per programme.
+ *
+ * Twenty rather than sixteen: the crawl now runs several requests deep, so the
+ * extra four pages cost about as much wall-clock as none of them used to, and
+ * the topics that were starved at sixteen — documents and benefits, which are
+ * spread thinnest across a site — are exactly what the extra budget reaches.
+ */
+const maxPages = Number(option("pages") ?? 20);
+/**
+ * Rewrite a row's URL when the stored one is dead and a live page is found.
+ *
+ * On by default because leaving it off means the row fails identically on every
+ * future run: a 404 does not heal, and "fix these by hand" was a list nobody
+ * was ever going to work through. The write only happens after an extraction
+ * has confirmed the new page is about this programme, and never in a dry run.
+ */
+const fixUrls = !flag("no-fix-urls");
 const escalate = flag("escalate");
 const datesOnly = flag("dates-only");
 const force = flag("force");
@@ -91,9 +98,6 @@ const maxVerifySources = Number(option("verify-sources") ?? 2);
  * where the wall-clock time goes, and three lanes overlap that nicely.
  */
 const concurrency = Math.min(Math.max(Number(option("concurrency") ?? 3), 1), 8);
-
-/** The half of the crawl the profile call reads. */
-const PROFILE_TOPICS = ["eligibility", "benefits", "documents", "process"] as const;
 
 /* -------------------------------------------------------------------------- */
 /* Environment                                                                */
@@ -123,20 +127,8 @@ function supabaseAdmin() {
 /* Run                                                                        */
 /* -------------------------------------------------------------------------- */
 
-interface Target {
-  id: string;
-  title: string;
-  country: string;
-  source_url: string | null;
-  official_portal_url: string;
-}
-
-interface Attempt {
-  extraction: CycleExtraction;
-  grounded: GroundedExtraction;
-  provider: string;
-  model: string;
-}
+/** What the query selects, which is exactly what an extraction needs. */
+type Target = ProgrammeTarget;
 
 interface Outcome {
   staged: boolean;
@@ -330,8 +322,10 @@ async function main() {
   let staged = 0;
   let failed = 0;
   let skipped = 0;
+  /** Rows whose URL was dead and has been re-pointed at a live page. */
+  let repaired = 0;
   /** Rows whose stored URLs are all dead — a data problem no re-run will fix. */
-  const unreachable: Target[] = [];
+  const unreachable: Array<{ target: Target; status?: number }> = [];
   const usage = new Map<string, { input: number; output: number }>();
 
   const record = (name: string, input: number, output: number) => {
@@ -342,422 +336,59 @@ async function main() {
     });
   };
 
+  /**
+   * The two writes an extraction makes, done with the service-role client.
+   *
+   * The deployed runner implements this same interface against a client bound
+   * to the signed-in admin, which is how the pipeline reaches Vercel without
+   * the service-role key going with it.
+   */
+  const store: ExtractionStore = {
+    async stage(row) {
+      const { error } = await supabase.from("scholarship_extractions").insert(row);
+      if (error) throw new Error(`Insert failed: ${error.message}`);
+    },
+    async repoint(scholarshipId, url) {
+      const { error } = await supabase
+        .from("scholarships")
+        .update({ official_portal_url: url, source_url: null })
+        .eq("id", scholarshipId);
+      if (error) throw new Error(error.message);
+    },
+  };
+
   const processTarget = async (target: Target): Promise<Outcome> => {
     const lines: string[] = [];
-    const say = (line: string) => lines.push(line);
-    const done = (patch: Partial<Outcome>): Outcome => ({
-      staged: false,
-      failed: false,
-      skipped: false,
-      lines,
-      ...patch,
+
+    const result = await extractProgramme({
+      target,
+      provider,
+      fallback,
+      store,
+      say: (line) => lines.push(line),
+      record,
+      maxPages,
+      datesOnly,
+      force,
+      dryRun,
+      fixUrls,
+      verify,
+      maxVerifySources,
+      previous: lastSeen.get(target.id) ?? null,
+      sources: sourcesByScholarship.get(target.id) ?? [],
     });
 
-    /**
-     * Where to start crawling. THE ORDER HERE IS LOAD-BEARING.
-     *
-     * `official_portal_url` first, `source_url` second — which is the reverse
-     * of what it used to be, and the reversal fixes a feedback loop that was
-     * quietly hollowing out every row it touched:
-     *
-     *   1. A crawl finds the deadline on `/scholarships/application-timeline/`.
-     *   2. `bestSourceUrl` is that page, because it is the page a human
-     *      re-verifying the date should open. Correct, and useful.
-     *   3. `apply_extraction()` writes it to `source_url`.
-     *   4. The NEXT crawl starts there instead of the programme's own page.
-     *
-     * Each pass moves the entry further toward a generic dates page and further
-     * from the page describing the award. Observed: all three Chevening rows —
-     * Scholarships, SIDS, Fellowships — had converged on the same
-     * `/application-timeline/` entry, so all three crawled the same pages, none
-     * started from its own programme page, and the coverage matrix stayed empty
-     * because nothing in that neighbourhood discusses money.
-     *
-     * Worse, converging distinct programmes on ONE entry is how a row inherits
-     * another programme's dates. The Fellowships row was saved only by the
-     * model noticing and reporting "wrong site".
-     *
-     * `official_portal_url` is the right anchor precisely because nothing in
-     * this pipeline ever writes to it: it stays the programme's own page. The
-     * timeline page is still reached — it is one link away, the crawler scores
-     * it highly, and `bestSourceUrl` still records it for the reviewer.
-     *
-     * Both are kept because they are not always both alive: a stored page can
-     * 404 after a site reshuffle while the other still works, and giving up on
-     * the first failure threw away a programme over a URL we had a spare for.
-     */
-    const entryCandidates = [...new Set(
-      [target.official_portal_url, target.source_url].filter(
-        (url): url is string => Boolean(url),
-      ),
-    )];
-
-    try {
-      let crawled: Awaited<ReturnType<typeof crawlProgramme>> | null = null;
-      let entryUrl = entryCandidates[0]!;
-
-      for (const candidate of entryCandidates) {
-        say(`    crawling from ${candidate}`);
-        const attemptCrawl = await crawlProgramme(candidate, {
-          maxPages,
-          titleHint: target.title,
-        });
-
-        if (attemptCrawl.pages.length > 0) {
-          crawled = attemptCrawl;
-          entryUrl = candidate;
-          break;
-        }
-        say(`    · unreachable: ${attemptCrawl.errors[0]?.message ?? "no readable pages"}`);
-      }
-
-      if (!crawled) {
-        unreachable.push(target);
-        throw new Error(
-          `no reachable entry page (tried ${entryCandidates.length}) — the stored URL needs fixing`,
-        );
-      }
-
-      const { pages, errors, topicCounts } = crawled;
-
-      // Nothing has changed since the last proposal for this row, so the model
-      // would read the same words and reach the same conclusion. Crawling was
-      // cheap; the two calls are not.
-      const previous = lastSeen.get(target.id);
-      if (!force && previous) {
-        const samePage = pages.find((page) => page.url === previous.source_url);
-        if (samePage && samePage.sha256 === previous.page_sha256) {
-          say(`    · unchanged since the last extraction — skipped (--force to re-read)`);
-          return done({ skipped: true });
-        }
-      }
-
-      // The prompt budget is the provider's, not a constant: a free-tier rate
-      // limit is a much tighter ceiling than a context window. The two calls
-      // SHARE that budget rather than each taking it in full — a rate limit is
-      // per minute, and both calls happen inside the same minute. Dates get the
-      // larger share because a missed deadline is the costlier miss.
-      const cycleBudget = datesOnly
-        ? provider.promptBudgetChars
-        : Math.floor(provider.promptBudgetChars * 0.55);
-      const profileBudget = provider.promptBudgetChars - cycleBudget;
-
-      const datePassages = selectPassages(pages, cycleBudget, ["dates"]);
-      const profilePassages = datesOnly
-        ? []
-        : selectPassages(pages, profileBudget, PROFILE_TOPICS);
-
-      const crawledChars = pages.reduce((sum, page) => sum + page.text.length, 0);
-      const keptChars = [...datePassages, ...profilePassages].reduce(
-        (sum, item) => sum + item.text.length,
-        0,
-      );
-
-      say(
-        `    ${pages.length} page(s) [${describeCrawl(topicCounts)}], ${crawledChars.toLocaleString()} chars → ${datePassages.length}+${profilePassages.length} passage(s), ${keptChars.toLocaleString()} chars`,
-      );
-      for (const failure of errors) {
-        say(`    · skipped ${failure.url}: ${failure.message}`);
-      }
-      if (datePassages.length === 0 && profilePassages.length === 0) {
-        throw new Error("no relevant passages found across the crawl");
-      }
-
-      /* ------------------------------------------------ call 1: the cycle */
-
-      // Try the cheap provider first; escalate only when it produced nothing
-      // that survived grounding.
-      const chain: ExtractionProvider[] = fallback ? [provider, fallback] : [provider];
-      let attempt: Attempt | null = null;
-      let wrongSite = false;
-
-      for (const [attemptIndex, candidate] of chain.entries()) {
-        if (datePassages.length === 0) break;
-
-        let result;
-        try {
-          result = await extractCycle(
-            candidate,
-            target.title,
-            target.country,
-            datePassages,
-          );
-        } catch (failure) {
-          if (failure instanceof DailyLimitError) throw failure;
-          // A provider timeout or an unparseable response is not a reason to
-          // lose the profile call as well — the two are independent readings of
-          // the same crawl, and half an extraction beats none.
-          say(
-            `    · cycle extraction failed on ${candidate.name}: ${failure instanceof Error ? failure.message : failure}`,
-          );
-          continue;
-        }
-        record(candidate.name, result.inputTokens, result.outputTokens);
-
-        if (!result.extraction.page_is_about_requested_programme) {
-          say(`    ✗ wrong site — model saw: ${result.extraction.page_subject}`);
-          wrongSite = true;
-          break;
-        }
-
-        // Ground against the FULL text of every crawled page, not the trimmed
-        // passages — a real quote must never be rejected because of budgeting.
-        const grounded = groundExtraction(result.extraction, pages, entryUrl);
-        attempt = {
-          extraction: result.extraction,
-          grounded,
-          provider: candidate.name,
-          model: result.model,
-        };
-
-        if (!isEmpty(grounded)) break;
-        if (attemptIndex < chain.length - 1) {
-          say(`    · ${candidate.name} found nothing, escalating`);
-        }
-      }
-
-      if (wrongSite) return done({ failed: true });
-
-      /* --------------------------------------------- call 2: the profile */
-
-      // Best-effort by design: a profile that fails to parse, gets truncated,
-      // or comes back empty must not cost us the deadline we already have.
-      let profile: GroundedProfile | null = null;
-      let profileNotes: string | null = null;
-
-      if (profilePassages.length > 0) {
-        const runner = chain.find((candidate) => candidate.name === attempt?.provider) ?? provider;
-
-        /**
-         * Two goes at the profile, the second on half the context.
-         *
-         * A three-programme Chevening run lost the profile call on ALL THREE to
-         * `The operation was aborted due to timeout`, and a timeout here is the
-         * expensive failure: the cycle call still succeeds, so the run reports
-         * "3 staged" while every row it staged has a deadline and nothing about
-         * the money, the eligibility, or the documents. That is the shallow-data
-         * symptom, arriving through the one path that looks like success.
-         *
-         * Halving the passages is the right retry rather than simply waiting
-         * longer, because prompt size is what makes the response slow: fewer
-         * passages means fewer values to quote and a much shorter JSON body. The
-         * highest-scoring passages are kept, so the second attempt reads the
-         * densest half of what the first one saw — a smaller answer from the
-         * better evidence, which is a good trade and not merely a cheaper one.
-         */
-        const attempts: Passage[][] = [
-          profilePassages,
-          profilePassages.slice(0, Math.ceil(profilePassages.length / 2)),
-        ];
-
-        for (const [index, passages] of attempts.entries()) {
-          const isRetry = index > 0;
-          if (isRetry && passages.length === profilePassages.length) break;
-
-          try {
-            const result = await extractProfile(
-              runner,
-              target.title,
-              target.country,
-              passages,
-            );
-            record(runner.name, result.inputTokens, result.outputTokens);
-
-            if (result.extraction.page_is_about_requested_programme) {
-              const groundedProfile = groundProfile(result.extraction, pages);
-              profileNotes = result.extraction.notes_for_reviewer || null;
-              if (!isEmptyProfile(groundedProfile)) profile = groundedProfile;
-            } else {
-              say(`    · profile call read the wrong programme, dropped`);
-            }
-            break;
-          } catch (failure) {
-            if (failure instanceof DailyLimitError) throw failure;
-
-            const message = failure instanceof Error ? failure.message : String(failure);
-            // Only size-related failures are worth a smaller retry. A refusal or
-            // a bad API key will fail identically on half the input.
-            const retryable =
-              failure instanceof TruncatedError || /timeout|aborted|took too long/i.test(message);
-
-            if (!isRetry && retryable) {
-              say(`    · profile call ${message} — retrying on half the passages`);
-              continue;
-            }
-            say(`    · profile extraction failed: ${message}`);
-            break;
-          }
-        }
-      }
-
-      if (!attempt && !profile) {
-        say(`    ✗ nothing extracted — needs manual verification`);
-        return done({ failed: true });
-      }
-
-      /* ------------------------------------------------------- reporting */
-
-      const ungrounded = [
-        ...(attempt?.grounded.ungroundedFields ?? []),
-        ...(profile?.ungroundedFields ?? []),
-      ];
-      const caveats = [
-        ...(attempt?.grounded.caveats ?? []),
-        ...(profile?.caveats ?? []),
-      ];
-
-      for (const failure of ungrounded) say(`    ⚠ dropped ${failure}`);
-      for (const caveat of caveats) say(`    ! ${caveat}`);
-
-      if (attempt && isEmpty(attempt.grounded) && !profile) {
-        say(`    ✗ no grounded dates found — needs manual verification`);
-        return done({ failed: true });
-      }
-
-      const cycle = attempt?.grounded.proposed ?? {
-        cycle_label: null,
-        opens_date: null,
-        deadline_date: null,
-        timeline: [],
-      };
-
-      /* ------------------------------------ cross-verification (opt-in) */
-
-      // Only the cycle dates, and only when other sources are on file. A
-      // missed deadline is a missed year, which is the one error here that a
-      // student cannot recover from — so it gets the budget, and coverage and
-      // eligibility do not.
-      let fieldSources: FieldSources = {};
-      const otherSources = verify ? (sourcesByScholarship.get(target.id) ?? []) : [];
-
-      if (verify && otherSources.length > 0 && attempt) {
-        const verified = await verifyCycle(
-          {
-            url: attempt.grounded.bestSourceUrl,
-            cycle_label: cycle.cycle_label,
-            opens_date: cycle.opens_date,
-            deadline_date: cycle.deadline_date,
-            quotes: {
-              cycle_label: attempt.grounded.evidence.cycle_label?.quote ?? null,
-              opens_date: attempt.grounded.evidence.opens_date?.quote ?? null,
-              deadline_date: attempt.grounded.evidence.deadline_date?.quote ?? null,
-            },
-          },
-          {
-            provider,
-            title: target.title,
-            country: target.country,
-            funderUrl: target.official_portal_url,
-            sources: otherSources,
-            maxSources: maxVerifySources,
-            budgetChars: Math.floor(provider.promptBudgetChars * 0.3),
-            say,
-          },
-        );
-
-        // The reconciled value replaces the primary reading only when a source
-        // outranked it. The funder always wins, so in the ordinary case this
-        // changes nothing and only records who else agreed.
-        cycle.cycle_label = verified.cycle_label.value;
-        cycle.opens_date = verified.opens_date.value;
-        cycle.deadline_date = verified.deadline_date.value;
-
-        fieldSources = verified.fieldSources;
-        for (const caveat of verified.caveats) {
-          say(`    ⚖ ${caveat}`);
-          caveats.push(caveat);
-        }
-
-        if (verified.consulted.length > 0) {
-          const agreed = Object.values(verified.fieldSources).filter(
-            (entry) => (entry.corroborated_by?.length ?? 0) > 0,
-          ).length;
-          say(
-            `    → cross-checked against ${verified.consulted.length} source(s)` +
-              (agreed > 0 ? `, ${agreed} field(s) corroborated` : "") +
-              (verified.caveats.length > 0 ? `, ${verified.caveats.length} disagreement(s)` : ""),
-          );
-        }
-      }
-
-      say(
-        `    → opens ${cycle.opens_date ?? "—"} · closes ${cycle.deadline_date ?? "—"} · ${cycle.timeline.length} stage(s)` +
-          (attempt ? `  [${attempt.provider}]` : "  [no cycle]"),
-      );
-      if (profile) {
-        const {
-          coverage_matrix,
-          eligibility_flags,
-          document_checklist,
-          fields_of_study,
-          award_duration,
-          number_of_awards,
-        } = profile.proposed;
-        say(
-          `    → ${Object.keys(coverage_matrix).length} coverage line(s) · ${Object.keys(eligibility_flags).length} eligibility field(s) · ${document_checklist.length} document(s)`,
-        );
-
-        // Reported separately and only when present. A field that extracted is
-        // worth seeing in the log — otherwise there is no way to tell whether
-        // the pages were silent or the pipeline never asked.
-        const scope = [
-          award_duration && `funded for ${award_duration}`,
-          number_of_awards && `${number_of_awards} offered`,
-          fields_of_study.length > 0 && `restricted to ${fields_of_study.join(", ")}`,
-        ].filter((part): part is string => Boolean(part));
-        if (scope.length > 0) say(`    → ${scope.join(" · ")}`);
-      }
-
-      const bestSourceUrl = attempt?.grounded.bestSourceUrl ?? entryUrl;
-      say(`    source: ${bestSourceUrl}`);
-
-      const notes = [attempt?.extraction.notes_for_reviewer, profileNotes]
-        .filter((note): note is string => Boolean(note && note.trim()))
-        .join(" · ");
-      if (notes) say(`    note: ${notes}`);
-
-      if (dryRun) return done({ staged: true });
-
-      const sourcePage = pages.find((page) => page.url === bestSourceUrl) ?? pages[0]!;
-
-      const { error: insertError } = await supabase
-        .from("scholarship_extractions")
-        .insert({
-          scholarship_id: target.id,
-          source_url: bestSourceUrl,
-          fetched_at: sourcePage.fetchedAt,
-          page_sha256: sourcePage.sha256,
-          model: `${attempt?.provider ?? provider.name}/${attempt?.model ?? provider.model}`,
-          // One JSONB column, both halves. apply_extraction() reads whichever
-          // keys are present and leaves the rest of the row alone.
-          proposed: {
-            ...cycle,
-            ...(profile?.proposed ?? {}),
-            // Only when something was actually cross-checked: an empty object
-            // would make "nobody else was asked" look like "one source agreed".
-            ...(Object.keys(fieldSources).length > 0 ? { field_sources: fieldSources } : {}),
-          },
-          evidence: {
-            ...(attempt?.grounded.evidence ?? {}),
-            ...(profile?.evidence ?? {}),
-          },
-          ungrounded_fields: ungrounded,
-          caveats,
-          page_subject: attempt?.extraction.page_subject ?? null,
-          model_notes: notes || null,
-        });
-
-      if (insertError) throw new Error(`Insert failed: ${insertError.message}`);
-
-      say(`    ✓ staged for review`);
-      return done({ staged: true });
-    } catch (failure) {
-      // A day-scale quota stops the whole run; the pool handles that. Anything
-      // else is this programme's problem alone.
-      if (failure instanceof DailyLimitError) throw failure;
-      say(`    ✗ ${failure instanceof Error ? failure.message : String(failure)}`);
-      return done({ failed: true });
+    if (result.repaired) repaired++;
+    if (result.unreachable) {
+      unreachable.push({ target, status: result.unreachable.status });
     }
+
+    return {
+      staged: result.staged,
+      failed: result.failed,
+      skipped: result.skipped,
+      lines,
+    };
   };
 
   const { aborted } = await runPool(
@@ -776,6 +407,7 @@ async function main() {
   const cache = pageCacheStats();
   console.log(
     `\n${staged} staged · ${failed} failed` +
+      (repaired > 0 ? ` · ${repaired} URL(s) repaired` : "") +
       (skipped > 0 ? ` · ${skipped} unchanged` : "") +
       // Programmes on one site share almost every page, so on a multi-row
       // funder this is the difference between one crawl and one crawl per row.
@@ -794,12 +426,19 @@ async function main() {
   }
 
   // Called out separately because it is the one failure a re-run cannot help
-  // with: every URL on the row is dead, so someone has to find a live one.
+  // with: every URL on the row is dead and automatic repair found nothing, so
+  // someone has to find a live one. The status is printed because it says which
+  // kind of problem this is — 404 means the address is wrong, 403 means the
+  // address is probably right and the host is refusing us, and those two want
+  // completely different fixes.
   if (unreachable.length > 0) {
     console.log(`\n${unreachable.length} row(s) have no reachable URL — fix these by hand:`);
-    for (const target of unreachable) {
-      console.log(`  ${target.title}`);
-      console.log(`    ${target.source_url ?? target.official_portal_url}`);
+    for (const { target, status } of unreachable) {
+      console.log(`  ${target.title}${status ? `  [HTTP ${status}]` : ""}`);
+      console.log(`    ${target.official_portal_url}`);
+      if (target.source_url && target.source_url !== target.official_portal_url) {
+        console.log(`    ${target.source_url}`);
+      }
     }
   }
 

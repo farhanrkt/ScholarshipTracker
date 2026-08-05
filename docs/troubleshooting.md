@@ -97,6 +97,49 @@ normalised; anything else passes through unchanged on purpose.
 
 ## Extraction
 
+### "HTTP 404 fetching …" / "no reachable entry page"
+
+The address in the row is wrong, not the programme. Extraction now says so and
+acts on it: it looks for where the page moved to — slash and `www` variants
+first, then the parent sections, then the site's own sitemap ranked by how well
+each path matches the title — and re-points the row once an extraction confirms
+the page it found really is that programme.
+
+You see `↻ recovered via parent section /scholarships/` in the log, then
+`↻ row re-pointed at …`. Nothing is written in a dry run, and `--no-fix-urls`
+keeps the recovery while leaving the row alone.
+
+If it still reports the row as unreachable, every guess failed too and the URL
+needs finding by hand — the summary prints the status alongside each row, which
+is what tells you whether the problem is the address or the host.
+
+### "HTTP 403 fetching …"
+
+We were refused, which is different from the page being gone — usually a WAF
+scoring the request rather than the URL. The fetch layer already retries once
+with browser-shaped headers and remembers the host, so a 403 that survives to
+the log is a firm one.
+
+This is **not** repaired: the address is probably right, and guessing more
+addresses at a host that is turning us away just produces more refusals. If a
+whole origin behaves this way, `CRAWL_USER_AGENT` lets you introduce yourself
+differently, and a funder blocking crawlers deliberately is a row to maintain by
+hand.
+
+### "produced only N characters of text — likely JavaScript-rendered"
+
+The page is a shell that fetches its content in the browser. There is nothing to
+read and no header trick that fixes it; the fetch layer does not run JavaScript
+by design. Point the row at a server-rendered page on the same site if one
+exists — often the print view or a `/en/` variant — or maintain it by hand.
+
+### "This model is currently experiencing high demand"
+
+The provider is busy, not you. It is retried three times with a short backoff
+(`· gemini-flash-lite-latest is busy, retrying in 5s`). If a whole run dies this
+way, Google is having a bad hour: switch with `--provider groq`, or set a
+different `GEMINI_MODEL` — free-tier capacity is granted per model.
+
 ### "no relevant passages found across the crawl"
 
 The crawl reached pages with no date, eligibility, benefit or document language
@@ -166,9 +209,10 @@ cheap); the two model calls did not. `--force` re-reads anyway.
 
 ### A run takes far longer than expected
 
-Crawling is deliberately slow: 1.5s between fetches, up to `maxPages × 2`
-attempts per programme. Sixteen pages is roughly 45–60 seconds of fetching before
-any model call. Lower `--pages` for a cheap pass.
+Crawling is deliberately paced: request starts to one host are spaced 800ms
+apart, at most two connections at a time, up to `maxPages × 2` attempts per
+programme. Twenty pages is roughly 20–30 seconds of fetching before any model
+call. Lower `--pages` for a cheap pass, or raise `CRAWL_DELAY_MS` to be gentler.
 
 If it hangs with no output, remember the scripts buffer stdout when piped to a
 file; run them in a terminal or via `/admin/pipeline` to see progress live.
@@ -183,15 +227,23 @@ That number is deliberate: at 180s every Chevening profile call failed, and at
 thorough one, `GEMINI_TIMEOUT_MS=120000` fails fast and leans on the
 half-passage retry instead.
 
-**A slow site costs more than a slow model.** Each fetch timeout is 30s times
-three attempts. That Chevening run lost roughly four minutes to
-`/resource-hub/guidance/*` timing out and one page returning 502 — pages that
-had been fine an hour earlier. There is nothing to fix in the pipeline when this
-happens; it is the site, and the retries are what get you the page next time.
+**A slow site costs more than a slow model.** A fetch timeout is 15s, and a
+timeout gets one retry rather than two. There is nothing to fix in the pipeline
+when this happens; it is the site, and the retries are what get you the page
+next time.
 
-`--concurrency` does not help when the rows share a host: the politeness gate
-serialises per host regardless of how many crawls are in flight. It helps when a
-batch spans several funders.
+`--concurrency` helps most when a batch spans several funders. Rows sharing a
+host no longer serialise completely — the gate allows two connections and spaces
+request _starts_ — but they do share that host's budget, so three Chevening rows
+still finish more slowly than three rows on three different sites.
+
+### A re-run is slow even though nothing changed
+
+It should not be, any more. The unchanged check used to run after the crawl;
+it now fetches the single page the last proposal was read from and skips on a
+hash match. If rows are still being crawled in full, check the run is not
+passing `--force`, and that the previous run actually staged something — a row
+with no prior extraction has nothing to compare against.
 
 ### 429s, or "TPM budget reached"
 
@@ -213,15 +265,48 @@ wait out the day.
 Your address is not in `admins`, or the session is anonymous, or the email is
 unconfirmed. `select * from why_not_admin();` says which.
 
-### "This runner only works where the repo and its scripts are on disk"
+### "Apply supabase/migrations/012_pipeline_jobs.sql to run the pipeline from here"
 
-You are hitting `/admin/pipeline` on a deployed instance. Expected. Run the
-scripts locally.
+The queue tables do not exist yet. Run that migration in the Supabase SQL editor.
+Everything else in the app works without it — only the browser-driven pipeline
+needs it. (The terminal crawlers never did.)
 
-### "A discover run has been going for Ns"
+### "A run is already in flight"
 
-One run at a time, process-wide. Wait, or restart the dev server if you are sure
-the previous run died.
+One live run at a time, enforced by a partial unique index rather than by a
+variable in one server process — which is what makes it hold on a serverless
+host, where every request may land in a different instance. Wait, or press Stop
+on the running one.
+
+If nothing is actually running — a function was killed mid-tick, say — the job
+is still marked `running` until its heartbeat goes stale. Either press Stop, or:
+
+```sql
+update pipeline_jobs set status = 'cancelled', finished_at = now()
+where status in ('queued', 'running');
+```
+
+### The console says "running" but the log has stopped moving
+
+The tick loop lives in the tab. If the tab was closed or slept, nothing is
+calling `tick` — the job is not dead, it is unattended. Reopen
+`/admin/pipeline`: the console re-attaches to the live run and starts ticking it
+again from the cursor.
+
+### A deploy fails with an error about `maxDuration`
+
+`api/admin/pipeline/tick/route.ts` asks for 300 seconds and your plan allows
+less. Vercel validates this at build time, so the deploy fails rather than the
+run. Lower `maxDuration` in that file, and lower `PIPELINE_TICK_MS` with it so a
+tick still finishes its unit inside the ceiling. More ticks, same result.
+
+### "No model provider configured" from the deployed console
+
+The provider key is missing from the deployed environment. Add `GEMINI_API_KEY`
+(or `GROQ_API_KEY`) in the Vercel project settings and redeploy. It is read only
+inside a Route Handler and never reaches the browser. Do **not** add
+`SUPABASE_SERVICE_ROLE_KEY` — the deployed pipeline writes as the signed-in
+admin and does not want it.
 
 ## App
 

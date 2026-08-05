@@ -2,6 +2,7 @@ import {
   canonicaliseUrl,
   extractLinks,
   fetchPage,
+  HttpError,
   type FetchedPage,
 } from "./page.ts";
 import {
@@ -75,6 +76,25 @@ export interface CrawlOptions {
    * it then threw away.
    */
   maxFetches?: number;
+  /**
+   * Requests this crawl keeps in flight at once.
+   *
+   * This is NOT a politeness dial. Spacing is the fetch layer's job and is
+   * enforced per host — including any `Crawl-delay` the site publishes — so a
+   * site sees the same request rate whatever this is set to. What this controls
+   * is only whether the crawler has a second request READY when the gate is
+   * willing to start one.
+   *
+   * It is half of a pair, and useless alone: `schedulePerHost` allows two open
+   * connections and spaces request starts by the gap, so the gap overlaps the
+   * latency rather than following it — but only if something has queued the
+   * next request. A strictly serial crawl leaves that capacity unused and pays
+   * `latency + gap` per page regardless.
+   *
+   * Four is enough to keep the gate fed. Higher mainly grows the number of
+   * pages chosen before the ranking has seen what they link to.
+   */
+  concurrency?: number;
 }
 
 /** A fetched page, plus why the crawler chose to fetch it. */
@@ -88,7 +108,12 @@ export interface CrawledPage extends FetchedPage {
 export interface CrawlResult {
   pages: CrawledPage[];
   visited: string[];
-  errors: Array<{ url: string; message: string }>;
+  /**
+   * `status` is present when the server answered with one. It is what lets the
+   * caller tell "this URL is wrong" (404) from "we were turned away" (403) —
+   * only the first is worth trying to repair.
+   */
+  errors: Array<{ url: string; message: string; status?: number }>;
   /** Pages fetched per topic — logged so a thin crawl is visible, not silent. */
   topicCounts: Record<Topic, number>;
 }
@@ -137,7 +162,7 @@ const TITLE_STOPWORDS = new Set([
   "government", "foundation", "university", "national",
 ]);
 
-function titleTokens(title: string): string[] {
+export function titleTokens(title: string): string[] {
   return [
     ...new Set(
       title
@@ -203,6 +228,9 @@ function pickNext(
   used: Record<Topic, number>,
   quotas: Record<Topic, number>,
 ): number {
+  // `used` counts pages kept PLUS pages in flight — see `claimed` in the crawl
+  // loop. Counting only what has landed would let four concurrent lanes each
+  // claim the last slot of the same topic and blow the reservation.
   let withinQuota = -1;
   let anywhere = -1;
 
@@ -234,6 +262,7 @@ export async function crawlProgramme(
   const quotas = { ...DEFAULT_QUOTAS, ...options.quotas };
   const maxHubs = options.maxHubs ?? 2;
   const tokens = titleTokens(options.titleHint ?? "");
+  const lanes = Math.min(Math.max(options.concurrency ?? 4, 1), 8);
   let fetchBudget = options.maxFetches ?? maxPages * 2;
 
   // No sleeping here: fetchPage gates every request per host, honouring both
@@ -266,6 +295,7 @@ export async function crawlProgramme(
         {
           url: entryUrl,
           message: error instanceof Error ? error.message : String(error),
+          ...(error instanceof HttpError ? { status: error.status } : {}),
         },
       ],
       topicCounts,
@@ -331,27 +361,46 @@ export async function crawlProgramme(
 
   enqueueLinksFrom(entry);
 
+  /** Pages requested but not yet landed. Kept off `pages.length` on purpose. */
+  let inFlight = 0;
+  /** Reservations held by in-flight fetches, so quotas cannot be over-claimed. */
+  const claimed = emptyCounts();
+
+  /** Room for one more request: budget left, and space for the page it returns. */
+  const canDispatch = () =>
+    fetchBudget > 0 && pages.length + inFlight < maxPages;
+
   // Hubs are fetched before the topic loop so their navigation is already in
   // the frontier when quotas start being spent. Like the entry page they are
   // not charged to any topic — they are how the topics get found at all.
-  for (const hubUrl of hubCandidates(entry.url, maxHubs)) {
-    if (pages.length >= maxPages || fetchBudget <= 0) break;
-
+  //
+  // Fetched together rather than one after another: they are two or three
+  // requests to the same host, so the per-host gate spaces them anyway and
+  // serialising the wait as well only adds their latency together.
+  const hubUrls = hubCandidates(entry.url, maxHubs).filter((hubUrl) => {
     const key = canonicaliseUrl(new URL(hubUrl));
-    if (seen.has(key) || fetchedUrls.has(key)) continue;
+    if (seen.has(key) || fetchedUrls.has(key)) return false;
     seen.add(key);
+    return true;
+  });
 
-    fetchBudget--;
+  const hubResults = await Promise.all(
+    hubUrls.slice(0, Math.max(0, Math.min(hubUrls.length, fetchBudget))).map(
+      async (hubUrl) => {
+        fetchBudget--;
+        try {
+          return await fetchPage(hubUrl);
+        } catch {
+          // A missing ancestor is completely normal — plenty of sites have no
+          // page at an intermediate path. Not worth reporting as a crawl error.
+          return null;
+        }
+      },
+    ),
+  );
 
-    let hub: FetchedPage;
-    try {
-      hub = await fetchPage(hubUrl);
-    } catch (error) {
-      // A missing ancestor is completely normal — plenty of sites have no page
-      // at an intermediate path. Not worth reporting as a crawl error.
-      void error;
-      continue;
-    }
+  for (const hub of hubResults) {
+    if (!hub || pages.length >= maxPages) continue;
 
     const landed = canonicaliseUrl(new URL(hub.url));
     if (fetchedUrls.has(landed)) continue;
@@ -369,43 +418,86 @@ export async function crawlProgramme(
     enqueueLinksFrom(page);
   }
 
-  while (queue.length > 0 && pages.length < maxPages && fetchBudget > 0) {
-    const index = pickNext(queue, topicCounts, quotas);
-    if (index === -1) break;
-    const next = queue.splice(index, 1)[0]!;
+  /**
+   * The topic loop, several requests deep.
+   *
+   * Each pass fills the free lanes from the queue — respecting quotas, which
+   * count in-flight claims as spent — and then waits for whichever request
+   * finishes first. A landed page enqueues its own links before the next
+   * dispatch, so the ranking still improves as the crawl goes; it simply is not
+   * allowed to hold up requests that were already worth making.
+   */
+  const running = new Set<Promise<unknown>>();
 
+  const dispatch = (next: Candidate) => {
     fetchBudget--;
+    inFlight++;
+    claimed[next.topic]++;
 
-    let fetched: FetchedPage;
-    try {
-      fetched = await fetchPage(next.url);
-    } catch (error) {
-      errors.push({
-        url: next.url,
-        message: error instanceof Error ? error.message : String(error),
-      });
-      continue;
+    const task = (async () => {
+      let fetched: FetchedPage;
+      try {
+        fetched = await fetchPage(next.url);
+      } catch (error) {
+        errors.push({
+          url: next.url,
+          message: error instanceof Error ? error.message : String(error),
+          ...(error instanceof HttpError ? { status: error.status } : {}),
+        });
+        // A failed fetch fills no quota — release the reservation for a page
+        // that might actually answer.
+        return;
+      } finally {
+        inFlight--;
+        claimed[next.topic]--;
+      }
+
+      // Dedupe again on what came BACK, not just on what we asked for. Two
+      // links can differ before the request and be the same page after it — a
+      // redirect, or a query parameter the server ignores — and a page counted
+      // twice spends a topic's reservation on a document we already have.
+      const landed = canonicaliseUrl(new URL(fetched.url));
+      if (fetchedUrls.has(landed)) return;
+      fetchedUrls.add(landed);
+      seen.add(landed);
+
+      // Concurrency means a lane can land after the budget is full. Keeping it
+      // would overshoot maxPages, which is the passage budget's ceiling too.
+      if (pages.length >= maxPages) return;
+
+      const page: CrawledPage = {
+        ...fetched,
+        topic: next.topic,
+        linkScore: next.score,
+        depth: next.depth,
+      };
+      pages.push(page);
+      topicCounts[next.topic]++;
+
+      enqueueLinksFrom(page);
+    })();
+
+    running.add(task);
+    void task.then(() => running.delete(task));
+  };
+
+  for (;;) {
+    while (running.size < lanes && queue.length > 0 && canDispatch()) {
+      const used = {
+        dates: topicCounts.dates + claimed.dates,
+        eligibility: topicCounts.eligibility + claimed.eligibility,
+        benefits: topicCounts.benefits + claimed.benefits,
+        documents: topicCounts.documents + claimed.documents,
+        process: topicCounts.process + claimed.process,
+      };
+
+      const index = pickNext(queue, used, quotas);
+      if (index === -1) break;
+      dispatch(queue.splice(index, 1)[0]!);
     }
 
-    // Dedupe again on what came BACK, not just on what we asked for. Two links
-    // can differ before the request and be the same page after it — a redirect,
-    // or a query parameter the server ignores — and a page counted twice spends
-    // a topic's reservation on a document we already have.
-    const landed = canonicaliseUrl(new URL(fetched.url));
-    if (fetchedUrls.has(landed)) continue;
-    fetchedUrls.add(landed);
-    seen.add(landed);
-
-    const page: CrawledPage = {
-      ...fetched,
-      topic: next.topic,
-      linkScore: next.score,
-      depth: next.depth,
-    };
-    pages.push(page);
-    topicCounts[next.topic]++;
-
-    enqueueLinksFrom(page);
+    if (running.size === 0) break;
+    await Promise.race(running);
   }
 
   return {

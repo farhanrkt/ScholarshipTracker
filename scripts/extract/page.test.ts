@@ -26,6 +26,12 @@ const PAGE_HTML = `<html><body><p>${"Scholarship funding details. ".repeat(20)}<
 
 /** The Accept header of the last non-robots request, for the 406 regression. */
 let lastAccept = "";
+/** Every User-agent a page request carried, in order, for the refusal tests. */
+let userAgents: string[] = [];
+/** When set, the stub answers 403 to anything that does not look like a browser. */
+let refuseNonBrowser = false;
+/** When set, every page request answers with this status. */
+let statusOverride: number | null = null;
 
 before(async () => {
   // Stub the network before the module is loaded, so its robots fetches hit us.
@@ -38,11 +44,18 @@ before(async () => {
       return new Response(robotsBody, { status: 200 });
     }
 
-    lastAccept = String(
-      (init?.headers as Record<string, string> | undefined)?.accept ?? "",
-    );
+    const headers = (init?.headers ?? {}) as Record<string, string>;
+    lastAccept = String(headers.accept ?? "");
+    const userAgent = String(headers["user-agent"] ?? "");
+    userAgents.push(userAgent);
 
     pageFetches++;
+    if (statusOverride !== null) {
+      return new Response("no", { status: statusOverride });
+    }
+    if (refuseNonBrowser && !userAgent.startsWith("Mozilla/")) {
+      return new Response("forbidden", { status: 403 });
+    }
     if (timeoutPages) {
       const error = new Error("The operation was aborted due to timeout");
       error.name = "TimeoutError";
@@ -321,5 +334,207 @@ describe("retry ceilings", () => {
     timeoutPages = false;
 
     assert.equal(pageFetches, 2, `made ${pageFetches} attempts on a dead page`);
+  });
+});
+
+describe("being turned away", () => {
+  /**
+   * A large share of the 4xx failures in a run are a WAF scoring the REQUEST,
+   * not the URL: no Accept-Language, a bare bot token, no Sec-Fetch headers.
+   * The page is public and robots.txt allows it — a person opening the same
+   * address gets it instantly. One retry with browser-shaped headers is what
+   * turns those pages back into data, and it is one retry: a host that refuses
+   * both identities is left alone.
+   */
+  test("a 403 is retried once with browser-shaped headers", async () => {
+    pageModule.clearPageCache();
+    const url = `${freshOrigin("")}/scholarships`;
+    pageFetches = 0;
+    userAgents = [];
+    refuseNonBrowser = true;
+
+    const page = await pageModule.fetchPage(url);
+    refuseNonBrowser = false;
+
+    assert.ok(page.text.includes("Scholarship funding details"));
+    assert.equal(pageFetches, 2, `made ${pageFetches} requests`);
+    assert.ok(
+      !userAgents[0]?.startsWith("Mozilla/"),
+      "the first request should announce us honestly",
+    );
+    assert.ok(
+      userAgents[1]?.startsWith("Mozilla/"),
+      "the retry should be browser-shaped",
+    );
+    assert.match(
+      userAgents[1] ?? "",
+      /ScholarTrackBot/,
+      "the retry must still identify us and carry the contact URL",
+    );
+  });
+
+  test("a host that refuses twice is not asked a third time", async () => {
+    pageModule.clearPageCache();
+    const origin = freshOrigin("");
+    pageFetches = 0;
+    statusOverride = 403;
+
+    await assert.rejects(() => pageModule.fetchPage(`${origin}/a`));
+    statusOverride = null;
+
+    assert.equal(pageFetches, 2, `made ${pageFetches} requests on a firm refusal`);
+  });
+
+  test("every request states a language preference", async () => {
+    // Multilingual sites 406 or redirect-loop a request that expresses none.
+    pageModule.clearPageCache();
+    let seen = "";
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      if (!String(input).endsWith("/robots.txt")) {
+        seen = String(headers["accept-language"] ?? "");
+      }
+      return original(input, init);
+    }) as typeof fetch;
+
+    await pageModule.fetchPage(`${freshOrigin("")}/x`);
+    globalThis.fetch = original;
+
+    assert.match(seen, /en/);
+  });
+});
+
+describe("per-host politeness", () => {
+  /**
+   * The scheduler is the one place where "fast" and "well-behaved" are traded
+   * off, so both halves of the trade are pinned here.
+   *
+   * The rate a site experiences is unchanged — one request per gap — but the
+   * gap is now measured between request STARTS, so it overlaps the latency
+   * instead of following it. Serially, twenty pages of a two-second site cost
+   * twenty times two-and-a-bit seconds, and the crawl above it queued behind
+   * itself no matter how many lanes it opened.
+   */
+  test("requests to one host overlap, up to the connection limit", async () => {
+    pageModule.clearPageCache();
+    const origin = freshOrigin("");
+
+    let open = 0;
+    let peak = 0;
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (
+      input: Parameters<typeof fetch>[0],
+      init?: Parameters<typeof fetch>[1],
+    ) => {
+      if (String(input).endsWith("/robots.txt")) return original(input, init);
+      open++;
+      peak = Math.max(peak, open);
+      // Deliberately longer than the gap between starts: overlap is what a slow
+      // site produces, and a slow site is the case this exists for. Under the
+      // old scheduler these three requests could never be open at once, however
+      // long each took.
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      open--;
+      return original(input, init);
+    }) as typeof fetch;
+
+    await Promise.all([
+      pageModule.fetchPage(`${origin}/a`),
+      pageModule.fetchPage(`${origin}/b`),
+      pageModule.fetchPage(`${origin}/c`),
+    ]);
+    globalThis.fetch = original;
+
+    assert.ok(peak > 1, "requests to one host never overlapped at all");
+    assert.ok(peak <= 2, `${peak} connections open to one host at once`);
+  });
+
+  test("a published Crawl-delay drops the host to one connection", async () => {
+    // An explicit request for spacing outranks our throughput. A site that says
+    // how it wants to be crawled gets exactly that, serially.
+    pageModule.clearPageCache();
+    const origin = freshOrigin("User-agent: *\nCrawl-delay: 1");
+
+    let open = 0;
+    let peak = 0;
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (
+      input: Parameters<typeof fetch>[0],
+      init?: Parameters<typeof fetch>[1],
+    ) => {
+      if (String(input).endsWith("/robots.txt")) return original(input, init);
+      open++;
+      peak = Math.max(peak, open);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      open--;
+      return original(input, init);
+    }) as typeof fetch;
+
+    await Promise.all([
+      pageModule.fetchPage(`${origin}/a`),
+      pageModule.fetchPage(`${origin}/b`),
+    ]);
+    globalThis.fetch = original;
+
+    assert.equal(peak, 1, "a site asking for a Crawl-delay got parallel hits");
+  });
+
+  test("different hosts do not wait for each other", async () => {
+    pageModule.clearPageCache();
+    const first = freshOrigin("");
+    const second = freshOrigin("");
+
+    const started = Date.now();
+    await Promise.all([
+      pageModule.fetchPage(`${first}/a`),
+      pageModule.fetchPage(`${second}/a`),
+    ]);
+
+    // Two hosts must not serialise: the gap belongs to a host, not to the run.
+    assert.ok(
+      Date.now() - started < 700,
+      `two hosts took ${Date.now() - started}ms, so they queued behind each other`,
+    );
+  });
+});
+
+describe("what a failed status means", () => {
+  /**
+   * The two failure families want opposite responses: a 404 says the URL we
+   * hold is WRONG, which repair can act on, and a 403 says the URL is probably
+   * fine and we were refused, which repair must not act on — guessing new
+   * addresses at a host that is already turning us away is just more refusals.
+   * Telling them apart needs the status, so the error has to carry it.
+   */
+  test("a 404 arrives as a dead link", async () => {
+    pageModule.clearPageCache();
+    const url = `${freshOrigin("")}/moved`;
+    statusOverride = 404;
+
+    const error = await pageModule
+      .fetchPage(url)
+      .then(() => null)
+      .catch((cause: unknown) => cause);
+    statusOverride = null;
+
+    assert.ok(error instanceof pageModule.HttpError);
+    assert.equal(error.status, 404);
+    assert.equal(error.isDeadLink, true);
+  });
+
+  test("a 403 is not a dead link", async () => {
+    pageModule.clearPageCache();
+    const url = `${freshOrigin("")}/blocked`;
+    statusOverride = 403;
+
+    const error = await pageModule
+      .fetchPage(url)
+      .then(() => null)
+      .catch((cause: unknown) => cause);
+    statusOverride = null;
+
+    assert.ok(error instanceof pageModule.HttpError);
+    assert.equal(error.isDeadLink, false);
   });
 });
