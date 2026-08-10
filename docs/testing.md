@@ -18,6 +18,9 @@ silent and expensive.
 | Area | Why it earns tests |
 | --- | --- |
 | `scripts/extract/ground.ts` | The control the whole product rests on. A wrong answer here puts a fabricated deadline or an invented stipend in front of a student as fact. |
+| `scripts/extract/quote.ts` | Decides whether a quote counts as found. Too strict and correct values are thrown away; too loose and it stops being a control at all. Both directions are tested. |
+| `scripts/extract/gaps.ts` | Decides which fields get a second look and whether the merge can ever lose information. A gap list that misreads `0` or `false` as "not found" asks the same question forever. |
+| `scripts/extract/extract.ts` | The response repairs for providers that cannot enforce a schema. They must only ever discard information or fill in "not answered" — one that invented a default would put an unsupported claim in front of a student. The empty-`{}` case also pins the skeleton to the schema. |
 | `scripts/extract/page.ts` | `robots.txt` decides whether we may fetch at all — a bug is either an etiquette problem or the silent loss of an entire origin. URL canonicalisation decides whether pagination exists. |
 | `scripts/extract/relevance.ts` | Decides what gets crawled. A page that scores zero is never seen, and the row it would have filled stays empty for reasons nothing logs. |
 | `scripts/discover/candidates.ts` | Decides what becomes a row, and what counts as a duplicate. |
@@ -43,6 +46,9 @@ actually happened:
 - Two `/host-institutions/` pages staging the same Fulbright programme twice.
 - `Disallow: /` plus `Allow: /scholarships/` blocking an origin that was
   explicitly inviting us in.
+- A quote stitched across a bullet being rejected as a fabrication, and — the
+  other side of the same change — a stipend figure that appears in the quote and
+  on no page being rejected anyway.
 
 When you fix a bug in these files, add the case that would have caught it. The
 comment above each test says what breaks in the real world if it fails, because

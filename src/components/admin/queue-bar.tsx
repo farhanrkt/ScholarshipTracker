@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BadgeCheck, Compass, ScanSearch, Terminal } from "lucide-react";
+import { BadgeCheck, Compass, Copy, ScanSearch, Terminal } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -41,6 +41,12 @@ const STEPS = [
     icon: BadgeCheck,
     description: "rows waiting on a human",
   },
+  {
+    href: "/admin/duplicates",
+    label: "Duplicates",
+    icon: Copy,
+    description: "rows that may be the same programme twice",
+  },
 ] as const;
 
 export async function AdminQueueBar({ current }: { current: string }) {
@@ -66,6 +72,10 @@ export async function AdminQueueBar({ current }: { current: string }) {
     "/admin/candidates": candidates.count ?? 0,
     "/admin/review": extractions.count ?? 0,
     "/admin/verify": toVerify.count ?? 0,
+    // No badge: counting duplicates means reading every row and comparing them
+    // pairwise, and this bar renders on all five admin pages. The number is not
+    // worth that on every navigation — the page itself computes it.
+    "/admin/duplicates": null,
   };
 
   return (

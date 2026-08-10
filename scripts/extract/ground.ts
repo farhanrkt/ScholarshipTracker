@@ -1,4 +1,5 @@
 import { normalise, type FetchedPage } from "./page.ts";
+import { findQuote, type QuoteMatch, type QuotePage } from "./quote.ts";
 import {
   GROUNDED_FIELDS,
   type CycleExtraction,
@@ -35,6 +36,13 @@ export interface FieldEvidence {
   confidence: "high" | "medium" | "low";
   /** The page whose text contains this quote. */
   source_url: string | null;
+  /**
+   * How the quote was found. `loose` means the page says this in words the
+   * quote does not reproduce character for character — a stitched bullet, a
+   * dropped article — and the value was checked against the page's wording
+   * rather than the model's. Null when no page backed it at all.
+   */
+  match: "exact" | "loose" | null;
 }
 
 export interface GroundedExtraction {
@@ -130,24 +138,61 @@ function datePrecision(iso: string, quote: string): {
  */
 const CONDITIONAL = /\b(either|depend(s|ent|ing)? on|whichever|varies|see the course|course directory|check with|differs by)\b/i;
 
-interface NormalisedPage {
-  url: string;
-  text: string;
+/**
+ * A scholarship cycle repeats every year. That single fact is a check.
+ *
+ * The Richard Rockefeller Fellowship row carried `deadline_date 2019-12-09`,
+ * grounded, quoted, and stamped as verified in 2026 — read off a page the
+ * funder had left up and never taken down. Grounding cannot catch this and
+ * never could: the quote is real, the date is real, the page is real. It is
+ * simply SEVEN YEARS OLD, and it reached a student as the date to plan around.
+ *
+ * So a date more than a cycle before the crawl is not this cycle's date. There
+ * is no reading of an annual programme under which it could be, which is what
+ * makes the rule safe to apply mechanically rather than by judgement.
+ *
+ * The window is deliberately a full year and not a month: a legitimately
+ * just-passed deadline is normal — programmes publish next year's dates months
+ * after the last round shuts — and dropping those would empty rows that are
+ * merely between cycles. Those get a caveat instead, so a reviewer looks.
+ */
+const CYCLE_DAYS = 365;
+
+/** Days from `iso` back to `reference`. Positive when `iso` is in the past. */
+function daysBefore(iso: string, reference: string): number {
+  const then = Date.parse(`${iso}T00:00:00Z`);
+  const now = Date.parse(reference);
+  if (!Number.isFinite(then) || !Number.isFinite(now)) return 0;
+  return Math.floor((now - then) / 86_400_000);
+}
+
+/** Roughly how old, in words a reviewer can act on. */
+function describeAge(days: number): string {
+  const years = Math.floor(days / 365);
+  return years >= 1
+    ? `${years} year${years === 1 ? "" : "s"} before this page was fetched`
+    : `${days} days before this page was fetched`;
 }
 
 /**
- * Returns the URL of the first page containing the quote, or null.
+ * The page text backing a claim, or null when no page backs it.
  *
- * Very short quotes ("2026") match by accident on almost any page, so they do
- * not count as evidence at all.
+ * See quote.ts for what "backing" means and why it is not a bare substring
+ * search. What matters here is that `match.text` is PAGE TEXT — so every check
+ * below examines what the site published, not what the model typed.
  */
-function locateQuote(pages: NormalisedPage[], quote: string | null): string | null {
-  if (!quote) return null;
+function locate(pages: QuotePage[], quote: string | null): QuoteMatch | null {
+  return findQuote(pages, quote);
+}
 
-  const needle = normalise(quote);
-  if (needle.length < 8) return null;
+/** How a match is recorded on the evidence, including "not found". */
+function matchKind(match: QuoteMatch | null): "exact" | "loose" | null {
+  return match ? (match.exact ? "exact" : "loose") : null;
+}
 
-  return pages.find((page) => page.text.includes(needle))?.url ?? null;
+/** The text a support check must run against — empty when nothing matched. */
+function backing(match: QuoteMatch | null): string {
+  return match?.text ?? "";
 }
 
 export function groundExtraction(
@@ -156,10 +201,20 @@ export function groundExtraction(
   entryUrl: string,
 ): GroundedExtraction {
   // Normalise once: this runs against every quote and every timeline stage.
-  const corpus: NormalisedPage[] = pages.map((page) => ({
+  const corpus: QuotePage[] = pages.map((page) => ({
     url: page.url,
     text: normalise(page.text),
   }));
+
+  /**
+   * When we read these pages — the reference every date is judged against.
+   *
+   * The crawl time rather than "now", so re-grounding a stored extraction a
+   * year later reaches the same verdict it did on the day. The newest page
+   * wins: a crawl is one sitting, and the entry page is not always first.
+   */
+  const fetchedAt =
+    pages.map((page) => page.fetchedAt).sort().at(-1) ?? new Date().toISOString();
 
   const evidence: Record<string, FieldEvidence> = {};
   const ungroundedFields: string[] = [];
@@ -196,13 +251,15 @@ export function groundExtraction(
 
   for (const field of GROUNDED_FIELDS) {
     const claim = extraction[field];
-    const sourceUrl = locateQuote(corpus, claim.evidence_quote);
+    const match = locate(corpus, claim.evidence_quote);
+    const sourceUrl = match?.url ?? null;
 
     evidence[field] = {
       quote: claim.evidence_quote,
       grounded: sourceUrl !== null,
       confidence: claim.confidence,
       source_url: sourceUrl,
+      match: matchKind(match),
     };
 
     if (claim.value === null) continue;
@@ -220,9 +277,9 @@ export function groundExtraction(
       continue;
     }
 
-    // The quote is real — but does it actually say this date?
+    // The quote is real — but does the page text behind it say this date?
     if (field !== "cycle_label") {
-      const precision = datePrecision(claim.value, claim.evidence_quote ?? "");
+      const precision = datePrecision(claim.value, backing(match));
       if (!precision.ok) {
         ungroundedFields.push(
           `${field} (claimed "${claim.value}", but the quote does not state the ${precision.missing.join(" or ")} — "${claim.evidence_quote}")`,
@@ -240,9 +297,23 @@ export function groundExtraction(
         }
         continue;
       }
-      if (CONDITIONAL.test(claim.evidence_quote ?? "")) {
+      if (CONDITIONAL.test(backing(match))) {
         caveats.push(
           `${field} is conditional on the page — it may not be a single date: "${claim.evidence_quote}"`,
+        );
+      }
+
+      // The quote is real and the date is real. Is it THIS cycle's?
+      const age = daysBefore(claim.value, fetchedAt);
+      if (age > CYCLE_DAYS) {
+        ungroundedFields.push(
+          `${field} (claimed "${claim.value}", ${describeAge(age)} — an archived cycle, not this one)`,
+        );
+        continue;
+      }
+      if (age > 0 && field === "deadline_date") {
+        caveats.push(
+          `deadline_date has already passed (${claim.value}) — this may be the previous cycle, or the next one may not be published yet`,
         );
       }
     }
@@ -256,7 +327,8 @@ export function groundExtraction(
   let firstStageSource: string | undefined;
 
   const timeline = extraction.timeline.map((stage, index) => {
-    const sourceUrl = locateQuote(corpus, stage.evidence_quote);
+    const match = locate(corpus, stage.evidence_quote);
+    const sourceUrl = match?.url ?? null;
     const validDate = stage.date !== null && ISO_DATE.test(stage.date);
 
     evidence[`timeline.${stage.key}`] = {
@@ -264,6 +336,7 @@ export function groundExtraction(
       grounded: sourceUrl !== null,
       confidence: "high",
       source_url: sourceUrl,
+      match: matchKind(match),
     };
 
     if (stage.date !== null && !(sourceUrl && validDate)) {
@@ -276,7 +349,7 @@ export function groundExtraction(
     // Same precision rule as the top-level dates: an undated stage is fine, an
     // invented day is not.
     if (stage.date !== null) {
-      const precision = datePrecision(stage.date, stage.evidence_quote ?? "");
+      const precision = datePrecision(stage.date, backing(match));
       if (!precision.ok) {
         ungroundedFields.push(
           `timeline[${index}].${stage.key} (claimed "${stage.date}", quote lacks the ${precision.missing.join(" or ")})`,
@@ -295,10 +368,20 @@ export function groundExtraction(
             : stage.note,
         };
       }
-      if (CONDITIONAL.test(stage.evidence_quote ?? "")) {
+      if (CONDITIONAL.test(backing(match))) {
         caveats.push(
           `timeline "${stage.label}" is conditional: "${stage.evidence_quote}"`,
         );
+      }
+
+      // A stage from an archived cycle loses its date and keeps its name —
+      // "there is an interview round" survives being unable to say when.
+      const age = daysBefore(stage.date, fetchedAt);
+      if (age > CYCLE_DAYS) {
+        ungroundedFields.push(
+          `timeline[${index}].${stage.key} (claimed "${stage.date}", ${describeAge(age)} — an archived cycle)`,
+        );
+        return { key: stage.key, label: stage.label, date: null, note: stage.note };
       }
     }
 
@@ -376,6 +459,23 @@ export function isEmpty(grounded: GroundedExtraction): boolean {
  */
 
 export interface GroundedProfile {
+  /**
+   * Eligibility questions the model answered with "the pages do not say".
+   *
+   * NOT the same as a question it got wrong, and not the same as one nobody
+   * asked — and that three-way distinction is what a filter needs. "No work
+   * experience required" was matching every row nobody had read, because a
+   * missing key and a read-and-silent page were the same absence in the JSONB.
+   *
+   * Recorded ONLY when the model returned null for the field. A claim that was
+   * discarded by grounding does not go here: we asked, something came back, and
+   * it was not usable — which leaves the question genuinely unanswered.
+   *
+   * These become explicit nulls on the row, and `apply_extraction` merges them
+   * so they can only ever FILL an absent key, never overwrite a value an
+   * earlier reading established. See migration 013.
+   */
+  eligibilitySilent: string[];
   proposed: {
     coverage_matrix: Partial<Record<CoverageKey, CoverageItem>>;
     eligibility_flags: Partial<EligibilityFlags>;
@@ -498,7 +598,7 @@ export function groundProfile(
   profile: ProfileExtraction,
   pages: FetchedPage[],
 ): GroundedProfile {
-  const corpus: NormalisedPage[] = pages.map((page) => ({
+  const corpus: QuotePage[] = pages.map((page) => ({
     url: page.url,
     text: normalise(page.text),
   }));
@@ -510,13 +610,14 @@ export function groundProfile(
   const record = (
     field: string,
     quote: string | null,
-    sourceUrl: string | null,
+    match: QuoteMatch | null,
   ) => {
     evidence[field] = {
       quote,
-      grounded: sourceUrl !== null,
+      grounded: match !== null,
       confidence: "high",
-      source_url: sourceUrl,
+      source_url: match?.url ?? null,
+      match: matchKind(match),
     };
   };
 
@@ -526,8 +627,9 @@ export function groundProfile(
 
   for (const claim of Array.isArray(profile.coverage) ? profile.coverage : []) {
     const field = `coverage.${claim.key}`;
-    const sourceUrl = locateQuote(corpus, claim.evidence_quote);
-    record(field, claim.evidence_quote, sourceUrl);
+    const match = locate(corpus, claim.evidence_quote);
+    const sourceUrl = match?.url ?? null;
+    record(field, claim.evidence_quote, match);
 
     if (!sourceUrl) {
       ungroundedFields.push(
@@ -540,7 +642,7 @@ export function groundProfile(
     // real "covers a monthly stipend" quote does not license an invented
     // amount next to it.
     let detail = claim.detail;
-    if (detail && !detailSupported(detail, claim.evidence_quote ?? "")) {
+    if (detail && !detailSupported(detail, backing(match))) {
       ungroundedFields.push(
         `${field} detail (claimed "${detail}", but the quote does not contain that figure — "${claim.evidence_quote}")`,
       );
@@ -553,6 +655,8 @@ export function groundProfile(
   /* --------------------------------------------------------- eligibility */
 
   const flags: Partial<EligibilityFlags> = {};
+  /** Questions the model answered with an explicit "the pages do not say". */
+  const eligibilitySilent: string[] = [];
   const eligibility = profile.eligibility;
 
   const numeric: Array<[keyof EligibilityFlags, { value: number | null; evidence_quote: string | null }]> = [
@@ -565,10 +669,17 @@ export function groundProfile(
 
   for (const [key, claim] of numeric) {
     const field = `eligibility.${key}`;
-    const sourceUrl = locateQuote(corpus, claim.evidence_quote);
-    record(field, claim.evidence_quote, sourceUrl);
+    const match = locate(corpus, claim.evidence_quote);
+    const sourceUrl = match?.url ?? null;
+    record(field, claim.evidence_quote, match);
 
-    if (typeof claim.value !== "number") continue;
+    // Null is an answer — "the pages state no minimum" — and it is the answer
+    // the row had no way to record. Anything else non-numeric is malformed and
+    // tells us nothing.
+    if (typeof claim.value !== "number") {
+      if (claim.value === null) eligibilitySilent.push(key);
+      continue;
+    }
     if (!sourceUrl) {
       ungroundedFields.push(
         `${field} (claimed ${claim.value}, quote not found on any fetched page)`,
@@ -577,7 +688,7 @@ export function groundProfile(
     }
     // Zero is the one numeric claim a page states in words — "no work
     // experience is required" — so it cannot be held to the digit check.
-    if (claim.value !== 0 && !numberSupported(claim.value, claim.evidence_quote ?? "")) {
+    if (claim.value !== 0 && !numberSupported(claim.value, backing(match))) {
       ungroundedFields.push(
         `${field} (claimed ${claim.value}, but the quote does not state that number — "${claim.evidence_quote}")`,
       );
@@ -596,10 +707,14 @@ export function groundProfile(
 
   for (const [key, claim] of booleans) {
     const field = `eligibility.${key}`;
-    const sourceUrl = locateQuote(corpus, claim.evidence_quote);
-    record(field, claim.evidence_quote, sourceUrl);
+    const match = locate(corpus, claim.evidence_quote);
+    const sourceUrl = match?.url ?? null;
+    record(field, claim.evidence_quote, match);
 
-    if (typeof claim.value !== "boolean") continue;
+    if (typeof claim.value !== "boolean") {
+      if (claim.value === null) eligibilitySilent.push(key);
+      continue;
+    }
     if (!sourceUrl) {
       ungroundedFields.push(
         `${field} (claimed ${claim.value}, quote not found on any fetched page)`,
@@ -619,11 +734,15 @@ export function groundProfile(
 
   for (const [key, claim] of lists) {
     const field = `eligibility.${key}`;
-    const sourceUrl = locateQuote(corpus, claim.evidence_quote);
-    record(field, claim.evidence_quote, sourceUrl);
+    const match = locate(corpus, claim.evidence_quote);
+    const sourceUrl = match?.url ?? null;
+    record(field, claim.evidence_quote, match);
 
     const values = Array.isArray(claim.values) ? claim.values : [];
-    if (values.length === 0) continue;
+    if (values.length === 0) {
+      eligibilitySilent.push(key);
+      continue;
+    }
     if (!sourceUrl) {
       ungroundedFields.push(
         `${field} (claimed ${values.length} value(s), quote not found on any fetched page)`,
@@ -631,7 +750,7 @@ export function groundProfile(
       continue;
     }
 
-    const quote = normalise(claim.evidence_quote ?? "");
+    const quote = normalise(backing(match));
     const supported = values.filter((value) => nameSupported(value, quote));
     const dropped = values.filter((value) => !supported.includes(value));
 
@@ -659,8 +778,9 @@ export function groundProfile(
     if (!label) continue;
 
     const field = `documents[${index}]`;
-    const sourceUrl = locateQuote(corpus, claim.evidence_quote);
-    record(`${field}.${slugify(label)}`, claim.evidence_quote, sourceUrl);
+    const match = locate(corpus, claim.evidence_quote);
+    const sourceUrl = match?.url ?? null;
+    record(`${field}.${slugify(label)}`, claim.evidence_quote, match);
 
     if (!sourceUrl) {
       ungroundedFields.push(
@@ -686,12 +806,12 @@ export function groundProfile(
   /* ---------------------------------------------------------------- rest */
 
   const obligations = profile.post_study_obligations;
-  const obligationsSource = locateQuote(corpus, obligations.evidence_quote);
-  record("post_study_obligations", obligations.evidence_quote, obligationsSource);
+  const obligationsMatch = locate(corpus, obligations.evidence_quote);
+  record("post_study_obligations", obligations.evidence_quote, obligationsMatch);
 
   let postStudy: string | null = null;
   if (typeof obligations.value === "string" && obligations.value.trim()) {
-    if (obligationsSource) {
+    if (obligationsMatch) {
       postStudy = obligations.value.trim();
     } else {
       ungroundedFields.push(
@@ -701,12 +821,12 @@ export function groundProfile(
   }
 
   const training = profile.language_training_included;
-  const trainingSource = locateQuote(corpus, training.evidence_quote);
-  record("language_training_included", training.evidence_quote, trainingSource);
+  const trainingMatch = locate(corpus, training.evidence_quote);
+  record("language_training_included", training.evidence_quote, trainingMatch);
 
   let languageTraining: boolean | null = null;
   if (typeof training.value === "boolean") {
-    if (trainingSource) {
+    if (trainingMatch) {
       languageTraining = training.value;
     } else {
       ungroundedFields.push(
@@ -728,19 +848,19 @@ export function groundProfile(
     field: string,
     claim: { value: string | null; evidence_quote: string | null },
   ): string | null => {
-    const sourceUrl = locateQuote(corpus, claim.evidence_quote);
-    record(field, claim.evidence_quote, sourceUrl);
+    const match = locate(corpus, claim.evidence_quote);
+    record(field, claim.evidence_quote, match);
 
     const value = typeof claim.value === "string" ? claim.value.trim() : "";
     if (!value) return null;
 
-    if (!sourceUrl) {
+    if (!match) {
       ungroundedFields.push(
         `${field} (claimed "${value}", quote not found on any fetched page)`,
       );
       return null;
     }
-    if (!detailSupported(value, claim.evidence_quote ?? "")) {
+    if (!detailSupported(value, backing(match))) {
       ungroundedFields.push(
         `${field} (claimed "${value}", but the quote does not contain that figure — "${claim.evidence_quote}")`,
       );
@@ -753,18 +873,18 @@ export function groundProfile(
   const numberOfAwards = scopeText("number_of_awards", profile.number_of_awards);
 
   const fieldsClaim = profile.fields_of_study;
-  const fieldsSource = locateQuote(corpus, fieldsClaim.evidence_quote);
-  record("fields_of_study", fieldsClaim.evidence_quote, fieldsSource);
+  const fieldsMatch = locate(corpus, fieldsClaim.evidence_quote);
+  record("fields_of_study", fieldsClaim.evidence_quote, fieldsMatch);
 
   let fieldsOfStudy: string[] = [];
   const claimedFields = Array.isArray(fieldsClaim.values) ? fieldsClaim.values : [];
   if (claimedFields.length > 0) {
-    if (!fieldsSource) {
+    if (!fieldsMatch) {
       ungroundedFields.push(
         `fields_of_study (claimed ${claimedFields.length} value(s), quote not found on any fetched page)`,
       );
     } else {
-      const quote = normalise(fieldsClaim.evidence_quote ?? "");
+      const quote = normalise(backing(fieldsMatch));
       fieldsOfStudy = claimedFields.filter((value) => nameSupported(value, quote));
       const dropped = claimedFields.filter((value) => !fieldsOfStudy.includes(value));
       if (dropped.length > 0) {
@@ -784,6 +904,9 @@ export function groundProfile(
   }
 
   return {
+    // A question that ended up answered needs no marker — the value is the
+    // answer, and a marker beside it would only be a chance to disagree.
+    eligibilitySilent: eligibilitySilent.filter((key) => !(key in flags)),
     proposed: {
       coverage_matrix: coverage,
       eligibility_flags: flags,

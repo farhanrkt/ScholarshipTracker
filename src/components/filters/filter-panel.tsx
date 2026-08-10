@@ -25,6 +25,7 @@ import {
   type SortOption,
   type ToggleDefinition,
 } from "@/lib/filters";
+import { displayCountry } from "@/lib/format";
 import { DEGREE_LEVELS } from "@/lib/types/database";
 import { cn } from "@/lib/utils";
 
@@ -177,7 +178,7 @@ export function FilterPanel({ countries, resultCount }: FilterPanelProps) {
                     : "hover:bg-muted",
                 )}
               >
-                {country}
+                {displayCountry(country)}
               </button>
             );
           })}

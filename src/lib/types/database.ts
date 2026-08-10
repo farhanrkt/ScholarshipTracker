@@ -9,6 +9,22 @@
 /* Enumerated domains                                                         */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The countries the catalogue covers — plus one value that is not a country.
+ *
+ * `Multiple` exists because programmes like the Rotary Peace Fellowship place
+ * their recipients at partner universities in several countries at once, and
+ * the column holds exactly one value. That row was stored as `"Unknown"`, which
+ * is a string this union says is impossible: it rendered as a filter chip
+ * (the sidebar builds its facets from the DISTINCT stored values) and selecting
+ * it did nothing, because `parseFilters` drops anything not listed here. A
+ * control that looks active and filters nothing is worse than no control.
+ *
+ * NOT A FIX FOR THE MODEL, and worth being honest about: a student filtering
+ * for Japan will not find a programme with a Japanese placement filed under
+ * `Multiple`. Doing that properly means `country` becomes an array, which
+ * reaches the schema, the filters, discovery and every card.
+ */
 export const COUNTRIES = [
   "USA",
   "UK",
@@ -16,8 +32,14 @@ export const COUNTRIES = [
   "Japan",
   "South Korea",
   "Singapore",
+  "Multiple",
 ] as const;
 export type Country = (typeof COUNTRIES)[number];
+
+/** Shown instead of the raw value, which reads as a missing country. */
+export const COUNTRY_LABELS: Partial<Record<Country, string>> = {
+  Multiple: "Several countries",
+};
 
 export const DEGREE_LEVELS = ["Bachelors", "Masters", "PhD"] as const;
 export type DegreeLevel = (typeof DEGREE_LEVELS)[number];
@@ -74,12 +96,25 @@ export type CoverageMatrix = Partial<Record<CoverageKey, CoverageItem>>;
 /* JSONB: eligibility_flags                                                   */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * THREE STATES PER KEY, NOT TWO. Read this before writing a query against it.
+ *
+ *   key absent      nobody asked this question of this programme
+ *   key present, null   the pages were read and state nothing
+ *   key present, value  the pages state this
+ *
+ * The middle state is the one that makes the column useful and the one that is
+ * easy to lose: `->>` in PostgREST collapses it into the first, `->` keeps them
+ * apart. Two filters were written against `->>` and quietly answered "nobody
+ * knows" as "nothing required" — see the note on `noWorkExperience` in
+ * src/lib/data/scholarships.ts.
+ */
 export interface EligibilityFlags {
-  /** null = no age cap. */
+  /** Maximum age in years. null = the pages state no cap; absent = unread. */
   max_age: number | null;
   /** Normalised to a 4.0 scale. null = not published. */
   min_gpa_4_scale: number | null;
-  /** null = no work experience required -- this is the flag the filter keys off. */
+  /** Years required. 0 = the pages say none; null = they state no minimum. */
   min_work_experience_years: number | null;
   language_test_required: boolean;
   accepted_language_tests: string[];
@@ -283,6 +318,14 @@ export interface FieldEvidence {
   confidence: "high" | "medium" | "low";
   /** The page whose text contained the quote. */
   source_url: string | null;
+  /**
+   * How the quote was found on that page. `loose` means the page states this
+   * in wording the quote does not reproduce character for character — a quote
+   * stitched across a bullet, an article dropped — and the value was checked
+   * against the page's own words rather than the model's. Absent on
+   * extractions staged before quote matching gained the second pass.
+   */
+  match?: "exact" | "loose" | null;
   /** Tier of that page. Absent on extractions predating migration 011. */
   authority?: Authority;
   corroborated_by?: SourceRef[];
@@ -307,6 +350,15 @@ export interface ProposedUpdate {
   coverage_matrix?: CoverageMatrix;
   /** Partial: only the flags the pages actually stated. */
   eligibility_flags?: Partial<EligibilityFlags>;
+  /**
+   * Eligibility questions this reading asked and the pages did not answer.
+   *
+   * A list rather than nulls inside `eligibility_flags`, because
+   * `apply_extraction` must merge them BELOW everything else — a "not stated"
+   * from today must never erase a figure an earlier reading found. See
+   * migration 013.
+   */
+  eligibility_silent?: string[];
   document_checklist?: DocumentChecklist;
   post_study_obligations?: string | null;
   language_training_included?: boolean | null;
@@ -601,6 +653,15 @@ export type Database = {
         }>;
       };
       apply_extraction: { Args: { extraction_id: string }; Returns: Scholarship };
+      /**
+       * Folds a duplicate row into the one being kept, carrying trackers,
+       * sources and extraction history across before deleting it. SECURITY
+       * DEFINER with its own admin check — see migration 014.
+       */
+      merge_scholarships: {
+        Args: { keep_id: string; drop_id: string };
+        Returns: Scholarship;
+      };
       reject_extraction: {
         Args: { extraction_id: string; why?: string | null };
         Returns: undefined;

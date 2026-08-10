@@ -39,7 +39,9 @@ export const TOGGLE_DEFINITIONS: ToggleDefinition[] = [
   {
     key: "noWorkExperience",
     label: "No work experience required",
-    hint: "Open to applicants straight out of university",
+    // Says what the filter can actually prove. It used to promise "open to
+    // applicants straight out of university" about rows nobody had read.
+    hint: "Programmes whose pages state no minimum — unread ones are not included",
     group: "Eligibility",
   },
   {

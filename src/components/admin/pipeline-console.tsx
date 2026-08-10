@@ -98,6 +98,8 @@ interface JobState {
   verify: boolean;
   force: boolean;
   fixUrls: boolean;
+  gapFill: boolean;
+  staleOnly: boolean;
   useSitemap: boolean;
   filter: string;
   count: string;
@@ -111,6 +113,8 @@ const INITIAL: JobState = {
   verify: false,
   force: false,
   fixUrls: true,
+  gapFill: true,
+  staleOnly: false,
   useSitemap: true,
   filter: "",
   count: "",
@@ -280,6 +284,8 @@ export function PipelineConsole({ job }: { job: JobName }) {
           verify: state.verify,
           force: state.force,
           fixUrls: state.fixUrls,
+          gapFill: state.gapFill,
+          staleOnly: state.staleOnly,
           useSitemap: state.useSitemap,
           filter: state.filter,
           count: state.count,
@@ -412,6 +418,18 @@ export function PipelineConsole({ job }: { job: JobName }) {
               onChange={(value) => set("fixUrls", value)}
               label="Repair dead URLs"
               hint="re-point a row when its page has moved"
+            />
+            <Toggle
+              checked={state.gapFill}
+              onChange={(value) => set("gapFill", value)}
+              label="Second look"
+              hint="go back for the fields left empty"
+            />
+            <Toggle
+              checked={state.staleOnly}
+              onChange={(value) => set("staleOnly", value)}
+              label="Stale rows only"
+              hint="passed deadlines and readings over 90 days old"
             />
           </>
         ) : (

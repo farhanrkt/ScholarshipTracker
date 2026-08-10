@@ -354,6 +354,28 @@ export async function crawlProgramme(
       const total = score + affinity;
       if (total < minLinkScore) continue;
 
+      /**
+       * A PDF has to earn its fetch with actual vocabulary, not a year.
+       *
+       * PDFs are now readable (see pdf.ts) and they are where funders put the
+       * rules — but they are also the most expensive thing the crawler can
+       * choose: a megabyte to download and a document to parse, against a page
+       * budget that a guideline and a scanned exam paper cost the same.
+       *
+       * And a filename is mostly numbers. `/ja/_mt/2023/06/2019_ke_ja.pdf` is a
+       * past exam paper, and it cleared the threshold on nothing but "2019" and
+       * "2023" scoring as dates — nine of those were fetched in one MEXT crawl,
+       * every one a scan with no text layer. So a PDF must score on words
+       * somebody chose: deadline language, or any topic other than `dates`.
+       */
+      if (/\.pdf(\?|#|$)/i.test(link.url)) {
+        const earned =
+          hasDeadlineLanguage(readable) ||
+          affinity > 0 ||
+          TOPICS.some((candidate) => candidate !== "dates" && scores[candidate] > 0);
+        if (!earned) continue;
+      }
+
       seen.add(key);
       queue.push({ url: link.url, depth: page.depth + 1, topic, score: total, scores });
     }

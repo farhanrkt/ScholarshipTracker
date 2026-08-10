@@ -41,6 +41,9 @@ dies is reclaimed after its heartbeat goes stale.
 NEXT_PUBLIC_SUPABASE_URL          required
 NEXT_PUBLIC_SUPABASE_ANON_KEY     required
 GEMINI_API_KEY                    only to run the pipeline from the deployed app
+CRON_SECRET                       only for the weekly refresh — see below
+CRON_SUPABASE_EMAIL               only for the weekly refresh — see below
+CRON_SUPABASE_PASSWORD            only for the weekly refresh — see below
 ```
 
 The two `NEXT_PUBLIC_` values are safe in the browser — the anon key is
@@ -67,6 +70,30 @@ grep -rn "SERVICE_ROLE" src/
 ```
 
 The only hits should be comments.
+
+### The weekly refresh, and what it runs as
+
+`vercel.json` calls `/api/cron/refresh` every Monday at 06:00 UTC to re-read the
+rows that have gone out of date. It needs three values, and **none of them is the
+service-role key**:
+
+| Variable | Why |
+| --- | --- |
+| `CRON_SECRET` | Vercel Cron sends it as `Authorization: Bearer …`. Without it the endpoint refuses every request — it spends a model quota and fetches other people's servers, so it fails closed |
+| `CRON_SUPABASE_EMAIL` | A Supabase account you have added to the `admins` table |
+| `CRON_SUPABASE_PASSWORD` | That account's password |
+
+The route signs in with the anon key exactly as a browser would, so RLS checks
+every write it makes and the run is attributable in `pipeline_jobs.created_by`.
+Revoking it is deleting one row from `admins`, not rotating a key that bypasses
+the whole schema. Create the account through the normal sign-in flow, then:
+
+```sql
+insert into admins (email, note) values ('refresh@yourdomain', 'scheduled refresh');
+```
+
+It **stages** proposals like any other run. Nothing reaches a scholarship row
+without a human applying it in `/admin/review`.
 
 ### Optional, for tuning a deployed run
 

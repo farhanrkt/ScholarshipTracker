@@ -1,7 +1,14 @@
 import { crawlProgramme, describeCrawl } from "./crawl.ts";
 import { fetchPage } from "./page.ts";
 import { findLiveEntry } from "./repair.ts";
-import { extractCycle, extractProfile } from "./extract.ts";
+import { extractCycle, extractProfile, extractProfileGaps } from "./extract.ts";
+import {
+  describeGaps,
+  mergeProfiles,
+  profileCompleteness,
+  profileGaps,
+  selectGapPassages,
+} from "./gaps.ts";
 import {
   groundExtraction,
   groundProfile,
@@ -100,6 +107,12 @@ export interface ExtractProgrammeOptions {
   fixUrls?: boolean;
   verify?: boolean;
   maxVerifySources?: number;
+  /**
+   * Go back for the fields the profile call left empty. On by default: it is
+   * one extra call against a crawl already paid for, and it is the difference
+   * between a row with three facts on it and a row a student can use.
+   */
+  gapFill?: boolean;
 
   /** The newest proposal for this row, for the unchanged check. */
   previous?: { source_url: string; page_sha256: string } | null;
@@ -124,6 +137,22 @@ interface Attempt {
   model: string;
 }
 
+/**
+ * How much a cycle reading is worth, for choosing between two of them.
+ *
+ * The closing date dominates everything else because missing it costs a
+ * student the year; an opening date is worth more than any number of dated
+ * stages for the same reason at lower stakes.
+ */
+function cycleScore(grounded: GroundedExtraction): number {
+  const { deadline_date, opens_date, timeline } = grounded.proposed;
+  return (
+    (deadline_date ? 100 : 0) +
+    (opens_date ? 10 : 0) +
+    timeline.filter((stage) => stage.date !== null).length
+  );
+}
+
 export async function extractProgramme(
   options: ExtractProgrammeOptions,
 ): Promise<ProgrammeResult> {
@@ -141,6 +170,7 @@ export async function extractProgramme(
     fixUrls = true,
     verify = false,
     maxVerifySources = 2,
+    gapFill = true,
     previous = null,
     sources = [],
   } = options;
@@ -290,32 +320,63 @@ export async function extractProgramme(
 
     const { pages, errors, topicCounts } = crawled;
 
-    // The prompt budget is the provider's, not a constant: a free-tier rate
-    // limit is a much tighter ceiling than a context window. The two calls
-    // SHARE that budget rather than each taking it in full — a rate limit is per
-    // minute, and both calls happen inside the same minute. Dates are selected
-    // first because a missed deadline is the costlier miss.
-    const cycleBudget = datesOnly
-      ? provider.promptBudgetChars
-      : Math.floor(provider.promptBudgetChars * 0.55);
-
-    const datePassages = selectPassages(pages, cycleBudget, ["dates"]);
-
     /**
-     * What the dates did not spend goes to the profile, rather than expiring.
+     * Passages sized for the provider that will actually receive them.
      *
-     * Date passages are sparse by nature — a closing date lives in one or two
-     * sentences — so reserving 45% for the profile did not mean the profile GOT
-     * 45%. It meant the cycle half used a fraction of its share and the rest was
-     * discarded, while eligibility and coverage passages that would have fitted
-     * were dropped for want of room. The shared ceiling is unchanged.
+     * The budget is a provider's, not a constant: a free-tier rate limit is a
+     * much tighter ceiling than a context window. It is therefore also PER
+     * PROVIDER, and selecting once against the primary's budget quietly broke
+     * escalation — a prompt cut to Gemini's 100k characters is roughly three
+     * times what Groq's 12k-tokens-per-minute tier will accept, so every
+     * escalated call died with "a single request needs ~13,491 tokens but the
+     * limit is 12,000 TPM". The escalation was configured, attempted, billed
+     * for in wall-clock, and could not physically succeed.
+     *
+     * Memoised because it is called once per provider per call site and the
+     * selection walks every block of every page.
      */
-    const dateChars = datePassages.reduce((sum, item) => sum + item.text.length, 0);
-    const profileBudget = Math.max(0, provider.promptBudgetChars - dateChars);
+    const selections = new Map<
+      string,
+      { dates: Passage[]; profile: Passage[] }
+    >();
 
-    const profilePassages = datesOnly
-      ? []
-      : selectPassages(pages, profileBudget, [...PROFILE_TOPICS]);
+    const passagesFor = (candidate: ExtractionProvider) => {
+      const cached = selections.get(candidate.name);
+      if (cached) return cached;
+
+      // The two calls SHARE the budget rather than each taking it in full — a
+      // rate limit is per minute, and both calls happen inside the same minute.
+      // Dates are selected first because a missed deadline is the costlier miss.
+      const cycleBudget = datesOnly
+        ? candidate.promptBudgetChars
+        : Math.floor(candidate.promptBudgetChars * 0.55);
+
+      const dates = selectPassages(pages, cycleBudget, ["dates"]);
+
+      /**
+       * What the dates did not spend goes to the profile, rather than expiring.
+       *
+       * Date passages are sparse by nature — a closing date lives in one or two
+       * sentences — so reserving 45% for the profile did not mean the profile
+       * GOT 45%. It meant the cycle half used a fraction of its share and the
+       * rest was discarded, while eligibility and coverage passages that would
+       * have fitted were dropped for want of room. The shared ceiling is
+       * unchanged.
+       */
+      const dateChars = dates.reduce((sum, item) => sum + item.text.length, 0);
+      const profileBudget = Math.max(0, candidate.promptBudgetChars - dateChars);
+
+      const selection = {
+        dates,
+        profile: datesOnly
+          ? []
+          : selectPassages(pages, profileBudget, [...PROFILE_TOPICS]),
+      };
+      selections.set(candidate.name, selection);
+      return selection;
+    };
+
+    const { dates: datePassages, profile: profilePassages } = passagesFor(provider);
 
     const crawledChars = pages.reduce((sum, page) => sum + page.text.length, 0);
     const keptChars = [...datePassages, ...profilePassages].reduce(
@@ -343,11 +404,19 @@ export async function extractProgramme(
     let wrongSite = false;
 
     for (const [attemptIndex, candidate] of chain.entries()) {
-      if (datePassages.length === 0) break;
+      // Sized for THIS provider — an escalation target with a tighter limit
+      // gets a shorter prompt, not the primary's prompt and a 429.
+      const candidatePassages = passagesFor(candidate).dates;
+      if (candidatePassages.length === 0) break;
 
       let result;
       try {
-        result = await extractCycle(candidate, target.title, target.country, datePassages);
+        result = await extractCycle(
+          candidate,
+          target.title,
+          target.country,
+          candidatePassages,
+        );
       } catch (failure) {
         if (failure instanceof DailyLimitError) throw failure;
         // A provider timeout or an unparseable response is not a reason to lose
@@ -369,16 +438,37 @@ export async function extractProgramme(
       // Ground against the FULL text of every crawled page, not the trimmed
       // passages — a real quote must never be rejected because of budgeting.
       const grounded = groundExtraction(result.extraction, pages, entryUrl);
-      attempt = {
+
+      // Keep the better of the two readings rather than the later one. Once
+      // escalation can be triggered by a missing deadline (below), a second
+      // attempt is no longer guaranteed to be an improvement on nothing — and
+      // a fallback that returns an empty cycle must not erase an opening date
+      // the first provider found.
+      const reading: Attempt = {
         extraction: result.extraction,
         grounded,
         provider: candidate.name,
         model: result.model,
       };
+      if (!attempt || cycleScore(grounded) > cycleScore(attempt.grounded)) {
+        attempt = reading;
+      }
 
-      if (!isEmpty(grounded)) break;
+      /**
+       * Escalate on a missing CLOSING DATE, not only on an empty reading.
+       *
+       * A reading with an opening date and four undated timeline stages is not
+       * empty, so it used to end the chain — while missing the single field
+       * that decides whether a student can still apply. That is the one gap
+       * worth spending the escalation on.
+       */
+      if (!isEmpty(grounded) && grounded.proposed.deadline_date !== null) break;
       if (attemptIndex < chain.length - 1) {
-        say(`    · ${candidate.name} found nothing, escalating`);
+        say(
+          isEmpty(grounded)
+            ? `    · ${candidate.name} found nothing, escalating`
+            : `    · ${candidate.name} found no closing date, escalating`,
+        );
       }
     }
 
@@ -391,8 +481,13 @@ export async function extractProgramme(
     let profile: GroundedProfile | null = null;
     let profileNotes: string | null = null;
 
+    // Whichever provider actually produced a profile. The gap pass follows it:
+    // if the small model could not read these pages the first time, asking it
+    // again about the hard fields is the least promising thing to do.
+    const runner = chain.find((candidate) => candidate.name === attempt?.provider) ?? provider;
+    let profileProvider: ExtractionProvider = runner;
+
     if (profilePassages.length > 0) {
-      const runner = chain.find((candidate) => candidate.name === attempt?.provider) ?? provider;
       /**
        * The profile escalates on an EMPTY result, the way the cycle call does.
        *
@@ -404,27 +499,31 @@ export async function extractProgramme(
       const profileChain: ExtractionProvider[] =
         fallback && fallback.name !== runner.name ? [runner, fallback] : [runner];
 
-      /**
-       * Two goes at the profile, the second on half the context.
-       *
-       * A timeout here is the expensive failure: the cycle call still succeeds,
-       * so the run reports success while the row it staged has a deadline and
-       * nothing about the money, the eligibility, or the documents.
-       *
-       * Halving the passages is the right retry rather than waiting longer,
-       * because prompt size is what makes the response slow. The highest-scoring
-       * passages are kept, so the second attempt reads the densest half of what
-       * the first one saw.
-       */
-      const attempts: Passage[][] = [
-        profilePassages,
-        profilePassages.slice(0, Math.ceil(profilePassages.length / 2)),
-      ];
-
       for (const [providerIndex, reader] of profileChain.entries()) {
+        /**
+         * Two goes at the profile, the second on half the context — and both
+         * cut to THIS reader's budget, not the primary provider's.
+         *
+         * A timeout here is the expensive failure: the cycle call still
+         * succeeds, so the run reports success while the row it staged has a
+         * deadline and nothing about the money, the eligibility, or the
+         * documents.
+         *
+         * Halving the passages is the right retry rather than waiting longer,
+         * because prompt size is what makes the response slow. The
+         * highest-scoring passages are kept, so the second attempt reads the
+         * densest half of what the first one saw.
+         */
+        const readerPassages = passagesFor(reader).profile;
+        const attempts: Passage[][] = [
+          readerPassages,
+          readerPassages.slice(0, Math.ceil(readerPassages.length / 2)),
+        ];
+
         for (const [index, passages] of attempts.entries()) {
           const isRetry = index > 0;
-          if (isRetry && passages.length === profilePassages.length) break;
+          if (passages.length === 0) break;
+          if (isRetry && passages.length === readerPassages.length) break;
 
           try {
             const result = await extractProfile(
@@ -438,7 +537,10 @@ export async function extractProgramme(
             if (result.extraction.page_is_about_requested_programme) {
               const groundedProfile = groundProfile(result.extraction, pages);
               profileNotes = result.extraction.notes_for_reviewer || null;
-              if (!isEmptyProfile(groundedProfile)) profile = groundedProfile;
+              if (!isEmptyProfile(groundedProfile)) {
+                profile = groundedProfile;
+                profileProvider = reader;
+              }
             } else {
               say(`    · profile call read the wrong programme, dropped`);
             }
@@ -465,6 +567,123 @@ export async function extractProgramme(
         if (profile) break;
         if (providerIndex < profileChain.length - 1) {
           say(`    · profile came back empty on ${reader.name}, escalating`);
+        }
+      }
+    }
+
+    /* --------------------------------------- call 3: the fields still empty */
+
+    /**
+     * Go back for what is missing, with the vocabulary of what is missing.
+     *
+     * This is the pass that changes what a staged row looks like. The first
+     * profile call reads pages; this one reads sentences — passages retrieved
+     * for "under the age of", "return airfare", "unconditional offer" rather
+     * than for a page's general subject — so a fact stated once, halfway down a
+     * page that lost the budget contest, is reachable for the first time.
+     *
+     * Cheap by construction: the crawl is already paid for, the prompt is a
+     * handful of retrieved blocks, and the whole thing is skipped when the
+     * profile came back nearly complete or when nothing on the crawl mentions
+     * the missing fields at all.
+     */
+    if (!datesOnly && gapFill) {
+      const gaps = profileGaps(profile?.proposed ?? null);
+
+      // One hole is not worth a model call. A profile that failed outright is
+      // twenty-five holes, and is exactly the case this rescues.
+      if (gaps.length >= 2) {
+        // A fresh share rather than the profile call's leftovers: this prompt is
+        // sentences, not pages, and the two calls are far enough apart in
+        // wall-clock that they are no longer competing for the same minute.
+        const gapPassagesFor = (reader: ExtractionProvider) =>
+          selectGapPassages(pages, gaps, {
+            budgetChars: Math.floor(reader.promptBudgetChars * 0.5),
+            alreadySent: passagesFor(reader).profile,
+          });
+
+        if (gapPassagesFor(profileProvider).length === 0) {
+          say(
+            `    · second look skipped — nothing in the crawl mentions the ${gaps.length} missing field(s)`,
+          );
+        } else {
+          /**
+           * The second look escalates, for the same reason the first two calls
+           * do — and it is where escalation pays best.
+           *
+           * These are the hard fields by construction: everything easy was
+           * taken on the first pass, and what is left is stated once, in prose,
+           * in wording that has to be recognised rather than pattern-matched.
+           * A small model handed twenty relevant passages routinely returns
+           * nothing from them. The stronger reader is being asked one narrow
+           * question against a few thousand characters, which is the cheapest
+           * shape of call there is to escalate.
+           */
+          const gapChain: ExtractionProvider[] =
+            fallback && fallback.name !== profileProvider.name
+              ? [profileProvider, fallback]
+              : [profileProvider];
+
+          for (const [index, reader] of gapChain.entries()) {
+            let filled = 0;
+            const gapPassages = gapPassagesFor(reader);
+            if (gapPassages.length === 0) continue;
+
+            try {
+              const result = await extractProfileGaps(
+                reader,
+                target.title,
+                target.country,
+                gapPassages,
+                describeGaps(gaps),
+              );
+              record(reader.name, result.inputTokens, result.outputTokens);
+
+              if (!result.extraction.page_is_about_requested_programme) {
+                say(`    · second look read the wrong programme on ${reader.name}, dropped`);
+              } else {
+                const before = profileCompleteness(profile?.proposed ?? null).filled;
+                const merged = mergeProfiles(
+                  profile,
+                  groundProfile(result.extraction, pages),
+                );
+                const after = profileCompleteness(merged.proposed).filled;
+                filled = after - before;
+
+                // Merging is fill-only, so `after` can only rise. Adopting the
+                // merge when it did not is still wrong: it would append the gap
+                // call's ungrounded list to the report for no gain, and a
+                // reviewer would read the noise as a worse extraction.
+                if (filled > 0) {
+                  profile = merged;
+                  profileNotes = [profileNotes, result.extraction.notes_for_reviewer]
+                    .filter((note): note is string => Boolean(note && note.trim()))
+                    .join(" · ") || null;
+                  say(
+                    `    → second look filled ${filled} more field(s) of ${gaps.length} asked, from ${gapPassages.length} passage(s)  [${reader.name}]`,
+                  );
+                }
+              }
+            } catch (failure) {
+              if (failure instanceof DailyLimitError) throw failure;
+              // Best-effort to the end: everything already extracted is still
+              // staged, and this row simply keeps the holes it had.
+              say(
+                `    · second look failed on ${reader.name}: ${failure instanceof Error ? failure.message : failure}`,
+              );
+            }
+
+            if (filled > 0) break;
+            if (index < gapChain.length - 1) {
+              say(`    · second look found nothing on ${reader.name}, escalating`);
+            } else {
+              // The counts are the tuning handle. "Nothing found" from two
+              // passages is a retrieval problem; from forty it is the reader.
+              say(
+                `    · second look found nothing the first read had missed (${gaps.length} gap(s), ${gapPassages.length} passage(s))`,
+              );
+            }
+          }
         }
       }
     }
@@ -571,8 +790,12 @@ export async function extractProgramme(
         award_duration,
         number_of_awards,
       } = profile.proposed;
+      // The completeness figure is the point of the whole profile half: a row
+      // with a deadline and nothing else used to look like a success in this
+      // log, because every line it printed was about something that worked.
+      const { filled, total } = profileCompleteness(profile.proposed);
       say(
-        `    → ${Object.keys(coverage_matrix).length} coverage line(s) · ${Object.keys(eligibility_flags).length} eligibility field(s) · ${document_checklist.length} document(s)`,
+        `    → ${Object.keys(coverage_matrix).length} coverage line(s) · ${Object.keys(eligibility_flags).length} eligibility field(s) · ${document_checklist.length} document(s) · ${filled}/${total} field(s) filled`,
       );
 
       // Reported separately and only when present. A field that extracted is
@@ -614,6 +837,14 @@ export async function extractProgramme(
       proposed: {
         ...cycle,
         ...(profile?.proposed ?? {}),
+        // Questions the pages were read for and did not answer. Written as a
+        // list rather than as nulls inside eligibility_flags so that
+        // apply_extraction can merge them at the lowest priority — a "not
+        // stated" from today must never overwrite a figure an earlier reading
+        // found. See migration 013.
+        ...(profile && profile.eligibilitySilent.length > 0
+          ? { eligibility_silent: profile.eligibilitySilent }
+          : {}),
         // Only when something was actually cross-checked: an empty object would
         // make "nobody else was asked" look like "one source agreed".
         ...(Object.keys(fieldSources).length > 0 ? { field_sources: fieldSources } : {}),

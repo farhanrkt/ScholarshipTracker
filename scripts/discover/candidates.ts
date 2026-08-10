@@ -283,6 +283,26 @@ const COUNTRY_ALIASES: Record<string, string> = {
   "korea, south": "South Korea",
   "s. korea": "South Korea",
   "republic of singapore": "Singapore",
+
+  /**
+   * Answers that are not a country at all.
+   *
+   * A classifier asked "which country?" about the Rotary Peace Fellowship — one
+   * programme, six partner universities on four continents — answers
+   * "Unknown", or "Various", or "Worldwide". Stored raw, that becomes a filter
+   * chip that renders and cannot filter, because the UI's country list is a
+   * closed union. `Multiple` is in that union, so the row stays reachable.
+   */
+  unknown: "Multiple",
+  unspecified: "Multiple",
+  various: "Multiple",
+  worldwide: "Multiple",
+  global: "Multiple",
+  international: "Multiple",
+  "multiple countries": "Multiple",
+  "several countries": "Multiple",
+  "not specified": "Multiple",
+  "n/a": "Multiple",
 };
 
 export function normaliseCountry(value: string | null | undefined): string | null {

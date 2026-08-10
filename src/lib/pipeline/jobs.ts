@@ -36,7 +36,28 @@ export interface ExtractArgs {
   verify: boolean;
   force: boolean;
   fixUrls: boolean;
+  /** Go back for the fields the profile call left empty. Defaults ON. */
+  gapFill: boolean;
+  /**
+   * Re-read what has gone out of date, instead of working the backlog.
+   *
+   * The ordinary run walks the never-checked rows first, which is right when
+   * the catalogue is growing and wrong once it is grown: a programme read in
+   * March whose deadline passed in May is never looked at again, so the
+   * dashboard keeps offering a date that has been and gone. This is the mode
+   * the scheduled refresh uses.
+   */
+  staleOnly: boolean;
 }
+
+/**
+ * How long an `ai_extracted` reading is treated as current.
+ *
+ * Ninety days is a quarter of a cycle: long enough that a weekly refresh is not
+ * re-reading the same rows, short enough that a funder's autumn update is
+ * picked up before the following intake opens.
+ */
+export const STALE_AFTER_DAYS = 90;
 
 export interface DiscoverArgs {
   kind: "discover";
@@ -118,9 +139,13 @@ export function parseJobRequest(body: Record<string, unknown>): ParseResult {
         escalate: bool(body.escalate),
         verify: bool(body.verify),
         force: bool(body.force),
-        // The only toggle that defaults ON: leaving a dead URL in place means
-        // the row fails identically on every future run.
+        // Defaults ON: leaving a dead URL in place means the row fails
+        // identically on every future run.
         fixUrls: body.fixUrls !== false,
+        // Defaults ON: one extra call on a crawl already paid for, and it is
+        // what stops a staged row being a deadline and a row of blanks.
+        gapFill: body.gapFill !== false,
+        staleOnly: bool(body.staleOnly),
       },
     };
   }
@@ -164,6 +189,8 @@ export function describeJob(args: JobArgs): string {
     if (args.verify) parts.push("cross-verify");
     if (args.force) parts.push("forced");
     if (!args.fixUrls) parts.push("no URL repair");
+    if (!args.gapFill) parts.push("no second look");
+    if (args.staleOnly) parts.push("stale rows only");
   } else {
     if (args.seed) parts.push(`seed~"${args.seed}"`);
     parts.push(`per-seed ${args.perSeed}`, `listings ${args.maxListing}`);

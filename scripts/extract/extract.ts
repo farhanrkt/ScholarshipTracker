@@ -71,6 +71,32 @@ Scope of the award:
 - award_duration and number_of_awards are copied as the page words them, with their qualifiers: "up to 3 years", "the normal duration of the programme", "approximately 1,500 annually". Never convert a duration into a number of years and never turn "around 1,500" into 1500.
 - If the pages state a figure only for a different award on the same site, that is not this programme's figure. Return null.`;
 
+/**
+ * The second look, for facts the first read did not come home with.
+ *
+ * The whole prompt is a narrowing. The model is told exactly which slots are
+ * empty, given passages retrieved for those slots specifically, and told that
+ * everything else is already answered — so its output budget and its attention
+ * both go to the handful of things still missing instead of being spread over
+ * twenty-five.
+ *
+ * The pressure this creates is obvious and is addressed head-on in the last
+ * paragraph: an instruction to go and find things is an invitation to invent
+ * them. The quoting rules still apply, grounding still runs, and "the pages do
+ * not say" is stated to be a winning answer rather than a failed one — because
+ * on the next run the alternative is a fabricated stipend on a student's
+ * budget.
+ */
+const GAP_SYSTEM = `${PROFILE_SYSTEM}
+
+THIS IS A SECOND PASS. A first read of this programme's pages has already been done, and most of what it found is settled. You are being asked about the specific facts it did NOT find, and about nothing else.
+
+- The excerpts below were retrieved for these missing facts specifically. Some of them the first read never saw; some it saw and passed over.
+- Answer ONLY the fields listed in the request. Every other field must be null, and every other list empty — those are already settled, and any value you give them is discarded unread. This includes the booleans: null, never false. Returning false for a field you were not asked about is the single most common way to waste this call.
+- Look carefully at wording that states a fact indirectly. "Applicants must have been born on or after 1 January 1991" is an age limit. "Awards are tenable for the normal duration of the course" is a duration. "You must have secured an unconditional offer" means admission is required first.
+
+If, having looked, the pages do not state one of these facts, return null for it. That is a complete and correct answer to this request, and it is the answer we expect for several of them. This pass exists to find facts that were missed, not to produce a value for every field: a null we can trust is worth more than a plausible number, and every value you return will be checked against the page text before it is kept.`;
+
 export interface ExtractionResult<T> {
   extraction: T;
   provider: string;
@@ -92,6 +118,149 @@ function parseJson(text: string): unknown {
     }
     return JSON.parse(trimmed.slice(start, end + 1));
   }
+}
+
+const CONFIDENCE_VALUES = new Set(["high", "medium", "low"]);
+
+/**
+ * Repairs the shapes a provider without schema enforcement gets wrong.
+ *
+ * Groq's `llama-3.3-70b-versatile` rejects `json_schema` mode and falls back to
+ * plain `json_object`, so nothing constrains its output. Zod then rejects the
+ * WHOLE response over one malformed corner — and a complete, correct,
+ * fully-quoted profile was being thrown away because of it. Escalation was
+ * configured, paid for in wall-clock, and could not land.
+ *
+ * Exactly two repairs, both of which throw information away rather than inventing
+ * any:
+ *
+ *   CONFIDENCE, when it is missing or not one of the three values. It is a
+ *   self-assessment recorded on the evidence for a reviewer to read, and
+ *   nothing in this pipeline gates on it. Unknown becomes "low".
+ *
+ *   COVERAGE ENTRIES WITH A NULL `covered`. The schema asks for the item to be
+ *   OMITTED when the pages are silent; a model without schema enforcement says
+ *   the same thing by returning null instead. Either way it is not a claim, so
+ *   it is dropped — which is what omitting it would have done.
+ *
+ * Everything else malformed still fails loudly, because everything else
+ * malformed is a value we would otherwise have to trust.
+ */
+function repairConfidence(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(repairConfidence);
+  if (typeof value !== "object" || value === null) return value;
+
+  const entries = Object.entries(value as Record<string, unknown>).map(
+    ([key, child]) =>
+      key === "confidence" && !CONFIDENCE_VALUES.has(child as string)
+        ? [key, "low"]
+        : [key, repairConfidence(child)],
+  );
+
+  return Object.fromEntries(entries);
+}
+
+/**
+ * The shape of "I did not answer this", per claim kind.
+ *
+ * A provider running without schema enforcement omits fields rather than
+ * returning their null form, and zod then rejects the entire response. An
+ * omitted field is not an unknown value — for this schema it is precisely a
+ * null claim with no quote, which is what these fill in. Nothing is invented:
+ * a filled slot carries no value and no evidence, so grounding has nothing to
+ * keep and the field stays empty exactly as if the model had said so.
+ */
+const NULL_CLAIM = { value: null, evidence_quote: null };
+const NULL_TEXT_CLAIM = { value: null, evidence_quote: null, confidence: "low" };
+const NULL_LIST_CLAIM = { values: [], evidence_quote: null };
+
+/**
+ * `page_is_about_requested_programme` defaults to FALSE on purpose.
+ *
+ * It is the guard that stops a redirect or a cookie wall being read as the
+ * programme. A model that did not answer it has not vouched for the page, and
+ * the whole point of failing closed is that silence is not assent.
+ */
+const CYCLE_SKELETON: Record<string, unknown> = {
+  page_subject: "",
+  page_is_about_requested_programme: false,
+  cycle_label: NULL_TEXT_CLAIM,
+  opens_date: NULL_TEXT_CLAIM,
+  deadline_date: NULL_TEXT_CLAIM,
+  timeline: [],
+  notes_for_reviewer: "",
+};
+
+const ELIGIBILITY_SKELETON: Record<string, unknown> = {
+  max_age: NULL_CLAIM,
+  min_gpa_4_scale: NULL_CLAIM,
+  min_work_experience_years: NULL_CLAIM,
+  language_test_required: NULL_CLAIM,
+  accepted_language_tests: NULL_LIST_CLAIM,
+  min_toefl_ibt: NULL_CLAIM,
+  min_ielts: NULL_CLAIM,
+  requires_university_admission_first: NULL_CLAIM,
+  requires_government_nomination: NULL_CLAIM,
+  requires_research_proposal: NULL_CLAIM,
+  restricted_to_nationalities: NULL_LIST_CLAIM,
+  notes: null,
+};
+
+const PROFILE_SKELETON: Record<string, unknown> = {
+  page_subject: "",
+  page_is_about_requested_programme: false,
+  coverage: [],
+  eligibility: ELIGIBILITY_SKELETON,
+  documents: [],
+  post_study_obligations: NULL_TEXT_CLAIM,
+  language_training_included: NULL_CLAIM,
+  fields_of_study: NULL_LIST_CLAIM,
+  award_duration: NULL_TEXT_CLAIM,
+  number_of_awards: NULL_TEXT_CLAIM,
+  notes_for_reviewer: "",
+};
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+/** Model output over the skeleton: anything it answered wins. */
+function fill(
+  skeleton: Record<string, unknown>,
+  value: unknown,
+): Record<string, unknown> {
+  const answered = asRecord(value) ?? {};
+  const merged: Record<string, unknown> = { ...skeleton };
+
+  for (const [key, provided] of Object.entries(answered)) {
+    if (provided !== undefined && provided !== null) merged[key] = provided;
+  }
+
+  return merged;
+}
+
+export function repairCycle(value: unknown): unknown {
+  return fill(CYCLE_SKELETON, repairConfidence(value));
+}
+
+export function repairProfile(value: unknown): unknown {
+  const filled = fill(PROFILE_SKELETON, repairConfidence(value));
+
+  filled.eligibility = fill(ELIGIBILITY_SKELETON, filled.eligibility);
+
+  // A coverage entry whose `covered` is null is not a claim. The schema asks
+  // for the item to be OMITTED when the pages are silent; an unconstrained
+  // model says the same thing by returning null, and dropping it is what
+  // omitting it would have done.
+  if (Array.isArray(filled.coverage)) {
+    filled.coverage = filled.coverage.filter(
+      (item) => typeof asRecord(item)?.covered === "boolean",
+    );
+  }
+
+  return filled;
 }
 
 function corpusFor(passages: Passage[]): { corpus: string; pageCount: number } {
@@ -122,7 +291,7 @@ export async function extractCycle(
   return {
     // Validate rather than trust: structured output constrains the shape, but
     // this is the boundary where a malformed response should fail loudly.
-    extraction: CycleExtractionSchema.parse(parseJson(result.text)),
+    extraction: CycleExtractionSchema.parse(repairCycle(parseJson(result.text))),
     provider: provider.name,
     model: result.model,
     inputTokens: result.inputTokens,
@@ -149,7 +318,44 @@ export async function extractProfile(
   });
 
   return {
-    extraction: ProfileExtractionSchema.parse(parseJson(result.text)),
+    extraction: ProfileExtractionSchema.parse(repairProfile(parseJson(result.text))),
+    provider: provider.name,
+    model: result.model,
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
+  };
+}
+
+/**
+ * Re-reads the crawl for a named list of missing facts.
+ *
+ * Same schema as the full profile call on purpose. A narrower schema would need
+ * its own parsing, its own grounding, and its own way of being wrong; reusing
+ * this one means the reply goes through `groundProfile` unchanged and the
+ * caller merges it fill-only. The narrowing lives in the prompt and in which
+ * passages were retrieved, which is where it belongs.
+ */
+export async function extractProfileGaps(
+  provider: ExtractionProvider,
+  scholarshipTitle: string,
+  country: string,
+  passages: Passage[],
+  wanted: string,
+): Promise<ExtractionResult<ProfileExtraction>> {
+  const { corpus, pageCount } = corpusFor(passages);
+
+  const result = await provider.complete({
+    system: GAP_SYSTEM,
+    user: `Programme: ${scholarshipTitle}\nCountry: ${country}\n\nThe first read of this programme's pages did not find the following. Look for each one in the excerpts below:\n\n${wanted}\n\nThese excerpts were pulled from ${pageCount} page(s) of the programme's official site for these facts specifically.\n\n--- BEGIN EXCERPTS ---\n${corpus}\n--- END EXCERPTS ---`,
+    schemaName: "scholarship_profile_extraction",
+    schema: ProfileExtractionSchema,
+    // Smaller than the full profile call: most of this response is nulls for
+    // fields the first pass already settled.
+    maxTokens: 4_000,
+  });
+
+  return {
+    extraction: ProfileExtractionSchema.parse(repairProfile(parseJson(result.text))),
     provider: provider.name,
     model: result.model,
     inputTokens: result.inputTokens,

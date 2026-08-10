@@ -30,7 +30,22 @@ function describeBoolean(
   return value ? whenTrue : whenFalse;
 }
 
+/**
+ * Has anything read this programme's eligibility at all?
+ *
+ * Two rows below say something reassuring when their value is missing — "No age
+ * cap", "Open to all nationalities" — and both are legitimate readings of a
+ * page that WAS read and did not state a limit. Neither is a legitimate reading
+ * of a row nobody has opened, where the honest answer is that we do not know.
+ * `notes` alone does not count: it is commentary, not an answer to any of these
+ * questions.
+ */
+function hasBeenRead(flags: Flags): boolean {
+  return Object.keys(flags ?? {}).some((key) => key !== "notes");
+}
+
 function buildRows(flags: Flags): Row[] {
+  const read = hasBeenRead(flags);
   // textList rather than a length check: the model occasionally returns objects
   // inside a list of strings, and those render as "[object Object]" — quieter
   // than a crash and just as wrong.
@@ -52,7 +67,11 @@ function buildRows(flags: Flags): Row[] {
     {
       label: "Age limit",
       value:
-        typeof flags?.max_age === "number" ? `${flags.max_age} years` : "No age cap",
+        typeof flags?.max_age === "number"
+          ? `${flags.max_age} years`
+          : read
+            ? "No age cap"
+            : NOT_STATED,
       demanding: typeof flags?.max_age === "number",
     },
     {
@@ -122,7 +141,9 @@ function buildRows(flags: Flags): Row[] {
       label: "Nationality",
       value: hasNationalities
         ? `Restricted to ${nationalities.join(", ")}`
-        : "Open to all nationalities",
+        : read
+          ? "Open to all nationalities"
+          : NOT_STATED,
       demanding: hasNationalities,
     },
   ];

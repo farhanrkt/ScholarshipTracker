@@ -498,6 +498,13 @@ evidence reaching the profile call.
 Failures are contained: either call can fail, time out, or return unparseable
 JSON, and the other still produces a proposal. `--dates-only` skips call two.
 
+With `--escalate`, the cycle call escalates on a missing **closing date**, not
+only on an empty reading. A reading with an opening date and four undated stages
+is not empty, so it used to end the chain while missing the one field a student
+cannot recover from. Because a second attempt is then no longer guaranteed to
+improve on nothing, the better of the two readings is kept rather than the later
+one — scored closing date first, opening date next, dated stages last.
+
 ### The profile call gets a second, smaller go
 
 Containment has a nasty edge to it. When the *profile* call fails, the cycle
@@ -519,6 +526,56 @@ first. Failures that would fail identically on less input (a refusal, a bad key)
 are not retried.
 
 The provider timeout is 300s, overridable with `GEMINI_TIMEOUT_MS`.
+
+### The third call: going back for what is still empty
+
+`scripts/extract/gaps.ts`. A staged row was routinely half blank — a deadline,
+three coverage lines, and nulls everywhere else — and the reason was almost never
+that the funder does not publish the answer. It was one of three things, and all
+three are ours:
+
+1. **The passage was never sent.** Topic selection works at the scale of a
+   page's subject. `"Applicants must be under the age of 35 on 1 September"` is
+   one sentence on a long eligibility page, competing for budget under a single
+   `eligibility` score that cannot tell it from the paragraph about referees.
+2. **The model ran out of room.** Twenty-five facts, each carrying its own
+   verbatim quote, is a large response, and small models drop the tail.
+3. **The model went past it.** One ask covering money, eligibility, documents
+   and scope gives no field its own attention.
+
+So a third call asks a much narrower question. `profileGaps()` lists the slots
+still empty — 25 of them, which is also the denominator of the `12/25 field(s)
+filled` figure now printed per programme — and each carries a **phrase list of
+its own**: `"under the age of"`, `"born on or after"`, `"no older than"` for an
+age cap; `"return airfare"`, `"economy class"`, `"travel allowance"` for flights.
+Blocks are re-scored against those phrases rather than against a page's general
+subject, so a fact stated once, halfway down a page that lost the first budget
+contest, is reachable for the first time.
+
+Three properties keep it honest:
+
+- **Same grounding.** The reply goes through `groundProfile()` unchanged. A
+  value it cannot quote off a fetched page is discarded exactly as before.
+- **Fill-only merge.** The first reading wins every contest — not because it is
+  better, but because it read a wider context and is better placed to judge
+  which of two stipend figures belongs to this award. The pass is therefore
+  monotonic: it can add information and can never remove any.
+- **Text already sent is discounted, not excluded.** Sometimes the answer was in
+  front of the model and it went past it, and re-sending three sentences with a
+  question attached is a very different prompt from re-sending forty with a
+  general one. New material still wins any close contest for the budget.
+
+It is skipped when fewer than two slots are empty, and when nothing in the crawl
+uses the vocabulary of the missing fields — in which case the log says so, which
+is the difference between "the funder is silent" and "we never asked".
+
+The pass escalates like the other two, and it is where escalation pays best:
+these are the hard fields by construction, and the call is one narrow question
+against a few thousand characters. On the Rotary Peace Fellowship it is the
+difference between 4/25 and 6/25 slots filled; the rest of that row is genuinely
+not published, because Rotary's deadlines are set per district.
+
+`--no-gap-fill` turns it off.
 
 ---
 
@@ -596,6 +653,7 @@ Layered checks, each catching something the previous one lets through:
 | Check | Catches |
 | --- | --- |
 | Quote found verbatim (after one shared normalisation) | Invention, paraphrase |
+| …or found **loosely** — see below | (recovers real values, catches nothing) |
 | Quote ≥ 8 characters | `"2026"` matching by accident |
 | Value is a real ISO date | Malformed dates with a good quote |
 | **Date precision** — day, month and year each traceable to the quote | `"opens in September 2026"` → `2026-09-01`, where the day was invented |
@@ -610,6 +668,48 @@ someone to notice later. Discards are reported per run and stored in
 Two guards sit outside grounding: the model reports what the site is actually
 about (catching redirects and 404s), and pages that render their content in
 JavaScript produce too little text to extract, so they fail loudly.
+
+### When the quote misses the page by a word — `scripts/extract/quote.ts`
+
+A substring search asks the right question and rejects for reasons that have
+nothing to do with whether the model read the page:
+
+```
+page:  "Applications close on 6 October 2026.
+        · Interviews follow in November"
+quote: "Applications close on 6 October 2026. Interviews follow in November"
+```
+
+The model stitched across a bullet. The fact is real, the value is right, the
+quote is on the page in every sense a human would recognise — and the deadline
+was discarded, leaving the row emptier than the site. The same thing happens
+when a quote drops a `"the"`, or a table cell arrives with a stray tab.
+
+So there are two matchers, tried in order. **Exact** is the old substring search,
+unchanged, and still what almost every quote hits — and it is tried against
+*every* page before any loose match is attempted, so a quote that is verbatim on
+page three is never attributed to a near-miss on page one. **Loose** slides a
+window over the page's word tokens and accepts a window holding ≥85% of the
+quote's tokens *and* every number the quote states.
+
+What makes this a strengthening rather than a loosening: the match returns the
+**span of page text** it matched, and every downstream check — date precision,
+number support, list-value naming — now runs against that span instead of
+against the model's quote. Previously those checks read the quote and trusted
+the substring search to have tied it to a page. Now the page's own words are
+what is examined, so a loose match cannot smuggle in a figure the page never
+printed:
+
+```
+page:  "The award covers a monthly stipend towards your living costs in London."
+quote: "The award covers a monthly stipend of GBP 1,347 towards your living
+        costs in London"          → REJECTED: 1,347 is on no page
+```
+
+Quotes under six tokens get the exact search only — at that length 85% rounds to
+"one word may differ", which on a nav-heavy page is a coincidence. Each field's
+evidence records `match: "exact" | "loose"`, so a reviewer can see which values
+rest on the looser reading.
 
 ### What good output looks like
 
@@ -670,6 +770,28 @@ Two provider-specific traps worth knowing:
   `GROQ_TPM` to match your tier (console → Limits) or you will either see 429s
   or waste context.
 
+**Escalation only works if the prompt is cut to the *escalation target's*
+budget.** Passage selection is per-provider (`passagesFor()` in
+`programme.ts`), memoised per call. Selecting once against the primary's budget
+meant every escalated call carried a prompt cut for Gemini's 100k characters
+into Groq's 12k-tokens-per-minute tier and died with `a single request needs
+~13,491 tokens but the limit is 12,000 TPM` — escalation configured, attempted,
+and physically unable to succeed.
+
+**Groq's `llama-3.3-70b-versatile` rejects `json_schema` mode** and falls back to
+plain `json_object`, so nothing constrains its output shape. One omitted
+sub-object then made zod reject the whole response, discarding a complete,
+correctly quoted profile. `repairCycle()` / `repairProfile()` in `extract.ts`
+fill omitted fields with their "not answered" form, coerce an unusable
+`confidence` to `low`, and drop coverage entries whose `covered` is null — the
+model's way of saying what the schema asks it to express by omitting the entry.
+Repairs may only ever discard information or fill in "not answered"; never a
+value and never a quote. `page_is_about_requested_programme` defaults to
+**false**, because a model that did not vouch for the page has not vouched for
+the page. `extract.test.ts` parses an empty `{}` through both schemas, so adding
+a schema field without adding it to the skeleton fails a test rather than
+silently breaking escalation again.
+
 ## Tuning reference
 
 | Flag | Script | Default | Effect |
@@ -680,9 +802,10 @@ Two provider-specific traps worth knowing:
 | `--pages` | extract | 20 | Crawl size per programme |
 | `--concurrency` | extract | 3 | Programmes crawled at once |
 | `--dates-only` | extract | off | Skip the profile call |
-| `--escalate` | extract | off | Retry empties on the next provider — cycle **and** profile |
+| `--escalate` | extract | off | Retry on the next provider — cycle (empty **or no closing date**), profile, second look |
 | `--force` | extract | off | Re-read rows that are unchanged or already pending |
 | `--verify` | extract | off | Cross-check dates against other sources |
+| `--no-gap-fill` | extract | off | Skip the third call at the fields still empty |
 | `--no-fix-urls` | extract | off | Find a moved page, but do not re-point the row |
 | `--models` | extract | — | List models your key can reach |
 | `--seed` | discover | — | Match seeds by label |

@@ -173,6 +173,54 @@ export async function markNeedsCheck(
   }
 }
 
+/**
+ * Folds a duplicate row into the one being kept.
+ *
+ * The one destructive action in the app: it ends with a DELETE, and the row it
+ * deletes may be one somebody is tracking. Everything worth keeping is carried
+ * across first — trackers with their half-ticked checklists, second sources,
+ * extraction history, and any field the survivor happens to be missing — and
+ * all of that happens inside `merge_scholarships` so it is one transaction
+ * rather than five round trips that can half-fail.
+ *
+ * Unlike its neighbours here, the function is SECURITY DEFINER: `user_targets`
+ * is owner-only under RLS and `scholarships` has no DELETE policy, so no admin
+ * session could do this through the table API. The `is_admin()` check inside
+ * the function is what replaces those policies.
+ */
+export async function mergeScholarships(
+  keepId: string,
+  dropId: string,
+): Promise<ActionResult> {
+  try {
+    if (!UUID_PATTERN.test(keepId)) return fail("Invalid id for the row to keep.");
+    if (!UUID_PATTERN.test(dropId)) return fail("Invalid id for the duplicate.");
+    if (keepId === dropId) return fail("A row cannot be merged into itself.");
+
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("merge_scholarships", {
+      keep_id: keepId,
+      drop_id: dropId,
+    });
+
+    if (error) {
+      if (/does not exist|schema cache/i.test(error.message)) {
+        return fail(
+          "Apply supabase/migrations/014_merge_duplicates.sql in the Supabase SQL editor to enable merging.",
+        );
+      }
+      return fail(error.message);
+    }
+
+    revalidatePath("/admin/duplicates");
+    revalidatePath("/dashboard");
+    revalidatePath("/my-tracker");
+    return ok();
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Could not merge them.");
+  }
+}
+
 export async function rejectExtraction(
   extractionId: string,
   why: string,

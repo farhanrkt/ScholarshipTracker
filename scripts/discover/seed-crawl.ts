@@ -14,6 +14,10 @@ import { discoverFromSitemap } from "./sitemap.ts";
 import { extractLinks, fetchPage, type FetchedPage } from "../extract/page.ts";
 import { DailyLimitError, type ExtractionProvider } from "../extract/providers/index.ts";
 import type { Authority } from "./authority.ts";
+// One definition of "the same programme", shared with the merge page. A second
+// implementation here would drift, and the drift would show up as rows the
+// dashboard has and the duplicates page cannot see.
+import { compareProgrammes } from "../../src/lib/duplicates.ts";
 
 /**
  * One seed, crawled and classified, with nowhere it insists on running.
@@ -83,6 +87,61 @@ export interface DiscoveryKnowledge {
   urls: Set<string>;
   titles: Set<string>;
   rowByTitle: Map<string, { id: string; portalUrl: string }>;
+  /**
+   * Every known programme with an address, for near-match dedupe.
+   *
+   * `titles` answers "have we seen this exact name?" and nothing else, which is
+   * how the catalogue ended up holding `Chevening Scholarship` beside
+   * `Chevening Scholarships`, and three separate Humphrey rows. Matching also
+   * needs the URL, because a name only means the same programme when it is on
+   * the same site.
+   */
+  rows: Array<{ id: string; title: string; portalUrl: string }>;
+}
+
+/**
+ * Does a newly classified page describe something we already have?
+ *
+ * Exact title first — unchanged, and still what most matches are. Then the same
+ * comparison the merge page uses, so "already known" means one thing across the
+ * app rather than two that drift apart.
+ *
+ * Only `certain` and `likely` count. `possible` is a prompt for a human on the
+ * duplicates page, and acting on it here would silently discard real
+ * programmes: nothing records what discovery declines to stage, so a wrong drop
+ * is invisible and permanent.
+ */
+export function matchKnownProgramme(
+  knowledge: DiscoveryKnowledge,
+  programmeName: string,
+  pageUrl: string,
+): {
+  row: { id: string; portalUrl: string } | null;
+  reason: string;
+} | null {
+  const fingerprint = titleFingerprint(programmeName);
+
+  if (knowledge.titles.has(fingerprint)) {
+    return {
+      row: knowledge.rowByTitle.get(fingerprint) ?? null,
+      reason: "same title",
+    };
+  }
+
+  for (const row of knowledge.rows) {
+    const verdict = compareProgrammes(
+      { title: programmeName, url: pageUrl },
+      { title: row.title, url: row.portalUrl },
+    );
+    if (!verdict || verdict.confidence === "possible") continue;
+
+    return {
+      row: { id: row.id, portalUrl: row.portalUrl },
+      reason: `${verdict.confidence} match for "${row.title}"`,
+    };
+  }
+
+  return null;
 }
 
 export interface SeedOptions {
@@ -143,6 +202,7 @@ export function buildKnowledge(input: {
     urls: new Set<string>(),
     titles: new Set<string>(),
     rowByTitle: new Map(),
+    rows: [],
   };
 
   for (const row of input.scholarships) {
@@ -150,6 +210,11 @@ export function buildKnowledge(input: {
     if (row.official_portal_url) {
       knowledge.rowByTitle.set(normaliseTitle(row.title), {
         id: row.id,
+        portalUrl: row.official_portal_url,
+      });
+      knowledge.rows.push({
+        id: row.id,
+        title: row.title,
         portalUrl: row.official_portal_url,
       });
       knowledge.urls.add(normaliseUrl(row.official_portal_url));
@@ -417,14 +482,21 @@ export async function discoverSeed(options: {
         result.rejected++;
         continue;
       }
-      if (knowledge.titles.has(normaliseTitle(found.programme_name))) {
+      const sourceUrl = canonicalUrl(page);
+      const known = matchKnownProgramme(knowledge, found.programme_name, sourceUrl);
+
+      if (known) {
         result.duplicates++;
+        if (known.reason !== "same title") {
+          // Worth saying out loud: this is the branch that used to stage a
+          // second row, and a wrong drop here leaves no record anywhere.
+          say(`    = ${found.programme_name} — ${known.reason}, not staged`);
+        }
 
         // Not a wasted fetch: this is another site describing a programme we
         // track, which is the input cross-verification needs and the reason this
         // pipeline needs no search engine to get one.
-        const row = knowledge.rowByTitle.get(normaliseTitle(found.programme_name));
-        const sourceUrl = canonicalUrl(page);
+        const row = known.row;
 
         if (row && !dryRun && !sameOrganisation(sourceUrl, row.portalUrl)) {
           const authority = classifyAuthority(sourceUrl, { funderUrl: row.portalUrl });

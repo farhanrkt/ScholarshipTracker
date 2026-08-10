@@ -73,6 +73,28 @@ Watch for near-duplicates of existing rows — dedupe is exact-match on a
 normalised title, so `Chevening Scholarship` and `Chevening Scholarships` both
 get through. See [troubleshooting.md](troubleshooting.md#near-duplicate-rows).
 
+### Duplicates — `/admin/duplicates`
+
+Rows that look like the same programme twice. Discovery dedupes on an exact
+normalised title, which is how the catalogue came to hold `Chevening
+Scholarship` beside `Chevening Scholarships`, three Humphrey rows and three MEXT
+rows — a student scrolling the dashboard meets the same award repeatedly and
+cannot tell which entry to track.
+
+**These are suggestions from a string comparison, not findings.** Nothing here
+can tell a genuinely separate award from a longer way of writing the same name:
+`Distinguished Humphrey Fellowship Program` is a different programme, and
+`Chevening Scholarships in Australia` might be. Open both pages before folding
+one into the other, and leave the group alone if they differ. The one thing the
+comparison does know is that a **fellowship is not a scholarship** — a funder
+running both runs two programmes, and that check happens before any other.
+
+Merging picks a survivor and folds the rest in one at a time. It ends in a
+DELETE, so everything worth keeping moves first: people tracking the duplicate
+(with their statuses and ticked checklists combined), second sources, extraction
+history, and any field the survivor is missing. The duplicate's own URL is kept
+as a second source, because it is a real page describing this programme.
+
 ### Extractions — `/admin/review`
 
 Each card shows the current value, the proposed value, and **the quote backing
@@ -176,11 +198,32 @@ quietly, so nobody re-adds a known-bad URL six months later.
 
 ## Keeping data fresh
 
-Cycles roll over annually. A reasonable rhythm:
+Cycles roll over annually, and until recently nothing noticed: six of the
+sixteen deadlines in the catalogue had already passed, and a row read in March
+whose deadline expired in May kept offering that date until somebody happened to
+re-run the crawler over it.
 
-- **Monthly** — `npm run discover` for new programmes; review candidates.
-- **When a deadline passes** — the worklist surfaces the row; re-extract and
-  re-verify for the new cycle.
+**The weekly refresh does that noticing.** `vercel.json` calls
+`/api/cron/refresh` every Monday at 06:00 UTC. It plans an extract run over the
+rows that have gone out of date and ticks it to completion — and it **stages**
+proposals like any other run, so `/admin/review` is still where anything reaches
+a row. Set `CRON_SECRET` or the endpoint refuses every request.
+
+What counts as stale, and why the two rules differ:
+
+- **A cycle has turned** — the deadline is in the past. This includes rows a
+  human verified: a verification confirms a *date*, and a date that has passed
+  has outlived its confirmation.
+- **A reading has aged** — nothing has looked in 90 days, or ever. Verified rows
+  are excluded here, because a human's check does not expire on a timer, only
+  when the thing it checked does.
+
+`Stale rows only` in the pipeline console runs the same selection by hand.
+
+Alongside it:
+
+- **Monthly** — `npm run discover` for new programmes; review candidates, then
+  check `/admin/duplicates` for rows that are one programme twice.
 - **Quarterly** — `npm run discover:verify` to catch seeds that have moved or
   started blocking.
 

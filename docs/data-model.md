@@ -90,12 +90,38 @@ Fields: `max_age`, `min_gpa_4_scale`, `min_work_experience_years`,
 `requires_government_nomination`, `requires_research_proposal`,
 `restricted_to_nationalities`, `notes`.
 
-Nullability is meaningful throughout:
+**Three states per key, not two** (migration 013):
 
-- `max_age: null` — no age cap stated.
-- `min_work_experience_years: 0` — the page says none is required.
-  `null` — the page is silent. These are different, and the filter treats them
-  differently.
+| Shape | Means |
+| --- | --- |
+| key absent | nobody asked this question of this programme |
+| key present, `null` | the pages were read and state nothing |
+| key present, value | the pages state this |
+
+The middle state is what makes the column useful and it is the easy one to
+lose. In PostgREST, **`->>` collapses it into the first and `->` keeps them
+apart** — so any query that must not answer "unknown" as "no" has to use `->`.
+
+Two filters were written against `->>` and did exactly that. "No work
+experience required" matched `min_work_experience_years IS NULL`, which is the
+absence of an answer rather than an answer: it returned 23 of 37 rows, all of
+them unread, offered to a student as "open to applicants straight out of
+university" on no evidence — while *excluding* A\*STAR, the one row whose pages
+say none is needed, because a stated `0` is not null. Wrong in both directions
+from one missing distinction. The detail panel had the same bug in prose,
+printing "No age cap" and "Open to all nationalities" for rows nothing had read.
+
+Extraction records the middle state through `proposed.eligibility_silent`: a
+list of the questions the model answered with an explicit "the pages do not
+say". A claim that *failed grounding* is deliberately not on that list — we
+asked, something came back, and it was not usable, which leaves the question
+unanswered rather than answered "no". `apply_extraction()` merges those markers
+at the **lowest** priority, so a "not stated" from today can never overwrite a
+figure an earlier reading found.
+
+Remaining nullability rules:
+
+- `min_work_experience_years: 0` — the pages say none is required.
 - `restricted_to_nationalities: null` or `[]` — open to all.
 - Booleans are `boolean | null` in a proposal. An extraction only writes the keys
   the pages actually stated, so a row's flags object is usually partial.
@@ -180,10 +206,20 @@ document proposals.
 | `009_is_profiled.sql` | `is_profiled` generated column — required by the "No bond" filter |
 | `010_award_scope.sql` | `fields_of_study`, `award_duration`, `number_of_awards`; carries them through `apply_extraction()` |
 | `011_cross_verification.sql` | `scholarship_sources`, `scholarships.field_sources`, the `scholarship_provenance` view |
+| `012_pipeline_jobs.sql` | `pipeline_jobs`, `pipeline_job_lines`, `claim_pipeline_tick()` — the pipeline as rows rather than a process |
+| `013_answered_eligibility.sql` | Three-valued `eligibility_flags`; `apply_extraction()` merges silence markers at the lowest priority |
+| `014_merge_duplicates.sql` | `merge_scholarships()` — folds a duplicate row into the one being kept, carrying trackers, sources and history |
+| `015_multi_country_and_stale_dates.sql` | Repairs the `Unknown` country row and clears cycle dates read off archived pages |
 
-**011 also replaces `apply_extraction()`** — it is a superset of 010's version,
-so applying 011 after 010 is correct and applying 010 after 011 would regress
-provenance. Run them in order.
+**011 and 013 each replace `apply_extraction()`**, and each is a superset of the
+one before, so applying them in order is correct and applying an earlier one
+afterwards would regress. Run them in order.
+
+**014 is the only `SECURITY DEFINER` function in the schema.** It has to be:
+`user_targets` is owner-only under RLS, so no admin session can re-point someone
+else's saved programme, and `scholarships` has no DELETE policy at all. The
+`is_admin()` check as the function's first statement is what replaces those
+policies — if you edit that function, that line stays at the top.
 
 Until 011 is applied, `--verify` prints why it is doing nothing and the run
 continues normally; discovery warns once per run that it cannot record second

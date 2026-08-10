@@ -130,7 +130,12 @@ plans a year of their life around, so:
 - **Numbers must appear in their own quote.** A grounded "includes a monthly
   stipend" does not license an invented amount beside it.
 - **Absent is not false.** An unstated requirement shows as "Not stated", never
-  "Not required".
+  "Not required" — and the filters hold the same line. "No work experience
+  required" returns only programmes whose pages say so; a row nobody has read is
+  not evidence of anything.
+- **A date more than a cycle old is not this cycle's.** Programmes run annually,
+  so a deadline read off a page the funder left up since 2019 is refused even
+  though its quote is perfectly real.
 - **Provenance is never defaulted.** `last_verified_at` is NULL until a human
   checks, and the UI says "Not verified" out loud. `verified` is the one status
   no crawler may write — it comes from a person, at
@@ -147,7 +152,9 @@ src/
 │   ├── actions/                 # Server Actions (auth, targets, review)
 │   ├── admin/pipeline/          # run the crawlers from the browser, anywhere
 │   ├── admin/verify/            # the human check that mints "verified"
+│   ├── admin/duplicates/        # rows that may be one programme twice
 │   ├── api/admin/pipeline/      # start / tick / cancel a run — works on Vercel
+│   ├── api/cron/refresh/        # the weekly re-read of what has gone stale
 │   ├── auth/confirm/            # email-link landing page (fragment flow)
 │   ├── auth/callback/route.ts   # redeems ?code / ?token_hash — sets cookies
 │   ├── dashboard/               # discovery + filters

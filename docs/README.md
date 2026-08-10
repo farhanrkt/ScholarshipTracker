@@ -35,16 +35,28 @@ but "can I prove this field?" If you cannot, leave it null and say so in the UI.
 Stated plainly, because discovering these by surprise is worse than reading them
 here. Details and workarounds in [troubleshooting.md](troubleshooting.md).
 
-- **Near-duplicate rows exist.** Dedupe is exact-match on a normalised title, so
-  `Chevening Scholarship` and `Chevening Scholarships` are two rows. Expect more
-  as the seed list grows.
-- **Country names are inconsistent in existing data.** `UK` and `United Kingdom`
-  both appear and both show in the filter sidebar. New discoveries are
-  normalised; rows created before that are not.
-- **PDFs are skipped.** Several funders (notably MEXT and KGSP) publish their
-  real guidelines as PDF, which the crawler never opens.
+- **Near-duplicate rows still need a human.** Discovery now rejects a near match
+  on the same site as well as an exact title, and `/admin/duplicates` surfaces
+  the rows already in the catalogue — but merging is a judgement call and stays
+  one. `Distinguished Humphrey Fellowship Program` is a separate award that
+  reads like a longer way of writing another one.
+- **One programme, one country.** The column holds a single value, so a
+  fellowship placing recipients in six countries is filed under `Multiple` and a
+  student filtering for Japan will not find it. Fixing that properly means
+  `country` becomes an array, which reaches the schema, the filters, discovery
+  and every card.
+- **A scanned PDF yields nothing.** Text-layer PDFs are read like any other page
+  now, which is what the MEXT and KGSP rows were missing. A scan is an image;
+  it fails the short-text guard and is reported, because the alternative is OCR
+  and an approximate quote would pass a grounding check built to be exact.
 - **JavaScript-rendered pages yield nothing** and fail loudly rather than
   silently returning an empty programme.
 - **Depth of extracted detail depends on the funder.** ADB-JSP yields six
   coverage lines; Chevening publishes no reachable coverage page and yields one.
-  That is the pipeline being honest, not failing.
+  That is the pipeline being honest, not failing. Each run now prints
+  `12/25 field(s) filled` so a thin extraction is visible rather than silent.
+- **China and South Korea are thinly seeded** — one or two seeds each against
+  eleven for the USA, which is most of why the catalogue is 19 USA rows to 1
+  Chinese one. The best Chinese sources block crawlers or serve
+  JavaScript-rendered pages; see `BLOCKED_SEEDS` in `scripts/discover/seeds.ts`
+  and use `npm run discover:find-seeds -- --country China` when hunting more.

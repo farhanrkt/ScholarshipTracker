@@ -482,3 +482,263 @@ describe("scope of the award", () => {
     assert.equal(isEmptyProfile(groundProfile(profile(), [page("Nothing here.")])), true);
   });
 });
+
+/* -------------------------------------------------------------------------- */
+/* Near-miss quotes                                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Grounding used to answer "is this on the page?" with a substring search, and
+ * a substring search says no to things that plainly are on the page: a quote
+ * stitched across a bullet, a dropped article, a tab out of a table cell.
+ * Every one of those discarded a correct value and left the row emptier than
+ * the site.
+ *
+ * The rule that makes the looser match safe is that support checks now read
+ * the PAGE TEXT that matched, not the model's quote — so a number the page
+ * never printed cannot ride in on a quote that is otherwise accurate.
+ */
+describe("quotes that miss the page by a word", () => {
+  test("a date whose quote stitched across a bullet is kept", () => {
+    const result = groundExtraction(
+      cycle({
+        deadline_date: claim(
+          "2026-10-06",
+          "Applications close on 6 October 2026 Interviews are held in March 2027",
+        ),
+      }),
+      [page("Applications close on 6 October 2026\n· Interviews are held in March 2027")],
+      "https://example.org/a",
+    );
+
+    assert.equal(result.proposed.deadline_date, "2026-10-06");
+    assert.deepEqual(result.ungroundedFields, []);
+    assert.equal(result.evidence.deadline_date?.match, "loose");
+  });
+
+  test("an exactly quoted date is still recorded as an exact match", () => {
+    const result = groundExtraction(
+      cycle({ deadline_date: claim("2026-10-06", "Applications close on 6 October 2026") }),
+      [page("Applications close on 6 October 2026 at 12:00 midday UK time.")],
+      "https://example.org/a",
+    );
+
+    assert.equal(result.evidence.deadline_date?.match, "exact");
+  });
+
+  test("a stipend figure the page never printed is still discarded", () => {
+    // The whole quote but the number is on the page. Under a token-overlap
+    // rule alone this would ground, and a student would budget against a
+    // figure nobody published.
+    const result = groundProfile(
+      profile({
+        coverage: [
+          {
+            key: "monthly_stipend",
+            covered: true,
+            detail: "GBP 1,347 per month",
+            evidence_quote:
+              "The award covers a monthly stipend of GBP 1,347 towards your living costs in London",
+          },
+        ],
+      }),
+      [page("The award covers a monthly stipend towards your living costs in London.")],
+    );
+
+    assert.equal(result.proposed.coverage_matrix.monthly_stipend, undefined);
+    assert.match(result.ungroundedFields[0] ?? "", /quote not found/);
+  });
+
+  test("a near-miss quote keeps the figure the page did print", () => {
+    const result = groundProfile(
+      profile({
+        coverage: [
+          {
+            key: "monthly_stipend",
+            covered: true,
+            detail: "GBP 1,347 per month",
+            evidence_quote:
+              "Chevening covers monthly stipend of GBP 1,347 for living expenses in the UK",
+          },
+        ],
+      }),
+      [page("Chevening covers a monthly stipend of GBP 1,347 for living expenses in the UK.")],
+    );
+
+    assert.equal(result.proposed.coverage_matrix.monthly_stipend?.detail, "GBP 1,347 per month");
+    assert.equal(result.evidence["coverage.monthly_stipend"]?.match, "loose");
+  });
+
+  test("a fabricated quote is rejected as comprehensively as before", () => {
+    const result = groundProfile(
+      profile({
+        eligibility: {
+          ...profile().eligibility,
+          max_age: num(35, "Applicants must be under the age of 35 on the closing date"),
+        },
+      }),
+      [page("This page is about the history of the foundation and its founders.")],
+    );
+
+    assert.equal(result.proposed.eligibility_flags.max_age, undefined);
+    assert.match(result.ungroundedFields[0] ?? "", /quote not found/);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* "The pages do not say" as an answer                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A missing key and a read-and-silent page used to be the same absence in
+ * `eligibility_flags`, so the "No work experience required" filter matched
+ * every row nobody had opened. Recording the difference is what lets a query
+ * refuse to answer "unknown" as "no".
+ */
+describe("eligibility questions the pages did not answer", () => {
+  test("an explicit null is recorded as asked-and-silent", () => {
+    const result = groundProfile(
+      profile({
+        eligibility: {
+          ...profile().eligibility,
+          max_age: num(null, null),
+          min_work_experience_years: num(null, null),
+        },
+      }),
+      [page("A page about the programme that mentions no limits at all.")],
+    );
+
+    assert.equal(result.eligibilitySilent.includes("max_age"), true);
+    assert.equal(result.eligibilitySilent.includes("min_work_experience_years"), true);
+  });
+
+  test("an empty list is silence too", () => {
+    const result = groundProfile(
+      profile({
+        eligibility: { ...profile().eligibility, accepted_language_tests: strs([], null) },
+      }),
+      [page("A page about the programme that names no language tests.")],
+    );
+
+    assert.equal(result.eligibilitySilent.includes("accepted_language_tests"), true);
+  });
+
+  test("a claim that failed grounding is NOT recorded as silence", () => {
+    // The distinction that makes this trustworthy. We asked, something came
+    // back, and it was not usable — which leaves the question unanswered, not
+    // answered "no". Calling it silence would let a rejected hallucination
+    // become a positive claim on the row.
+    const result = groundProfile(
+      profile({
+        eligibility: {
+          ...profile().eligibility,
+          max_age: num(35, "Applicants must be under the age of 35 on the closing date"),
+        },
+      }),
+      [page("This page is about the history of the foundation and its founders.")],
+    );
+
+    assert.equal(result.proposed.eligibility_flags.max_age, undefined);
+    assert.equal(result.eligibilitySilent.includes("max_age"), false);
+  });
+
+  test("a question that was answered carries no marker", () => {
+    const result = groundProfile(
+      profile({
+        eligibility: {
+          ...profile().eligibility,
+          max_age: num(35, "applicants must be under the age of 35"),
+        },
+      }),
+      [page("For this award, applicants must be under the age of 35 at the deadline.")],
+    );
+
+    assert.equal(result.proposed.eligibility_flags.max_age, 35);
+    assert.equal(result.eligibilitySilent.includes("max_age"), false);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Dates from a cycle that has already been and gone                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The Richard Rockefeller Fellowship row carried deadline_date 2019-12-09,
+ * grounded and quoted and stamped verified in 2026, read off a page the funder
+ * left up and never took down. Grounding cannot catch that and never could —
+ * the quote is real and the date is real. A programme runs annually, so a date
+ * more than a cycle before the crawl is simply not this cycle's.
+ */
+describe("archived cycles", () => {
+  const CRAWLED = "2026-08-06T00:00:00Z";
+  const old = (text: string) => ({
+    url: "https://example.org/a",
+    text,
+    html: "",
+    sha256: "x",
+    fetchedAt: CRAWLED,
+  });
+
+  test("a deadline from seven years ago is dropped", () => {
+    const result = groundExtraction(
+      cycle({
+        deadline_date: claim("2019-12-09", "Applications are due by 9 December 2019"),
+      }),
+      [old("Applications are due by 9 December 2019 for the coming year.")],
+      "https://example.org/a",
+    );
+
+    assert.equal(result.proposed.deadline_date, null);
+    assert.match(result.ungroundedFields[0] ?? "", /archived cycle/);
+  });
+
+  test("a deadline that has only just passed survives, with a caveat", () => {
+    // Programmes publish next year's dates months after the last round shuts.
+    // Dropping these would empty every row that is merely between cycles.
+    const result = groundExtraction(
+      cycle({
+        deadline_date: claim("2026-05-18", "Applications close on 18 May 2026"),
+      }),
+      [old("Applications close on 18 May 2026 at midnight.")],
+      "https://example.org/a",
+    );
+
+    assert.equal(result.proposed.deadline_date, "2026-05-18");
+    assert.match(result.caveats.join(" "), /already passed/);
+  });
+
+  test("a future deadline passes without comment", () => {
+    const result = groundExtraction(
+      cycle({
+        deadline_date: claim("2026-10-06", "Applications close on 6 October 2026"),
+      }),
+      [old("Applications close on 6 October 2026 at midday.")],
+      "https://example.org/a",
+    );
+
+    assert.equal(result.proposed.deadline_date, "2026-10-06");
+    assert.deepEqual(result.caveats, []);
+  });
+
+  test("an archived timeline stage keeps its name and loses its date", () => {
+    const result = groundExtraction(
+      cycle({
+        timeline: [
+          {
+            key: "interviews",
+            label: "Interviews",
+            date: "2019-03-11",
+            note: null,
+            evidence_quote: "Interviews are held on 11 March 2019",
+          },
+        ],
+      }),
+      [old("Interviews are held on 11 March 2019 in Washington.")],
+      "https://example.org/a",
+    );
+
+    assert.equal(result.proposed.timeline[0]?.label, "Interviews");
+    assert.equal(result.proposed.timeline[0]?.date, null);
+    assert.match(result.ungroundedFields[0] ?? "", /archived cycle/);
+  });
+});

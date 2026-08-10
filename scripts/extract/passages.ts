@@ -58,8 +58,16 @@ const TOPIC_WEIGHTS: Record<Topic, number> = {
   process: 0.6,
 };
 
-/** Splits page text into paragraph-ish blocks, gluing fragments together. */
-function toBlocks(text: string): string[] {
+/**
+ * Splits page text into paragraph-ish blocks, gluing fragments together.
+ *
+ * Exported for the gap pass, which scores the same blocks against a different
+ * vocabulary. Both selectors MUST see identical block boundaries — a second
+ * look that cuts the page differently would report a passage the first call
+ * never had a chance to read, and the comparison between them would be
+ * meaningless.
+ */
+export function toBlocks(text: string): string[] {
   const blocks: string[] = [];
   let buffer = "";
 

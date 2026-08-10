@@ -316,6 +316,10 @@ const COUNTRY_DISPLAY: Record<string, string> = {
   korea: "South Korea",
   "people's republic of china": "China",
   "mainland china": "China",
+  // Not a country: a programme placing its recipients in several at once. The
+  // stored value is a filter key; on a card it has to read like an answer.
+  multiple: "Several countries",
+  unknown: "Several countries",
 };
 
 export function displayCountry(country: string): string {

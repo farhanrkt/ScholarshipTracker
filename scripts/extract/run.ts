@@ -12,6 +12,7 @@
  *   npm run extract -- --provider anthropic    # force a provider
  *   npm run extract -- --escalate              # retry empties on the other provider
  *   npm run extract -- --verify                # cross-check dates against other sources
+ *   npm run extract -- --no-gap-fill           # skip the second look at empty fields
  *   npm run extract -- --no-fix-urls           # never rewrite a row's dead URL
  *   npm run extract -- --models                # list models your Groq key can reach
  *
@@ -88,6 +89,16 @@ const force = flag("force");
  */
 const verify = flag("verify");
 const maxVerifySources = Number(option("verify-sources") ?? 2);
+/**
+ * The second look at whatever the profile call left empty.
+ *
+ * On by default. It is one extra model call against a crawl that has already
+ * been fetched and paid for, and it is the difference between a row carrying a
+ * deadline and three coverage lines and a row a student can actually plan
+ * against. Turn it off with --no-gap-fill when the run is only about dates or
+ * when a provider quota is the binding constraint.
+ */
+const gapFill = !flag("no-gap-fill");
 
 /**
  * Programmes extracted at once.
@@ -374,6 +385,7 @@ async function main() {
       fixUrls,
       verify,
       maxVerifySources,
+      gapFill,
       previous: lastSeen.get(target.id) ?? null,
       sources: sourcesByScholarship.get(target.id) ?? [],
     });

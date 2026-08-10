@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { isPdf, MAX_PDF_BYTES, pdfToText } from "./pdf.ts";
+
 const USER_AGENT =
   process.env.CRAWL_USER_AGENT ||
   "ScholarTrackBot/1.0 (scholarship deadline verification; +https://github.com/)";
@@ -436,7 +438,12 @@ function isTimeout(error: unknown): boolean {
  * `application/xhtml+xml;charset=utf-8` or, more often, for one it serves
  * correctly but describes oddly.
  */
-const ACCEPT_HTML = "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8";
+// `application/pdf` is named explicitly rather than left to the `*/*` tail: a
+// content-negotiating server offered only HTML will hand back an HTML landing
+// page for a URL that is a PDF, and we would read the wrapper instead of the
+// guideline.
+const ACCEPT_HTML =
+  "text/html,application/xhtml+xml;q=0.9,application/pdf;q=0.9,*/*;q=0.8";
 const ACCEPT_XML = "application/xml,text/xml;q=0.9,*/*;q=0.8";
 
 /** Hosts that have already refused our own identity, so we skip straight past it. */
@@ -771,11 +778,64 @@ async function fetchPageUncached(url: string): Promise<FetchedPage> {
     throw new HttpError(response.status, url);
   }
 
+  const contentType = response.headers.get("content-type");
+  const landedUrl = response.url || url;
+
+  /**
+   * A PDF is a page here, not an attachment.
+   *
+   * MEXT and the Global Korea Scholarship publish a short HTML overview and put
+   * the eligibility limits, the stipend, the document checklist and the closing
+   * date in a PDF guideline. Skipping those was the direct reason the Japan and
+   * Korea rows were thin: the pipeline read the poster and skipped the handbook.
+   */
+  if (isPdf(contentType, landedUrl)) {
+    const declared = Number(response.headers.get("content-length") ?? 0);
+    if (declared > MAX_PDF_BYTES) {
+      throw new Error(
+        `${url} is ${(declared / 1e6).toFixed(1)} MB of PDF — too large to read`,
+      );
+    }
+
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    // Checked again against what arrived: content-length is optional, and a
+    // chunked response can simply not declare one.
+    if (bytes.byteLength > MAX_PDF_BYTES) {
+      throw new Error(
+        `${url} is ${(bytes.byteLength / 1e6).toFixed(1)} MB of PDF — too large to read`,
+      );
+    }
+
+    let pdfText: string;
+    try {
+      pdfText = await pdfToText(bytes);
+    } catch (error) {
+      throw new Error(
+        `Could not read the PDF at ${url}: ${error instanceof Error ? error.message : error}`,
+      );
+    }
+
+    if (pdfText.length < 200) {
+      throw new Error(
+        `${url} produced only ${pdfText.length} characters of text — a scanned PDF has no text layer, so it needs manual verification.`,
+      );
+    }
+
+    return {
+      url: landedUrl,
+      text: pdfText,
+      // No markup, so `extractLinks` finds nothing — which is right. A PDF is a
+      // leaf of the crawl: we read it, we do not follow it.
+      html: "",
+      sha256: createHash("sha256").update(pdfText).digest("hex"),
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+
   // A server that declares nothing is not declaring a binary. Plenty of older
   // university pages send no content-type at all, and rejecting those threw
   // away readable HTML on a technicality — the text-length check below is the
   // real guard, and it judges what actually arrived.
-  const contentType = response.headers.get("content-type");
   if (contentType && !/html|text|xml/i.test(contentType)) {
     throw new Error(`Expected HTML from ${url}, got "${contentType}"`);
   }
@@ -791,7 +851,7 @@ async function fetchPageUncached(url: string): Promise<FetchedPage> {
 
   return {
     // The post-redirect URL: what was actually read is what gets recorded.
-    url: response.url || url,
+    url: landedUrl,
     text,
     html,
     sha256: createHash("sha256").update(text).digest("hex"),
@@ -809,8 +869,13 @@ export interface PageLink {
   label: string;
 }
 
+/**
+ * `.pdf` is deliberately absent — see pdf.ts. Every other binary is still
+ * skipped, because nothing in this pipeline can read a spreadsheet or a video
+ * and a link to one is a fetch spent on nothing.
+ */
 const SKIP_EXTENSIONS =
-  /\.(pdf|docx?|xlsx?|pptx?|zip|jpe?g|png|gif|svg|webp|mp4|mp3|ics)$/i;
+  /\.(docx?|xlsx?|pptx?|zip|jpe?g|png|gif|svg|webp|mp4|mp3|ics)$/i;
 
 /**
  * Query parameters worth keeping. Everything else is dropped.

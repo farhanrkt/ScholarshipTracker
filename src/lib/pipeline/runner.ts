@@ -14,7 +14,10 @@ import {
   pickProvider,
 } from "../../../scripts/extract/providers/index.ts";
 import type { Authority } from "../../../scripts/discover/authority.ts";
-import type { JobArgs } from "./jobs";
+// `.ts` because this is now a RUNTIME import, not a type-only one: Node resolves
+// the specifier literally, and the extensionless form only worked while the
+// whole import was erased at compile time.
+import { STALE_AFTER_DAYS, type JobArgs } from "./jobs.ts";
 
 /**
  * The pipeline, running wherever the app runs.
@@ -114,6 +117,90 @@ type Db = SupabaseClient;
  * returns, and unit 7 would silently become a different programme. Fixing it up
  * front is what makes "12 of 20" mean anything.
  */
+/**
+ * The rows that have gone out of date, worst first.
+ *
+ * TWO QUERIES, because the two kinds of staleness have different rules and
+ * expressing that as one nested PostgREST filter would be unreadable:
+ *
+ *   A CYCLE HAS TURNED — the deadline is in the past. This includes rows a
+ *   human verified, and that is the point: a verification confirms a date, and
+ *   a date that has passed has outlived its confirmation. Re-reading one stages
+ *   a PROPOSAL for review, which overwrites nothing, so the rule that a machine
+ *   never edits a checked row still holds.
+ *
+ *   A READING HAS AGED — nothing has looked in ninety days, or ever. Verified
+ *   rows are left out here: a human's check does not expire on a timer, only
+ *   when the thing it checked does.
+ *
+ * The passed deadlines come first because they are the ones actively misleading
+ * somebody.
+ */
+async function planStale(
+  db: Db,
+  args: Extract<JobArgs, { kind: "extract" }>,
+  notes: string[],
+): Promise<Array<{ id: string; title: string }>> {
+  const today = new Date().toISOString().slice(0, 10);
+  const cutoff = new Date(
+    Date.now() - STALE_AFTER_DAYS * 86_400_000,
+  ).toISOString();
+
+  // A title filter is a substring match on the same column in both queries;
+  // `%%` matches everything, so the unfiltered case needs no separate branch.
+  const pattern = `%${args.title ?? ""}%`;
+
+  const [expired, aged] = await Promise.all([
+    db
+      .from("scholarships")
+      .select("id, title")
+      .ilike("title", pattern)
+      .not("deadline_date", "is", null)
+      .lt("deadline_date", today)
+      .order("deadline_date", { ascending: true })
+      .limit(args.limit),
+    db
+      .from("scholarships")
+      .select("id, title")
+      .ilike("title", pattern)
+      .neq("verification_status", "verified")
+      .or(`last_verified_at.is.null,last_verified_at.lt.${cutoff}`)
+      .order("last_verified_at", { ascending: true, nullsFirst: true })
+      .limit(args.limit),
+  ]);
+
+  if (expired.error) {
+    throw new Error(`Could not load scholarships: ${expired.error.message}`);
+  }
+  if (aged.error) {
+    throw new Error(`Could not load scholarships: ${aged.error.message}`);
+  }
+
+  const seen = new Set<string>();
+  const rows: Array<{ id: string; title: string }> = [];
+
+  for (const row of [...(expired.data ?? []), ...(aged.data ?? [])]) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    rows.push(row);
+    if (rows.length >= args.limit) break;
+  }
+
+  if (rows.length === 0) {
+    notes.push(
+      `Nothing is stale: every row has a deadline still ahead of it and was read within ${STALE_AFTER_DAYS} days.`,
+    );
+  } else {
+    const passed = (expired.data ?? []).length;
+    notes.push(
+      `${rows.length} stale row(s)` +
+        (passed > 0 ? `, ${passed} with a deadline already gone` : ""),
+    );
+  }
+
+  return rows;
+}
+
 export async function planUnits(
   db: Db,
   args: JobArgs,
@@ -135,23 +222,28 @@ export async function planUnits(
     };
   }
 
-  let query = db
-    .from("scholarships")
-    .select("id, title")
-    .neq("verification_status", "verified") // never overwrite human-checked rows
-    // Never-checked rows first, then the longest-neglected. Without an ORDER BY
-    // the LIMIT takes an arbitrary slice, so repeated runs chew the same rows
-    // forever and never reach the tail of the table.
-    .order("last_verified_at", { ascending: true, nullsFirst: true })
-    .order("created_at", { ascending: true })
-    .limit(args.limit);
+  let rows: Array<{ id: string; title: string }>;
 
-  if (args.title) query = query.ilike("title", `%${args.title}%`);
+  if (args.staleOnly) {
+    rows = await planStale(db, args, notes);
+  } else {
+    let query = db
+      .from("scholarships")
+      .select("id, title")
+      .neq("verification_status", "verified") // never overwrite human-checked rows
+      // Never-checked rows first, then the longest-neglected. Without an ORDER BY
+      // the LIMIT takes an arbitrary slice, so repeated runs chew the same rows
+      // forever and never reach the tail of the table.
+      .order("last_verified_at", { ascending: true, nullsFirst: true })
+      .order("created_at", { ascending: true })
+      .limit(args.limit);
 
-  const { data, error } = await query;
-  if (error) throw new Error(`Could not load scholarships: ${error.message}`);
+    if (args.title) query = query.ilike("title", `%${args.title}%`);
 
-  let rows = (data ?? []) as Array<{ id: string; title: string }>;
+    const { data, error } = await query;
+    if (error) throw new Error(`Could not load scholarships: ${error.message}`);
+    rows = (data ?? []) as Array<{ id: string; title: string }>;
+  }
 
   // Re-running used to stage a SECOND proposal for a row that already had one
   // pending, so the review queue filled with duplicates of the same programme.
@@ -275,6 +367,7 @@ export async function runTick(db: Db, job: JobRow): Promise<TickResult> {
                 dryRun: job.args.dryRun,
                 fixUrls: job.args.fixUrls,
                 verify: job.args.verify,
+                gapFill: job.args.gapFill,
                 previous: (context as ExtractContext).previous.get(unit.id) ?? null,
                 sources: (context as ExtractContext).sources.get(unit.id) ?? [],
               });

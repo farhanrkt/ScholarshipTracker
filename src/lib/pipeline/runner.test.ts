@@ -49,6 +49,39 @@ function fakeDb(tables: Record<string, Row[]>) {
         return chain;
       },
       gt: () => chain,
+      lt: (column: string, value: unknown) => {
+        rows = rows.filter(
+          (row) => row[column] !== null && String(row[column]) < String(value),
+        );
+        return chain;
+      },
+      not: (column: string, operator: string, value: unknown) => {
+        if (operator === "is" && value === null) {
+          rows = rows.filter((row) => row[column] !== null && row[column] !== undefined);
+        }
+        return chain;
+      },
+      /**
+       * Enough of PostgREST's `or=` to cover the staleness query: a
+       * comma-separated list of `column.op.value` terms, ORed together.
+       */
+      or: (expression: string) => {
+        const terms = expression.split(",").map((term) => term.split("."));
+        rows = rows.filter((row) =>
+          terms.some(([column, operator, ...rest]) => {
+            const value = rest.join(".");
+            const cell = row[column!];
+            if (operator === "is" && value === "null") {
+              return cell === null || cell === undefined;
+            }
+            if (operator === "lt") {
+              return cell !== null && cell !== undefined && String(cell) < value;
+            }
+            return false;
+          }),
+        );
+        return chain;
+      },
       ilike: () => chain,
       order: () => chain,
       limit: (count: number) => {
@@ -106,6 +139,8 @@ const EXTRACT_ARGS = {
   verify: false,
   force: false,
   fixUrls: true,
+  gapFill: true,
+  staleOnly: false,
 };
 
 describe("planning a run", () => {
@@ -301,5 +336,115 @@ describe("ticking a job", () => {
     assert.equal(result.staged, 5);
     assert.equal(result.failed, 2);
     assert.equal(result.skipped, 1);
+  });
+});
+
+describe("planning a refresh", () => {
+  /**
+   * The scheduled run's whole job is to notice what has gone out of date. Six
+   * of sixteen deadlines in the real catalogue had already passed with nothing
+   * ever going to look at them again — that is the failure this planner exists
+   * to stop, and the ordering matters as much as the selection, because a
+   * passed deadline is the one actively misleading somebody.
+   */
+  const STALE_ARGS = { ...EXTRACT_ARGS, staleOnly: true, dryRun: false };
+
+  const catalogue = () => [
+    {
+      id: "passed",
+      title: "Deadline gone",
+      deadline_date: "2020-01-01",
+      last_verified_at: "2099-01-01T00:00:00Z",
+      verification_status: "ai_extracted",
+    },
+    {
+      id: "fresh",
+      title: "Read last week",
+      deadline_date: "2099-01-01",
+      last_verified_at: "2099-01-01T00:00:00Z",
+      verification_status: "ai_extracted",
+    },
+    {
+      id: "never",
+      title: "Never read",
+      deadline_date: null,
+      last_verified_at: null,
+      verification_status: "unverified",
+    },
+    {
+      id: "aged",
+      title: "Read long ago",
+      deadline_date: "2099-01-01",
+      last_verified_at: "2000-01-01T00:00:00Z",
+      verification_status: "ai_extracted",
+    },
+  ];
+
+  test("picks passed deadlines, never-read rows and aged readings", async () => {
+    const { db } = fakeDb({ scholarships: catalogue(), scholarship_extractions: [] });
+    const plan = await runner.planUnits(db as never, STALE_ARGS);
+
+    const ids = plan.units.map((unit) => (unit as { id: string }).id);
+    assert.deepEqual(new Set(ids), new Set(["passed", "never", "aged"]));
+  });
+
+  test("a row read recently with a deadline ahead of it is left alone", async () => {
+    const { db } = fakeDb({ scholarships: catalogue(), scholarship_extractions: [] });
+    const plan = await runner.planUnits(db as never, STALE_ARGS);
+
+    assert.equal(
+      plan.units.some((unit) => (unit as { id: string }).id === "fresh"),
+      false,
+    );
+  });
+
+  test("a passed deadline is re-read even when a human verified it", async () => {
+    // A verification confirms a DATE, and a date that has passed has outlived
+    // its confirmation. Re-reading stages a proposal for review, so the rule
+    // that a machine never edits a checked row still holds.
+    const { db } = fakeDb({
+      scholarships: [
+        {
+          id: "verified-and-expired",
+          title: "Checked, then expired",
+          deadline_date: "2020-01-01",
+          last_verified_at: "2099-01-01T00:00:00Z",
+          verification_status: "verified",
+        },
+      ],
+      scholarship_extractions: [],
+    });
+
+    const plan = await runner.planUnits(db as never, STALE_ARGS);
+    assert.equal(plan.units.length, 1);
+  });
+
+  test("a verified row does not go stale merely with time", async () => {
+    const { db } = fakeDb({
+      scholarships: [
+        {
+          id: "verified-old",
+          title: "Checked long ago, deadline ahead",
+          deadline_date: "2099-01-01",
+          last_verified_at: "2000-01-01T00:00:00Z",
+          verification_status: "verified",
+        },
+      ],
+      scholarship_extractions: [],
+    });
+
+    const plan = await runner.planUnits(db as never, STALE_ARGS);
+    assert.deepEqual(plan.units, []);
+  });
+
+  test("a fully current catalogue says so rather than planning nothing silently", async () => {
+    const { db } = fakeDb({
+      scholarships: [catalogue()[1]!],
+      scholarship_extractions: [],
+    });
+
+    const plan = await runner.planUnits(db as never, STALE_ARGS);
+    assert.deepEqual(plan.units, []);
+    assert.match(plan.notes.join(" "), /Nothing is stale/);
   });
 });

@@ -216,9 +216,30 @@ describe("link extraction", () => {
     const urls = links.map((link) => link.url);
 
     assert.ok(!urls.some((url) => url.includes("other.example")));
-    assert.ok(!urls.some((url) => url.endsWith(".pdf")));
     assert.ok(!urls.some((url) => url.startsWith("mailto")));
     assert.equal(urls.filter((url) => url === "https://x.example/apply").length, 1);
+  });
+
+  test("a PDF is a page now, not a binary to skip", () => {
+    // MEXT and the Global Korea Scholarship publish a short HTML overview and
+    // put the eligibility limits, the stipend and the document checklist in a
+    // PDF guideline. Skipping those is why the Japan and Korea rows were thin.
+    // (Whether a given PDF is worth FETCHING is the crawler's decision — see
+    // the vocabulary gate in crawl.ts. This only says the link survives.)
+    const links = pageModule.extractLinks({
+      url: "https://x.example/page",
+      text: "",
+      html: '<a href="/guidelines.pdf">Application guidelines</a>' +
+        '<a href="/prospectus.docx">Prospectus</a>' +
+        '<a href="/photo.jpg">Photo</a>',
+      sha256: "",
+      fetchedAt: "",
+    });
+    const urls = links.map((link) => link.url);
+
+    assert.ok(urls.includes("https://x.example/guidelines.pdf"));
+    assert.ok(!urls.some((url) => url.endsWith(".docx")));
+    assert.ok(!urls.some((url) => url.endsWith(".jpg")));
   });
 });
 
