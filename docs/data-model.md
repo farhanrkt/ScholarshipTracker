@@ -269,6 +269,7 @@ document proposals.
 | `014_merge_duplicates.sql` | `merge_scholarships()` — folds a duplicate row into the one being kept, carrying trackers, sources and history |
 | `015_multi_country_and_stale_dates.sql` | Repairs the `Unknown` country row and clears cycle dates read off archived pages |
 | `016_not_stated_and_gap_causes.sql` | `scholarships.not_stated`, `scholarship_extractions.gap_causes`, the `scholarship_completeness` view; `apply_extraction()` carries silence additively and prunes it when a value arrives |
+| `017_completeness_performance.sql` | Rewrites that view as one LATERAL lookup per row and adds the `(scholarship_id, created_at DESC)` index it seeks on |
 
 **011, 013 and 016 each replace `apply_extraction()`**, and each is a superset of
 the one before, so applying them in order is correct and applying an earlier one

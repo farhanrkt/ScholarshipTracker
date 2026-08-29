@@ -150,6 +150,14 @@ export function PipelineConsole({ job }: { job: JobName }) {
   const driving = useRef(false);
   /** Lets `stop` end the loop without waiting for the tick in flight. */
   const stopped = useRef(false);
+  /**
+   * Highest log line already displayed.
+   *
+   * The log is now pulled from the database BY SEQUENCE rather than taken from
+   * whatever a tick handed back, so there is exactly one source for it and
+   * polling cannot duplicate what a tick already returned.
+   */
+  const lastSeq = useRef(-1);
 
   // Follow the tail as it streams, the way a terminal does.
   useEffect(() => {
@@ -157,8 +165,24 @@ export function PipelineConsole({ job }: { job: JobName }) {
     if (element) element.scrollTop = element.scrollHeight;
   }, [log]);
 
-  const append = useCallback((lines: string[]) => {
-    if (lines.length > 0) setLog((current) => [...current, ...lines]);
+  /**
+   * Everything written since we last looked.
+   *
+   * The runner flushes after each batch, so this returns real progress while a
+   * tick is still running — which is the difference between a pane that sits
+   * blank for three and a half minutes and one that fills as the work happens.
+   */
+  const pullLog = useCallback(async (jobId: string) => {
+    const response = await fetch(
+      `/api/admin/pipeline/log?job=${jobId}&after=${lastSeq.current}`,
+    );
+    if (!response.ok) return;
+
+    const body = (await response.json()) as { lines: string[]; lastSeq: number };
+    if (body.lines.length === 0) return;
+
+    lastSeq.current = body.lastSeq;
+    setLog((current) => [...current, ...body.lines]);
   }, []);
 
   /**
@@ -195,7 +219,11 @@ export function PipelineConsole({ job }: { job: JobName }) {
             lines: string[];
           };
 
-          append(result.lines);
+          // Not `result.lines`: the poll below is already reading them by
+          // sequence, and appending both would print every line twice. Pulling
+          // here as well only makes the tail of a finished tick appear at once
+          // rather than up to one poll interval later.
+          await pullLog(jobId);
           setLive((current) => ({ ...(current ?? { id: jobId, kind: job }), ...result }));
 
           if (FINISHED.has(result.status)) break;
@@ -214,8 +242,59 @@ export function PipelineConsole({ job }: { job: JobName }) {
         setBusy(false);
       }
     },
-    [append, job],
+    [pullLog, job],
   );
+
+  /* ------------------------------------------------- stop driving on unmount */
+
+  /**
+   * THE BUG THIS FIXES was site-wide, not console-local.
+   *
+   * `drive` is a `for(;;)` loop that lives in a closure, and nothing stopped it
+   * when the component went away. Navigating off the pipeline page therefore
+   * left it running forever — and because `useRef` is per instance, coming back
+   * started a SECOND loop beside the first. Every visit added another.
+   *
+   * Each orphan is not idle. It POSTs a tick, `claim_pipeline_tick` refuses it
+   * because the live loop holds the job, it backs off three seconds and asks
+   * again — so what accumulates is a set of permanent three-second pollers,
+   * each one a serverless invocation with an admin check and a query behind it.
+   * That is what made the whole site feel slow while a run was going, and worse
+   * the more you moved around.
+   *
+   * The loop is asked to stop rather than aborted: the tick in flight is doing
+   * real crawling and saves at the end, so killing it would throw that work
+   * away. It exits after the current tick returns, and the run itself survives
+   * — the cursor is in Postgres, and mounting this component re-attaches to it.
+   */
+  useEffect(() => {
+    return () => {
+      stopped.current = true;
+    };
+  }, []);
+
+  /* ------------------------------------------------------ live log polling */
+
+  /**
+   * Read the log while a tick is in flight.
+   *
+   * The tick request does not return for up to 210 seconds; the runner flushes
+   * its lines after every batch. This is what connects the two.
+   */
+  useEffect(() => {
+    if (!live || FINISHED.has(live.status)) return;
+
+    let cancelled = false;
+    const timer = setInterval(() => {
+      if (cancelled) return;
+      void pullLog(live.id);
+    }, 2_500);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [live, pullLog]);
 
   /* -------------------------------------------------- re-attach on mount */
 
@@ -249,8 +328,14 @@ export function PipelineConsole({ job }: { job: JobName }) {
             `/api/admin/pipeline/log?job=${body.live.id}&after=-1`,
           );
           if (logResponse.ok && !cancelled) {
-            const { lines } = (await logResponse.json()) as { lines: string[] };
-            setLog(lines);
+            const body2 = (await logResponse.json()) as {
+              lines: string[];
+              lastSeq: number;
+            };
+            // Seeding the cursor is what stops the poller below re-appending
+            // the entire backlog it just rendered.
+            lastSeq.current = body2.lastSeq;
+            setLog(body2.lines);
           }
 
           if (!cancelled) void drive(body.live.id);
@@ -273,6 +358,8 @@ export function PipelineConsole({ job }: { job: JobName }) {
     setLog([]);
     setLive(null);
     setBusy(true);
+    // A new job numbers its lines from zero, so the cursor has to go back too.
+    lastSeq.current = -1;
 
     try {
       const response = await fetch("/api/admin/pipeline", {
@@ -335,8 +422,14 @@ export function PipelineConsole({ job }: { job: JobName }) {
     });
 
     setLive((current) => (current ? { ...current, status: "cancelled" } : current));
-    append(["", "■ cancelling — the unit in flight finishes first."]);
-  }, [append, live]);
+    // A local note, not a log line: it describes what this browser just asked
+    // for, and the runner writes its own "cancelled" line when it acts on it.
+    setLog((current) => [
+      ...current,
+      "",
+      "■ cancelling — the unit in flight finishes first.",
+    ]);
+  }, [live]);
 
   const set = <K extends keyof JobState>(key: K, value: JobState[K]) =>
     setState((current) => ({ ...current, [key]: value }));

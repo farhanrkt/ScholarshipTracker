@@ -397,3 +397,43 @@ replaced only when the proposal is non-empty.
 An applied extraction that renamed a document's slug orphans that user's tick.
 Unavoidable when a checklist is genuinely corrected — one reason a human approves
 the proposal first.
+
+### The site feels slow, and worse the more you move around
+
+Almost certainly orphaned pipeline drivers, fixed as of `017`.
+
+The console does not poll a background worker — each tick is an HTTP request
+that performs the crawling and returns. That loop lives in a closure, and
+nothing used to stop it when the component unmounted, so navigating away from
+`/admin/pipeline` left it running. `useRef` is per instance, so coming back
+started a *second* loop beside the first, and every visit added another.
+
+The orphans are not idle. Each POSTs a tick, `claim_pipeline_tick` refuses it
+because the live loop holds the job, it backs off three seconds and asks again
+— so what accumulates is a set of permanent three-second pollers, each an
+invocation with an admin check and a query behind it, competing with ordinary
+page loads that are all `force-dynamic`.
+
+Unmount now stops the loop. It is *asked* to stop rather than aborted: the tick
+in flight is doing real crawling and saves at the end, so killing it would throw
+that work away. The run itself survives either way — the cursor is in Postgres,
+and reopening the page re-attaches.
+
+A hard refresh clears any orphan from a session that predates the fix.
+
+### The pipeline log appears in bursts, or looks stuck
+
+Fixed as of `017`, and worth knowing the shape of.
+
+A tick is up to 210 seconds of crawling and every line it produced used to stay
+in a local array until the whole thing returned — so there was nothing to poll,
+because the lines did not exist anywhere a poller could reach. The pane sat
+blank for three and a half minutes and then filled at once.
+
+The runner now flushes lines and its cursor to `pipeline_job_lines` after every
+batch, and the console pulls by sequence number every 2.5s. Lines come from the
+database only, so a tick returning cannot duplicate what polling already showed.
+
+If a run still feels coarse, lower `PIPELINE_TICK_MS` (default 210000). Shorter
+ticks return more often and keep the host freer for ordinary requests, at the
+cost of more invocations per run.

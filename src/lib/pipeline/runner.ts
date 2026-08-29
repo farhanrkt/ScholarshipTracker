@@ -279,6 +279,17 @@ export async function runTick(db: Db, job: JobRow): Promise<TickResult> {
   const lines: string[] = [];
   const say = (line: string) => lines.push(line);
 
+  /**
+   * How much of `lines` is already in the database.
+   *
+   * A tick is minutes of crawling, and its output used to reach Postgres only
+   * when the whole thing returned — so the console had nothing to show and
+   * nothing to poll for, and an operator watched a blank pane for three and a
+   * half minutes before the entire run appeared at once. Flushing after each
+   * batch is what makes progress visible while it is happening.
+   */
+  let flushed = 0;
+
   const startedAt = Date.now();
   const timeLeft = () => TICK_BUDGET_MS - (Date.now() - startedAt);
 
@@ -435,6 +446,36 @@ export async function runTick(db: Db, job: JobRow): Promise<TickResult> {
       }
 
       cursor += batch.length;
+
+      /**
+       * Publish progress after each batch: the new lines, the cursor, and a
+       * fresh heartbeat.
+       *
+       * The heartbeat matters as much as the lines. `claim_pipeline_tick`
+       * hands the job to another worker when the current one looks dead, and a
+       * tick that only touched the row at the end looked dead for its entire
+       * duration to anything checking.
+       *
+       * Best-effort: a failed progress write must never lose the work this
+       * tick has already done. The final `save` writes it all again anyway.
+       */
+      try {
+        await appendLines(db, job.id, lines.slice(flushed));
+        flushed = lines.length;
+
+        await db
+          .from("pipeline_jobs")
+          .update({
+            cursor,
+            staged,
+            failed,
+            skipped,
+            heartbeat_at: new Date().toISOString(),
+          })
+          .eq("id", job.id);
+      } catch {
+        // Report it next flush, or in the final save.
+      }
     }
   } catch (failure) {
     // A day-scale quota is not recoverable by ticking again, so the job stops
@@ -469,7 +510,17 @@ export async function runTick(db: Db, job: JobRow): Promise<TickResult> {
     }
   }
 
-  await save(db, job.id, { status, cursor, staged, failed, skipped, error, lines });
+  // Only what has not already been published — the mid-batch flushes above
+  // wrote the rest, and re-inserting them would show every line twice.
+  await save(db, job.id, {
+    status,
+    cursor,
+    staged,
+    failed,
+    skipped,
+    error,
+    lines: lines.slice(flushed),
+  });
 
   return { status, cursor, total: job.total, staged, failed, skipped, lines, error };
 }
@@ -600,6 +651,44 @@ async function discoverContext(db: Db): Promise<DiscoverContext> {
 /* Saving                                                                     */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Write log lines, continuing the numbering from whatever is already there.
+ *
+ * Safe without a transaction because `claim_pipeline_tick` guarantees one
+ * writer per job.
+ *
+ * SEPARATE FROM `save` SO IT CAN RUN MID-TICK. A tick is up to 210 seconds of
+ * crawling, and every line it produced used to sit in a local array until the
+ * whole thing finished — so the console showed nothing at all for three and a
+ * half minutes and then the entire run at once. There was nothing to poll,
+ * because the lines did not exist anywhere a poller could reach.
+ */
+async function appendLines(
+  db: Db,
+  jobId: string,
+  lines: string[],
+): Promise<void> {
+  if (lines.length === 0) return;
+
+  const { data: last } = await db
+    .from("pipeline_job_lines")
+    .select("seq")
+    .eq("job_id", jobId)
+    .order("seq", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const start = (last?.seq ?? -1) + 1;
+
+  await db.from("pipeline_job_lines").insert(
+    lines.map((line, offset) => ({
+      job_id: jobId,
+      seq: start + offset,
+      line,
+    })),
+  );
+}
+
 async function save(
   db: Db,
   jobId: string,
@@ -613,27 +702,7 @@ async function save(
     lines: string[];
   },
 ): Promise<void> {
-  if (update.lines.length > 0) {
-    // Continue the numbering from whatever is already there. Safe without a
-    // transaction because `claim_pipeline_tick` guarantees one writer per job.
-    const { data: last } = await db
-      .from("pipeline_job_lines")
-      .select("seq")
-      .eq("job_id", jobId)
-      .order("seq", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const start = (last?.seq ?? -1) + 1;
-
-    await db.from("pipeline_job_lines").insert(
-      update.lines.map((line, offset) => ({
-        job_id: jobId,
-        seq: start + offset,
-        line,
-      })),
-    );
-  }
+  await appendLines(db, jobId, update.lines);
 
   const finished = ["done", "failed", "cancelled"].includes(update.status);
 
