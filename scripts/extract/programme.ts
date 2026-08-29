@@ -1,4 +1,4 @@
-import { crawlProgramme, describeCrawl } from "./crawl.ts";
+import { crawlProgramme, describeCrawl, type CrawledPage } from "./crawl.ts";
 import { fetchPage } from "./page.ts";
 import { findLiveEntry } from "./repair.ts";
 import { extractCycle, extractProfile, extractProfileGaps } from "./extract.ts";
@@ -8,6 +8,7 @@ import {
   profileCompleteness,
   profileGaps,
   selectGapPassages,
+  type GapField,
 } from "./gaps.ts";
 import {
   groundExtraction,
@@ -18,7 +19,16 @@ import {
   type GroundedProfile,
 } from "./ground.ts";
 import { selectPassages, type Passage } from "./passages.ts";
-import { verifyCycle } from "./verify.ts";
+import {
+  describeCauses,
+  diagnoseGaps,
+  gapPhrases,
+  notStatedFields,
+  recoverableCount,
+  starvedTopics,
+} from "./diagnosis.ts";
+import { verifyCycle, verifyProfile } from "./verify.ts";
+import { TOPICS, type Topic } from "./relevance.ts";
 import type { Authority } from "../discover/authority.ts";
 import type { FieldSources } from "../../src/lib/types/database.ts";
 import {
@@ -75,6 +85,15 @@ export interface StagedExtraction {
   caveats: string[];
   page_subject: string | null;
   model_notes: string | null;
+  /**
+   * Why each still-empty slot is empty, keyed by field. See `diagnosis.ts`.
+   *
+   * A property of this READING rather than of the programme, which is why it
+   * lives on the extraction and is never proposed onto the row: re-crawl the
+   * same programme with a bigger budget and the same field can go from
+   * `never-crawled` to a value. The review console ranks the backlog with it.
+   */
+  gap_causes?: Record<string, string>;
 }
 
 /**
@@ -113,6 +132,17 @@ export interface ExtractProgrammeOptions {
    * between a row with three facts on it and a row a student can use.
    */
   gapFill?: boolean;
+  /**
+   * Crawl again for the topics nothing was ever fetched about.
+   *
+   * On by default, and the one part of the gap machinery that costs new
+   * requests rather than a re-read. It only fires when the diagnosis says a
+   * whole topic was starved — which is precisely when re-reading cannot help —
+   * so on a well-covered site it never runs at all.
+   */
+  gapCrawl?: boolean;
+  /** Pages the second crawl may fetch. Small: it is aimed, not exploratory. */
+  gapCrawlPages?: number;
 
   /** The newest proposal for this row, for the unchanged check. */
   previous?: { source_url: string; page_sha256: string } | null;
@@ -136,6 +166,25 @@ interface Attempt {
   provider: string;
   model: string;
 }
+
+/**
+ * Below this many filled slots, a profile is treated as a failure worth
+ * escalating rather than as a result.
+ *
+ * WHY THIS EXISTS. The profile call escalated only when it came back COMPLETELY
+ * empty, and empty is not the characteristic failure of a small model on this
+ * prompt — thin is. Twenty-five facts each carrying its own verbatim quote is a
+ * large response, and what a small model does with it is answer the first few
+ * and stop: three coverage lines, nothing else, no error, no truncation the
+ * provider reports. That result is not empty, so it was accepted, and the
+ * escalation configured for exactly this case never fired.
+ *
+ * Six of twenty-five is deliberately low. It is not a target — the gap pass
+ * exists to get well past it — it is the line below which the reader has
+ * plainly not engaged with the passages, and one more call is obviously worth
+ * more than the twenty-two blanks the row would otherwise carry.
+ */
+const THIN_PROFILE_FIELDS = 6;
 
 /**
  * How much a cycle reading is worth, for choosing between two of them.
@@ -171,6 +220,8 @@ export async function extractProgramme(
     verify = false,
     maxVerifySources = 2,
     gapFill = true,
+    gapCrawl = true,
+    gapCrawlPages = 8,
     previous = null,
     sources = [],
   } = options;
@@ -318,7 +369,21 @@ export async function extractProgramme(
       });
     }
 
-    const { pages, errors, topicCounts } = crawled;
+    const { errors } = crawled;
+    // Both grow when the gap pass sends the crawler back out for a starved
+    // topic. Everything downstream — grounding, retrieval, diagnosis — reads
+    // whatever the crawl ended up with, not what the first pass returned.
+    const pages: CrawledPage[] = [...crawled.pages];
+    const topicCounts = { ...crawled.topicCounts };
+
+    /**
+     * Every passage sent to any model call for this programme.
+     *
+     * Diagnosis needs it to tell "the words never reached a model" from "they
+     * did and nothing came back", which are a retrieval bug and a reader
+     * problem respectively and are fixed in different files.
+     */
+    const sentPassages: Passage[] = [];
 
     /**
      * Passages sized for the provider that will actually receive them.
@@ -411,6 +476,7 @@ export async function extractProgramme(
 
       let result;
       try {
+        sentPassages.push(...candidatePassages);
         result = await extractCycle(
           candidate,
           target.title,
@@ -526,6 +592,7 @@ export async function extractProgramme(
           if (isRetry && passages.length === readerPassages.length) break;
 
           try {
+            sentPassages.push(...passages);
             const result = await extractProfile(
               reader,
               target.title,
@@ -538,7 +605,12 @@ export async function extractProgramme(
               const groundedProfile = groundProfile(result.extraction, pages);
               profileNotes = result.extraction.notes_for_reviewer || null;
               if (!isEmptyProfile(groundedProfile)) {
-                profile = groundedProfile;
+                // Fill-only against whatever an earlier reader found, for the
+                // same reason the gap pass merges that way: the first reading
+                // saw the wider context, and merging can then only ever add.
+                profile = profile
+                  ? mergeProfiles(profile, groundedProfile)
+                  : groundedProfile;
                 profileProvider = reader;
               }
             } else {
@@ -564,9 +636,15 @@ export async function extractProgramme(
           }
         }
 
-        if (profile) break;
+        const { filled, total } = profileCompleteness(profile?.proposed ?? null);
+        if (profile && filled >= THIN_PROFILE_FIELDS) break;
+
         if (providerIndex < profileChain.length - 1) {
-          say(`    · profile came back empty on ${reader.name}, escalating`);
+          say(
+            profile
+              ? `    · profile came back thin on ${reader.name} (${filled}/${total}), escalating`
+              : `    · profile came back empty on ${reader.name}, escalating`,
+          );
         }
       }
     }
@@ -586,104 +664,285 @@ export async function extractProgramme(
      * handful of retrieved blocks, and the whole thing is skipped when the
      * profile came back nearly complete or when nothing on the crawl mentions
      * the missing fields at all.
+     *
+     * RUN TWICE. Once over the crawl as it stands, and again if the diagnosis
+     * below finds fields whose subject matter was never fetched at all — those
+     * cannot be rescued by re-reading pages we already hold, however cleverly.
+     * Both runs are the same function, for the same reason the CLI and the
+     * deployed runner share one pipeline: two copies of this would drift.
      */
-    if (!datesOnly && gapFill) {
-      const gaps = profileGaps(profile?.proposed ?? null);
+    const runGapPass = async (
+      gaps: GapField[],
+      note: string,
+    ): Promise<number> => {
+      if (gaps.length < 2) return 0;
 
-      // One hole is not worth a model call. A profile that failed outright is
-      // twenty-five holes, and is exactly the case this rescues.
-      if (gaps.length >= 2) {
-        // A fresh share rather than the profile call's leftovers: this prompt is
-        // sentences, not pages, and the two calls are far enough apart in
-        // wall-clock that they are no longer competing for the same minute.
-        const gapPassagesFor = (reader: ExtractionProvider) =>
-          selectGapPassages(pages, gaps, {
-            budgetChars: Math.floor(reader.promptBudgetChars * 0.5),
-            alreadySent: passagesFor(reader).profile,
-          });
+      // A fresh share rather than the profile call's leftovers: this prompt is
+      // sentences, not pages, and the two calls are far enough apart in
+      // wall-clock that they are no longer competing for the same minute.
+      const gapPassagesFor = (reader: ExtractionProvider) =>
+        selectGapPassages(pages, gaps, {
+          budgetChars: Math.floor(reader.promptBudgetChars * 0.5),
+          alreadySent: passagesFor(reader).profile,
+        });
 
-        if (gapPassagesFor(profileProvider).length === 0) {
-          say(
-            `    · second look skipped — nothing in the crawl mentions the ${gaps.length} missing field(s)`,
+      if (gapPassagesFor(profileProvider).length === 0) {
+        say(
+          `    · ${note} skipped — nothing in the crawl mentions the ${gaps.length} missing field(s)`,
+        );
+        return 0;
+      }
+
+      /**
+       * The second look escalates, for the same reason the first two calls
+       * do — and it is where escalation pays best.
+       *
+       * These are the hard fields by construction: everything easy was taken on
+       * the first pass, and what is left is stated once, in prose, in wording
+       * that has to be recognised rather than pattern-matched. A small model
+       * handed twenty relevant passages routinely returns nothing from them.
+       * The stronger reader is being asked one narrow question against a few
+       * thousand characters, which is the cheapest shape of call to escalate.
+       */
+      const gapChain: ExtractionProvider[] =
+        fallback && fallback.name !== profileProvider.name
+          ? [profileProvider, fallback]
+          : [profileProvider];
+
+      for (const [index, reader] of gapChain.entries()) {
+        let filled = 0;
+        const gapPassages = gapPassagesFor(reader);
+        if (gapPassages.length === 0) continue;
+
+        try {
+          sentPassages.push(...gapPassages);
+          const result = await extractProfileGaps(
+            reader,
+            target.title,
+            target.country,
+            gapPassages,
+            describeGaps(gaps),
           );
-        } else {
-          /**
-           * The second look escalates, for the same reason the first two calls
-           * do — and it is where escalation pays best.
-           *
-           * These are the hard fields by construction: everything easy was
-           * taken on the first pass, and what is left is stated once, in prose,
-           * in wording that has to be recognised rather than pattern-matched.
-           * A small model handed twenty relevant passages routinely returns
-           * nothing from them. The stronger reader is being asked one narrow
-           * question against a few thousand characters, which is the cheapest
-           * shape of call there is to escalate.
-           */
-          const gapChain: ExtractionProvider[] =
-            fallback && fallback.name !== profileProvider.name
-              ? [profileProvider, fallback]
-              : [profileProvider];
+          record(reader.name, result.inputTokens, result.outputTokens);
 
-          for (const [index, reader] of gapChain.entries()) {
-            let filled = 0;
-            const gapPassages = gapPassagesFor(reader);
-            if (gapPassages.length === 0) continue;
+          if (!result.extraction.page_is_about_requested_programme) {
+            say(`    · ${note} read the wrong programme on ${reader.name}, dropped`);
+          } else {
+            const before = profileCompleteness(profile?.proposed ?? null).filled;
+            const merged = mergeProfiles(
+              profile,
+              groundProfile(result.extraction, pages),
+            );
+            const after = profileCompleteness(merged.proposed).filled;
+            filled = after - before;
 
-            try {
-              const result = await extractProfileGaps(
-                reader,
-                target.title,
-                target.country,
-                gapPassages,
-                describeGaps(gaps),
-              );
-              record(reader.name, result.inputTokens, result.outputTokens);
+            /**
+             * Adopt the merge when it filled a slot, and ALSO when all it
+             * brought back was silence.
+             *
+             * `filled > 0` used to be the only reason to keep it, and that threw
+             * away the other half of what this call returns. A reader saying
+             * "these pages do not state the airfare" has ANSWERED the question,
+             * and that answer is what the card renders as "Not stated by the
+             * programme" instead of an unexplained blank. Merging is fill-only
+             * either way, so adopting it can still never lose information.
+             */
+            const learnedSilence =
+              merged.silentFields.length > (profile?.silentFields.length ?? 0);
 
-              if (!result.extraction.page_is_about_requested_programme) {
-                say(`    · second look read the wrong programme on ${reader.name}, dropped`);
-              } else {
-                const before = profileCompleteness(profile?.proposed ?? null).filled;
-                const merged = mergeProfiles(
-                  profile,
-                  groundProfile(result.extraction, pages),
-                );
-                const after = profileCompleteness(merged.proposed).filled;
-                filled = after - before;
-
-                // Merging is fill-only, so `after` can only rise. Adopting the
-                // merge when it did not is still wrong: it would append the gap
-                // call's ungrounded list to the report for no gain, and a
-                // reviewer would read the noise as a worse extraction.
-                if (filled > 0) {
-                  profile = merged;
-                  profileNotes = [profileNotes, result.extraction.notes_for_reviewer]
-                    .filter((note): note is string => Boolean(note && note.trim()))
-                    .join(" · ") || null;
-                  say(
-                    `    → second look filled ${filled} more field(s) of ${gaps.length} asked, from ${gapPassages.length} passage(s)  [${reader.name}]`,
-                  );
-                }
-              }
-            } catch (failure) {
-              if (failure instanceof DailyLimitError) throw failure;
-              // Best-effort to the end: everything already extracted is still
-              // staged, and this row simply keeps the holes it had.
-              say(
-                `    · second look failed on ${reader.name}: ${failure instanceof Error ? failure.message : failure}`,
-              );
+            if (filled > 0 || learnedSilence) {
+              profile = merged;
+              profileNotes =
+                [profileNotes, result.extraction.notes_for_reviewer]
+                  .filter((entry): entry is string => Boolean(entry && entry.trim()))
+                  .join(" · ") || null;
             }
 
-            if (filled > 0) break;
-            if (index < gapChain.length - 1) {
-              say(`    · second look found nothing on ${reader.name}, escalating`);
-            } else {
-              // The counts are the tuning handle. "Nothing found" from two
-              // passages is a retrieval problem; from forty it is the reader.
+            if (filled > 0) {
               say(
-                `    · second look found nothing the first read had missed (${gaps.length} gap(s), ${gapPassages.length} passage(s))`,
+                `    → ${note} filled ${filled} more field(s) of ${gaps.length} asked, from ${gapPassages.length} passage(s)  [${reader.name}]`,
               );
             }
           }
+        } catch (failure) {
+          if (failure instanceof DailyLimitError) throw failure;
+          // Best-effort to the end: everything already extracted is still
+          // staged, and this row simply keeps the holes it had.
+          say(
+            `    · ${note} failed on ${reader.name}: ${failure instanceof Error ? failure.message : failure}`,
+          );
+        }
+
+        if (filled > 0) return filled;
+        if (index < gapChain.length - 1) {
+          say(`    · ${note} found nothing on ${reader.name}, escalating`);
+        } else {
+          // The counts are the tuning handle. "Nothing found" from two passages
+          // is a retrieval problem; from forty it is the reader.
+          say(
+            `    · ${note} found nothing the first read had missed (${gaps.length} gap(s), ${gapPassages.length} passage(s))`,
+          );
+        }
+      }
+
+      return 0;
+    };
+
+    if (!datesOnly && gapFill) {
+      // One hole is not worth a model call. A profile that failed outright is
+      // twenty-five holes, and is exactly the case this rescues.
+      await runGapPass(profileGaps(profile?.proposed ?? null), "second look");
+    }
+
+    /* --------------------------- call 4: go back out for what was never read */
+
+    /**
+     * A gap the crawl could never have answered, answered by crawling more.
+     *
+     * THE LIMIT THIS LIFTS. Everything above re-reads pages we already hold.
+     * That is the right response to a fact that was fetched and missed, and it
+     * is powerless against a fact on a page nobody fetched — a different and
+     * very common failure: the benefits page lost the quota contest, or its
+     * link scored under the threshold, and no amount of re-reading what we did
+     * get will produce a stipend that was never downloaded.
+     *
+     * `diagnoseGaps` is what makes the difference visible, and `never-crawled`
+     * is the one cause worth spending a second crawl on. The crawl it asks for
+     * is narrow in a way the first one could not be: quotas concentrated on
+     * exactly the starved topics, link scoring boosted by the missing facts'
+     * own vocabulary, and every page the first crawl already read excluded, so
+     * the budget buys new material rather than confirming old.
+     */
+    if (!datesOnly && gapFill && gapCrawl) {
+      const causes = diagnoseGaps({
+        gaps: profileGaps(profile?.proposed ?? null),
+        pages,
+        sent: sentPassages,
+        topicCounts,
+        ungrounded: [
+          ...(attempt?.grounded.ungroundedFields ?? []),
+          ...(profile?.ungroundedFields ?? []),
+        ],
+        silent: [
+          ...(profile?.eligibilitySilent ?? []),
+          ...(profile?.silentFields ?? []),
+        ],
+      });
+
+      const starved = starvedTopics(causes);
+      const unreached = Object.entries(causes)
+        .filter(([, cause]) => cause === "never-crawled")
+        .map(([field]) => field as GapField);
+
+      // Two, not one: a single unreached field is not worth a crawl, and the
+      // pattern this exists for — a whole topic missing — is never just one.
+      if (starved.length > 0 && unreached.length >= 2) {
+        say(
+          `    · ${unreached.length} field(s) had no page fetched about them — crawling ${starved.join(", ")} again`,
+        );
+
+        try {
+          // Reserved entirely for the starved topics. A quota of zero elsewhere
+          // is what stops the second crawl re-running the first one's contest
+          // and re-fetching the same well-linked pages under a new name.
+          const quotas: Record<Topic, number> = {
+            dates: 0,
+            eligibility: 0,
+            benefits: 0,
+            documents: 0,
+            process: 0,
+          };
+          for (const topic of starved) quotas[topic] = gapCrawlPages;
+
+          const again = await crawlProgramme(entryUrl, {
+            maxPages: gapCrawlPages,
+            titleHint: target.title,
+            quotas,
+            gapPhrases: gapPhrases(unreached),
+            skipUrls: pages.map((page) => page.url),
+            // Deeper than the first pass. The pages that survive to a second
+            // crawl are the ones buried furthest from the entry, which is
+            // usually the reason the first crawl never reached them.
+            maxDepth: 4,
+          });
+
+          if (again.pages.length === 0) {
+            say(`    · nothing new reachable for ${starved.join(", ")}`);
+          } else {
+            pages.push(...again.pages);
+            for (const topic of TOPICS) topicCounts[topic] += again.topicCounts[topic];
+            // The passage selections were memoised against the old page list.
+            selections.clear();
+
+            say(
+              `    · ${again.pages.length} more page(s) [${describeCrawl(again.topicCounts)}]`,
+            );
+
+            await runGapPass(profileGaps(profile?.proposed ?? null), "third look");
+          }
+        } catch (failure) {
+          if (failure instanceof DailyLimitError) throw failure;
+          say(
+            `    · second crawl failed: ${failure instanceof Error ? failure.message : failure}`,
+          );
+        }
+      }
+    }
+
+    /* ------------------- call 5: the fields the funder does not publish */
+
+    /**
+     * What somebody else's page says about this award.
+     *
+     * Everything above reads the funder's own site, because `crawlProgramme`
+     * follows links same-origin only. That is right for a primary reading and
+     * it is a hard ceiling on completeness: a funder that never publishes its
+     * stipend leaves that slot blank permanently, however many times we re-read
+     * the pages it does publish. Meanwhile the host university states the
+     * stipend its own scholars receive, and that page has been sitting in
+     * `scholarship_sources` being consulted about three date fields.
+     *
+     * Strictly fill-only and strictly attributed — see `verifyProfile`. A blank
+     * becomes a sourced value or stays a blank; it never becomes an unsourced
+     * one, and it never overwrites something the funder stated.
+     */
+    let profileSources: FieldSources = {};
+    /** Kept separately so they reach the staged row's caveats below. */
+    const secondaryCaveats: string[] = [];
+
+    if (!datesOnly && verify && sources.length > 0) {
+      const gaps = profileGaps(profile?.proposed ?? null);
+
+      if (gaps.length >= 2) {
+        const secondary = await verifyProfile({
+          provider,
+          title: target.title,
+          country: target.country,
+          funderUrl: target.official_portal_url,
+          sources,
+          maxSources: maxVerifySources,
+          budgetChars: Math.floor(provider.promptBudgetChars * 0.3),
+          gaps,
+          say,
+        });
+
+        for (const { profile: contributed } of secondary.contributions) {
+          // The funder's reading is the base, so it wins every contest it is
+          // in. A second source can only reach a slot the base left open.
+          profile = profile ? mergeProfiles(profile, contributed) : contributed;
+        }
+
+        profileSources = secondary.fieldSources;
+
+        if (secondary.consulted.length > 0) {
+          const filled = Object.keys(secondary.fieldSources).length;
+          say(
+            `    → ${filled} field(s) filled from ${secondary.consulted.length} other source(s)`,
+          );
+        }
+        for (const caveat of secondary.caveats) {
+          say(`    ⚖ ${caveat}`);
+          secondaryCaveats.push(caveat);
         }
       }
     }
@@ -695,6 +954,48 @@ export async function extractProgramme(
 
     /* --------------------------------------------------------- reporting */
 
+    /**
+     * The final accounting of every slot still empty.
+     *
+     * Computed once, after every pass has had its turn, and used for three
+     * things: the run log, the `not_stated` list the card renders, and the
+     * per-field causes a reviewer sees in the console. Running it here rather
+     * than inside each pass is what makes it an answer about the ROW instead of
+     * about one call — a field the second look filled is not a gap, and a field
+     * the third look proved unreachable is a different kind of gap from one the
+     * reader simply went past.
+     */
+    const gapCauses = diagnoseGaps({
+      gaps: profileGaps(profile?.proposed ?? null),
+      pages,
+      sent: sentPassages,
+      topicCounts,
+      ungrounded: [
+        ...(attempt?.grounded.ungroundedFields ?? []),
+        ...(profile?.ungroundedFields ?? []),
+      ],
+      silent: [
+        ...(profile?.eligibilitySilent ?? []),
+        ...(profile?.silentFields ?? []),
+      ],
+    });
+
+    /**
+     * What the row may tell a student the programme does not state.
+     *
+     * The union of two sources, and both are deliberately narrow: what a reader
+     * with the passages in front of it reported as absent, and what the
+     * diagnosis could only explain by the pages not discussing it. Anything
+     * caused by our own crawling or retrieval is excluded by construction —
+     * `notStatedFields` only returns `not-published` — because "the programme
+     * does not state this" is a claim about the funder, and making it on the
+     * strength of a page we failed to fetch would be exactly the kind of
+     * confident wrongness the rest of this pipeline exists to prevent.
+     */
+    const notStated = [
+      ...new Set([...(profile?.silentFields ?? []), ...notStatedFields(gapCauses)]),
+    ].sort();
+
     const ungrounded = [
       ...(attempt?.grounded.ungroundedFields ?? []),
       ...(profile?.ungroundedFields ?? []),
@@ -702,6 +1003,7 @@ export async function extractProgramme(
     const caveats = [
       ...(attempt?.grounded.caveats ?? []),
       ...(profile?.caveats ?? []),
+      ...secondaryCaveats,
     ];
 
     for (const failure of ungrounded) say(`    ⚠ dropped ${failure}`);
@@ -777,6 +1079,15 @@ export async function extractProgramme(
       }
     }
 
+    /**
+     * One provenance object for the row, from two independent verifications.
+     *
+     * The cycle path and the profile path never write the same key — one owns
+     * the three date fields, the other owns everything else — so the merge is a
+     * union rather than a precedence decision.
+     */
+    const mergedSources: FieldSources = { ...fieldSources, ...profileSources };
+
     say(
       `    → opens ${cycle.opens_date ?? "—"} · closes ${cycle.deadline_date ?? "—"} · ${cycle.timeline.length} stage(s)` +
         (attempt ? `  [${attempt.provider}]` : "  [no cycle]"),
@@ -797,6 +1108,25 @@ export async function extractProgramme(
       say(
         `    → ${Object.keys(coverage_matrix).length} coverage line(s) · ${Object.keys(eligibility_flags).length} eligibility field(s) · ${document_checklist.length} document(s) · ${filled}/${total} field(s) filled`,
       );
+
+      /**
+       * And why the rest are blank.
+       *
+       * `12/25 filled` was the whole story the log could tell, and it is the
+       * uninformative half: thirteen blanks caused by a crawl that never
+       * reached the benefits page and thirteen caused by a funder that
+       * publishes no stipend print identically, and they are fixed in
+       * completely different places. This line is the burn-down list — the
+       * recoverable count first, because that is the number that should be
+       * going down between runs.
+       */
+      say(
+        `    → ${recoverableCount(gapCauses)} of ${Object.keys(gapCauses).length} blank(s) recoverable  [${describeCauses(gapCauses)}]`,
+      );
+
+      if (notStated.length > 0) {
+        say(`    → ${notStated.length} field(s) the pages state nothing about`);
+      }
 
       // Reported separately and only when present. A field that extracted is
       // worth seeing in the log — otherwise there is no way to tell whether the
@@ -845,10 +1175,20 @@ export async function extractProgramme(
         ...(profile && profile.eligibilitySilent.length > 0
           ? { eligibility_silent: profile.eligibilitySilent }
           : {}),
+        // Facts the pages were read for and do not state, across coverage and
+        // scope as well as eligibility. Rendered as "Not stated by the
+        // programme", which is an answer; the blank it replaces was not.
+        ...(notStated.length > 0 ? { not_stated: notStated } : {}),
         // Only when something was actually cross-checked: an empty object would
         // make "nobody else was asked" look like "one source agreed".
-        ...(Object.keys(fieldSources).length > 0 ? { field_sources: fieldSources } : {}),
+        ...(Object.keys(mergedSources).length > 0
+          ? { field_sources: mergedSources }
+          : {}),
       },
+      // Why each remaining slot is empty. Not proposed to the row — it is about
+      // this READING rather than about the programme — so it stays on the
+      // extraction, where the console can rank a backlog by what is fixable.
+      gap_causes: gapCauses,
       evidence: {
         ...(attempt?.grounded.evidence ?? {}),
         ...(profile?.evidence ?? {}),

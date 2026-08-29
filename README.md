@@ -151,6 +151,7 @@ src/
 ├── app/
 │   ├── actions/                 # Server Actions (auth, targets, review)
 │   ├── admin/pipeline/          # run the crawlers from the browser, anywhere
+│   ├── admin/coverage/          # what is still blank, and whether we could fill it
 │   ├── admin/verify/            # the human check that mints "verified"
 │   ├── admin/duplicates/        # rows that may be one programme twice
 │   ├── api/admin/pipeline/      # start / tick / cancel a run — works on Vercel
@@ -173,6 +174,9 @@ src/
 scripts/
 ├── discover/                    # seeds, link scoring, pagination, classify
 └── extract/                     # crawl, passages, schemas, grounding, providers
+    ├── structured.ts            # JSON-LD, meta and tables as quotable text
+    ├── hydrate.ts               # content recovered from a JS shell page
+    └── diagnosis.ts             # why each blank is blank
 supabase/
 ├── schema.sql
 ├── migrations/

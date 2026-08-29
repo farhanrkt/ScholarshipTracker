@@ -505,6 +505,22 @@ cannot recover from. Because a second attempt is then no longer guaranteed to
 improve on nothing, the better of the two readings is kept rather than the later
 one — scored closing date first, opening date next, dated stages last.
 
+### Escalating on thin, not only on empty
+
+The profile call used to escalate to the stronger provider only when it came
+back **completely empty** — and empty is not the characteristic failure of a
+small model on this prompt. **Thin is.** Twenty-five facts each carrying its own
+verbatim quote is a large response, and what a small model does with it is
+answer the first few and stop: three coverage lines, nothing else, no error, no
+truncation the provider reports. That result is not empty, so it was accepted,
+and the escalation configured for exactly this case never fired.
+
+Below `THIN_PROFILE_FIELDS` (6 of 25) the reading is treated as a failure worth
+one more call. Six is deliberately low — it is not a target, the gap passes exist
+to get well past it, it is the line below which the reader has plainly not
+engaged with the passages. When a stronger reader does run, its result is merged
+fill-only over the first, so escalating can only ever add.
+
 ### The profile call gets a second, smaller go
 
 Containment has a nasty edge to it. When the *profile* call fails, the cycle
@@ -577,6 +593,144 @@ not published, because Rotary's deadlines are set per district.
 
 `--no-gap-fill` turns it off.
 
+### The fourth call: crawling again for what was never read
+
+Everything above **re-reads pages already held**. That is the right response to
+a fact that was fetched and missed, and it is powerless against a fact on a page
+nobody fetched — a different and very common failure: the benefits page lost the
+quota contest, or its link scored under `minLinkScore`, and no amount of
+re-reading what we did get will produce a stipend that was never downloaded.
+
+Telling those apart is what `scripts/extract/diagnosis.ts` is for (below). Of
+its five causes, exactly one — `never-crawled` — is worth spending new requests
+on, and the crawl it asks for is narrow in a way the first one could not be:
+
+- **quotas concentrated** on the starved topics and set to zero everywhere else,
+  so the second crawl cannot re-run the first one's contest and re-fetch the
+  same well-linked pages under a new name;
+- **link scoring boosted by the missing facts' own vocabulary** — the same
+  phrase lists the gap retrieval uses. The topic scorers ask "is this page about
+  eligibility"; after a first pass the question is "is this page about the age
+  limit", and a link labelled `Age and residency` scores nothing on a phrase
+  list built from headings like "who can apply";
+- **every page already read excluded** via `skipUrls`, so the budget buys new
+  material rather than confirming old;
+- **one level deeper** (`maxDepth: 4`), because the pages that survive to a
+  second crawl are the ones buried furthest from the entry, which is usually why
+  the first crawl never reached them.
+
+It fires only when a whole topic was starved **and** at least two fields are
+unreachable — one field is not worth a crawl, and the pattern this exists for is
+never just one. Then the gap pass runs again over the enlarged crawl.
+
+`--no-gap-crawl` turns it off. It is a separate switch from `--no-gap-fill`
+because it is the only gap mechanism that spends new requests: an operator
+throttling a run usually wants to keep the free re-read and drop the fetches.
+
+---
+
+## Why a field is blank — `scripts/extract/diagnosis.ts`
+
+The log could say `12/25 field(s) filled`. It could say nothing at all about the
+other thirteen, and those thirteen are not one thing. **A blank has four
+possible causes and they are fixed in four different files** — so "improve
+coverage" was unfalsifiable, and a crawler that never reached the benefits page
+looked exactly like a funder that publishes no stipend.
+
+| Cause | Means | Fix in |
+| --- | --- | --- |
+| `never-crawled` | No page on that subject was fetched | crawl budget, link scorer |
+| `not-retrieved` | A fetched page uses the vocabulary; no passage carrying it was sent | retrieval |
+| `model-silent` | The words reached the model; nothing came back | prompt, or escalate |
+| `grounding-rejected` | Something came back and its quote was not on the page | **nothing — working as intended** |
+| `not-published` | The subject was crawled, read, and does not discuss it | **nothing — a fact about the funder** |
+
+The order of the rules **is** the algorithm, running from the most specific
+evidence to the least. A field grounding rejected was obviously also crawled and
+retrieved, so asking "was it rejected" first is what stops it being reported as a
+retrieval bug. `not-published` is last because it is the residual and the claim
+we are least entitled to make: nothing reaches it that any earlier rule could
+explain.
+
+That narrowness matters beyond tidiness, because **`not-published` is the only
+cause allowed to reach a student**, as "Not stated by the programme" on the card.
+Every other cause is our failure, and printing our failure as a fact about the
+funder is exactly the class of confident wrongness the rest of this pipeline
+exists to prevent.
+
+The diagnosis is written to `scholarship_extractions.gap_causes` and surfaced at
+[`/admin/coverage`](operations.md), ranked by how many blanks are recoverable —
+which is the number that should fall between runs, and the only honest
+definition of progress here.
+
+---
+
+## Pages a plain fetch cannot read
+
+A page that yields nothing is a programme with **every** field blank, not one
+field, so this is the largest single category of blank and the one furthest from
+being the funder's fault.
+
+### Structured data — `scripts/extract/structured.ts`
+
+`htmlToText` strips `<script>` wholesale, which is right for the analytics and
+framework bundles that make up nearly all of it, and also threw away
+`application/ld+json` — a funder stating its own award in machine-readable form.
+Tables fared no better: `</td>` became a newline, so a benefits grid arrived as
+a column of orphaned cells with its header row several lines above and nothing
+tying the two together.
+
+Both are now rendered into ordinary sentences and **appended to the page's
+text**, which is the whole design. It adds no extraction path, no schema and no
+trust rule: `findQuote` searches them like any other page text, which makes a
+value taken from JSON-LD **self-grounding** — the quote is literally in the page
+source, because that is where the funder put it.
+
+Rendering is allowlisted rather than dumped. A page's JSON-LD routinely carries
+breadcrumbs, logos and a publisher's postal address, and letting those through
+would spend the passage budget on exactly the material `htmlToText` strips nav
+to avoid.
+
+### JavaScript-rendered pages — `scripts/extract/hydrate.ts`
+
+**Most "JavaScript-rendered" pages are not.** A site built with any mainstream
+framework ships its content inside the initial HTML as a JSON payload so the
+client can hydrate without a second round trip — `__NEXT_DATA__`,
+`window.__NUXT__`, `self.__next_f`, an inline Apollo or Redux cache. The text is
+already in the bytes we downloaded. It was invisible only because the extractor
+throws away `<script>` and then measures what is left.
+
+So the ladder runs cheapest-first, and a browser is the last rung:
+
+1. **embedded hydration payloads** — free, no extra request, no dependency
+2. **`<noscript>`** — what the site itself serves to a client without JS
+3. **the AMP copy** the page links to — one fetch of static markup
+4. **an external renderer**, if `RENDER_SERVICE_URL` is configured
+
+Prose is separated from chrome by shape — long enough to say something, with
+spaces, not a URL or an encoded blob, not a run of camelCase identifiers. That
+filter is a grounding control, not a tidiness one: whatever it returns becomes
+quotable page text.
+
+The renderer is a URL rather than a dependency. Bundling Playwright would put a
+browser download into every install of a project whose point is that it costs
+nothing to run, and would not deploy to the serverless host the pipeline runs on.
+
+### Scanned PDFs, and the fourth evidence tier
+
+The objection to OCR was exactly right: OCR output is approximate, and an
+approximate quote would pass a grounding check that exists to be exact.
+
+The resolution is not to loosen grounding but to **record how the text was
+obtained**. OCR'd pages are marked, every quote matched against one is recorded
+as `match: "ocr"` alongside `exact` and `loose`, and the review UI flags it and
+tells the reviewer to check the original. Grounding is unchanged — an OCR quote
+still has to be found in the OCR text by the same matcher. What changes is that
+a human is told which readings rest on a machine's guess at a glyph, which is a
+much smaller claim than "this is verbatim from the page".
+
+Unset `OCR_SERVICE_URL` and a scan is reported unreadable, exactly as before.
+
 ---
 
 ## Cross-verification — `--verify`
@@ -609,19 +763,51 @@ is one mistake ten times; treating it as ten confirmations is precisely how a
 student ends up planning around a date nobody published. Corroboration is only
 ever a tie-break between sources of equal tier.
 
-### Scope, and why it is narrow
+### Scope: reconciled dates, filled profile
 
-Only `cycle_label`, `opens_date` and `deadline_date`. Not coverage, not
-eligibility, not documents.
+**Reconciliation** — several sources weighed against each other, one winning,
+the losers recorded — covers only `cycle_label`, `opens_date` and
+`deadline_date`. That is a cost decision made honestly: each extra source is a
+full crawl plus a model call, extraction already runs ~5 minutes per programme,
+and the free tier allows 15 requests a minute. A missed deadline is a missed
+year — the one error here a student cannot recover from — so that is what gets
+the budget.
 
-That is a cost decision made honestly: each extra source is a full crawl plus a
-model call, extraction already runs ~5 minutes per programme, and the free tier
-allows 15 requests a minute. Verifying everything multiplies a slow pipeline by
-the number of sources. A missed deadline is a missed year — the one error here a
-student cannot recover from — so that is what gets the budget.
+**Filling** is different, and covers everything else: coverage, eligibility,
+documents and scope, via `verifyProfile`.
 
-Secondary sources still improve the profile fields, just by the ordinary path:
-a site stating a stipend the funder omits is read when that source is crawled.
+This section used to claim that "secondary sources still improve the profile
+fields, just by the ordinary path: a site stating a stipend the funder omits is
+read when that source is crawled." **That was never true.** `crawlProgramme`
+follows links same-origin only, so the ordinary extraction never crawls a second
+origin at all — the sentence described a route that does not exist. The profile
+was read exclusively from the funder's own site, and anything the funder chose
+not to publish stayed blank permanently, however many times it was re-read.
+
+That is a large share of the catalogue's blanks and it is the recoverable kind.
+A host university states the stipend its own scholars receive; a government
+portal lists the documents its embassy requires. Those pages were already in
+`scholarship_sources`, already tiered, and were being consulted about three date
+fields and nothing else.
+
+The rules for filling are **stricter** than for reconciling, because a second
+source is not entitled to an opinion about a slot the funder already filled:
+
+1. **Fill only.** A second source can fill a field the funder left empty. It can
+   never change one the funder stated — not when it looks more specific, not
+   when it agrees. The funder's reading is not entered into the contest at all;
+   the contest is only over slots it left open.
+2. **Only the gaps are asked about.** The prompt names the missing fields, so a
+   second source is never invited to opine on the rest.
+3. **Grounded against its own pages**, exactly as for dates. A quote from one
+   site can never be validated against another's text.
+4. **Every filled field is attributed** in `field_sources`, so the UI can say a
+   figure came from the host university rather than the funder — and a caveat is
+   raised for anything a non-funder source is the only witness to, since that may
+   be that university's arrangement rather than the award's terms.
+
+A blank becomes a sourced value or stays a blank. It never becomes an unsourced
+value.
 
 ### What the student sees
 
@@ -804,8 +990,11 @@ silently breaking escalation again.
 | `--dates-only` | extract | off | Skip the profile call |
 | `--escalate` | extract | off | Retry on the next provider — cycle (empty **or no closing date**), profile, second look |
 | `--force` | extract | off | Re-read rows that are unchanged or already pending |
-| `--verify` | extract | off | Cross-check dates against other sources |
+| `--verify` | extract | off | Cross-check dates against other sources, **and fill profile gaps from them** |
+| `--verify-sources` | extract | 2 | Other sources read per programme |
 | `--no-gap-fill` | extract | off | Skip the third call at the fields still empty |
+| `--no-gap-crawl` | extract | off | Never crawl again for a topic nothing was fetched about |
+| `--gap-crawl-pages` | extract | 8 | Pages the second crawl may fetch |
 | `--no-fix-urls` | extract | off | Find a moved page, but do not re-point the row |
 | `--models` | extract | — | List models your key can reach |
 | `--seed` | discover | — | Match seeds by label |
@@ -823,6 +1012,14 @@ Environment knobs for the fetch layer, all optional:
 | `CRAWL_HOST_CONCURRENCY` | 2 | Connections open to one host at once |
 | `CRAWL_USER_AGENT` | ScholarTrackBot/1.0 | How we announce ourselves |
 | `CRAWL_FALLBACK_USER_AGENT` | browser-shaped | Used only after a host refuses the first |
+| `RENDER_SERVICE_URL` | unset | Headless renderer for pages no hydration payload rescues |
+| `RENDER_SERVICE_TOKEN` | unset | Bearer token for the above |
+| `OCR_SERVICE_URL` | unset | OCR engine for scanned PDFs; quotes from it are tiered `match: "ocr"` |
+| `OCR_SERVICE_TOKEN` | unset | Bearer token for the above |
+
+Both services are optional and both are a URL rather than a dependency — see
+[Pages a plain fetch cannot read](#pages-a-plain-fetch-cannot-read). Neither is
+a first resort: the free rungs of the ladder run before either is consulted.
 
 ### What a re-run costs
 

@@ -368,6 +368,7 @@ export async function runTick(db: Db, job: JobRow): Promise<TickResult> {
                 fixUrls: job.args.fixUrls,
                 verify: job.args.verify,
                 gapFill: job.args.gapFill,
+                gapCrawl: job.args.gapCrawl,
                 previous: (context as ExtractContext).previous.get(unit.id) ?? null,
                 sources: (context as ExtractContext).sources.get(unit.id) ?? [],
               });

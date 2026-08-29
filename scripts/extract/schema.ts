@@ -263,6 +263,30 @@ export const ProfileExtractionSchema = z.object({
     "How many awards are offered, as the page words it: 'around 1,500 each year', 'up to 20'. Null unless the pages state a number.",
   ),
 
+  /**
+   * The facts these pages actively do not state.
+   *
+   * ABSENCE OF AN ANSWER IS NOT AN ANSWER, and until now the profile call had
+   * no way to say which of the two a blank was. Eligibility could — a null with
+   * a key is "the pages say nothing", a missing key is "nobody asked" — but
+   * coverage is defined by OMITTING silent lines, and the scope fields are bare
+   * text claims. So a missing stipend and an unread benefits page produced
+   * identical output, and the row rendered an identical blank for both.
+   *
+   * Asking for the silence directly is cheap — keys, no quotes, no values — and
+   * it is the difference between a card that says nothing and a card that says
+   * "the programme does not state this", which is a real answer a student can
+   * act on. The pipeline also derives silence from the crawl (see
+   * `diagnosis.ts`); this is the stronger signal of the two, because it is a
+   * report from the reader that had the passages rather than an inference from
+   * what the vocabulary search found.
+   */
+  not_stated: z
+    .array(z.string())
+    .describe(
+      "Keys from the requested fact list that these excerpts genuinely do not state, using the exact key names given (e.g. 'coverage.airfare', 'award_duration'). Include a key ONLY if you looked for it in the excerpts and it is absent. Never include a key you filled in above.",
+    ),
+
   notes_for_reviewer: z
     .string()
     .describe("Anything ambiguous or contradictory. Empty string if nothing."),

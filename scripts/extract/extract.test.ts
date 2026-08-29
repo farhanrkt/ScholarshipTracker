@@ -120,3 +120,30 @@ describe("repairing a schema-less response", () => {
     assert.equal(cycle.notes_for_reviewer, "Two cycles are published.");
   });
 });
+
+describe("repairing the not-stated list", () => {
+  test("an omitted list becomes empty, never a claim of silence", () => {
+    // A model that says nothing about silence has told us nothing about
+    // silence. Defaulting to a populated list would put "the programme does not
+    // state this" on a card on the strength of a missing key.
+    const profile = ProfileExtractionSchema.parse(repairProfile({}));
+    assert.deepEqual(profile.not_stated, []);
+  });
+
+  test("a bare string is read as a list of one", () => {
+    const profile = ProfileExtractionSchema.parse(
+      repairProfile({ not_stated: "coverage.airfare" }),
+    );
+    assert.deepEqual(profile.not_stated, ["coverage.airfare"]);
+  });
+
+  test("non-string entries are dropped rather than failing the whole response", () => {
+    // The same rule as every other repair here: discard information, never
+    // invent it, and never lose a complete extraction over its least important
+    // field.
+    const profile = ProfileExtractionSchema.parse(
+      repairProfile({ not_stated: ["coverage.airfare", null, 7, "", { a: 1 }] }),
+    );
+    assert.deepEqual(profile.not_stated, ["coverage.airfare"]);
+  });
+});

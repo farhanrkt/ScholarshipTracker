@@ -12,6 +12,7 @@ shapes mean and which invariants matter.
 | `user_targets` | One row per user per tracked scholarship, with checklist progress. |
 | `scholarship_extractions` | Staged model proposals awaiting human review. Deny-all. |
 | `scholarship_candidates` | Programmes discovery found that have no row yet. |
+| `scholarship_sources` | Other sites describing a programme we track, with their authority tier. |
 | `admins` | Email allowlist for the review pages. |
 
 ## Views and functions
@@ -24,6 +25,8 @@ shapes mean and which invariants matter.
 | `reject_extraction(uuid, text)` | Marks a proposal rejected with a note. |
 | `promote_candidate(uuid)` | Creates a dateless `unverified` skeleton from a candidate. |
 | `reject_candidate(uuid, text)` | Marks a candidate rejected. |
+| `scholarship_completeness` | How full each row is, how much the funder does not publish, and how many blanks the pipeline could still fill. |
+| `merge_scholarships(uuid, uuid)` | Folds a duplicate row into the one being kept. The only `SECURITY DEFINER` function here. |
 | `is_admin()` / `why_not_admin()` | Allowlist check, and a diagnosis when it fails. |
 
 `apply_extraction` and friends are `SECURITY INVOKER`, so RLS still applies — a
@@ -74,10 +77,16 @@ before you consume one.
 Keys: `tuition`, `monthly_stipend`, `airfare`, `accommodation`,
 `health_insurance`, `settling_in_allowance`, `research_grant`, `visa_fees`.
 
-**Partial on purpose.** A missing key renders as "Not stated by the programme",
-which is a different claim from `covered: false` ("Not covered"). The
-distinction matters when you are budgeting a year abroad, so the extraction
-prompt tells the model to omit a line rather than guess at it.
+**Partial on purpose.** A missing key is not `covered: false` ("Not covered"),
+and the distinction matters when you are budgeting a year abroad — so the
+extraction prompt tells the model to omit a line rather than guess at it.
+
+A missing key used to render as "Not stated by the programme", which was itself
+an overclaim: on a row promoted from discovery and never crawled, all eight
+lines said it — eight confident statements about eight pages nobody had opened.
+Which of the two kinds of absence it is now comes from `not_stated` (migration
+016), and the grid renders "Not stated by the programme" only for keys a reading
+actually reached. Everything else reads "Not checked yet".
 
 `detail` carries the figure as published — `"JPY 143,000 per month"` — never
 converted, never rounded.
@@ -150,6 +159,55 @@ note quotes the page. `GroundedExtraction.hasMonthOnlyDate` flags this, because
 `isEmpty()` would otherwise read the result as "no dates found" and bin the
 whole extraction.
 
+## Two kinds of blank (migration 016)
+
+`scholarships.not_stated` is a `TEXT[]` of field keys — `coverage.airfare`,
+`award_duration` — that the pipeline **read the pages for and found unstated**.
+
+It exists because the row could not distinguish a fact the funder does not
+publish from a fact nothing ever looked for, and on a card those are opposite
+messages. A blank beside "Airfare" made the reader decide whether the award
+excludes flights or whether nobody checked, and gave them nothing to decide it
+with. Migration 013 fixed exactly this for eligibility using explicit nulls
+inside `eligibility_flags`; coverage is defined by *omitting* silent lines and
+the scope columns are plain text, so neither had anywhere to put the
+distinction. This is that place, and deliberately **one list for every field**
+rather than a third mechanism.
+
+Two rules govern what may go in it, and both are about not overclaiming:
+
+- **Only a reading that reached the relevant pages may write it.** The value
+  comes from the model reporting silence directly (`not_stated` in the profile
+  schema) or from the crawl diagnosis concluding `not-published` — which
+  requires the field's topic to have been crawled *and* its vocabulary to be
+  absent from everything fetched. A blank caused by our own failed crawl never
+  reaches it. See [pipeline.md § Why a field is blank](pipeline.md#why-a-field-is-blank--scriptsextractdiagnosists).
+- **A value always wins.** `apply_extraction()` merges the list additively — a
+  thin run must not erase a previous run's honest finding, the same reasoning
+  that stopped an empty timeline wiping a real one — and then subtracts every
+  key the row now has a value for. Otherwise a card could show a stipend figure
+  beside "Not stated by the programme".
+
+The UI reads it through `isNotStated()` in `src/lib/format.ts` and renders three
+states, not two: the value, **"Not stated by the programme"**, or **"Not checked
+yet"**.
+
+## Diagnosing blanks (migration 016)
+
+`scholarship_extractions.gap_causes` records, per field, why one reading left it
+empty: `never-crawled`, `not-retrieved`, `model-silent`, `grounding-rejected`,
+`not-published`.
+
+It lives on the **extraction**, never on the row, and that placement is the
+point: it is a property of a reading rather than of a programme. Re-crawl the
+same programme with a bigger budget and the same field can go from
+`never-crawled` to a value.
+
+`scholarship_completeness` is the view over both — how much of each row is
+filled, how much the funder does not publish, and how many blanks the last
+reading blamed on the pipeline. Ordered by `recoverable` it is the backlog worth
+re-running; see [operations.md § Chasing blanks](operations.md#chasing-blanks--admincoverage).
+
 ## Scope of the award (migration 010)
 
 Three plain columns rather than JSONB, because each is a single value:
@@ -210,9 +268,10 @@ document proposals.
 | `013_answered_eligibility.sql` | Three-valued `eligibility_flags`; `apply_extraction()` merges silence markers at the lowest priority |
 | `014_merge_duplicates.sql` | `merge_scholarships()` — folds a duplicate row into the one being kept, carrying trackers, sources and history |
 | `015_multi_country_and_stale_dates.sql` | Repairs the `Unknown` country row and clears cycle dates read off archived pages |
+| `016_not_stated_and_gap_causes.sql` | `scholarships.not_stated`, `scholarship_extractions.gap_causes`, the `scholarship_completeness` view; `apply_extraction()` carries silence additively and prunes it when a value arrives |
 
-**011 and 013 each replace `apply_extraction()`**, and each is a superset of the
-one before, so applying them in order is correct and applying an earlier one
+**011, 013 and 016 each replace `apply_extraction()`**, and each is a superset of
+the one before, so applying them in order is correct and applying an earlier one
 afterwards would regress. Run them in order.
 
 **014 is the only `SECURITY DEFINER` function in the schema.** It has to be:

@@ -45,16 +45,29 @@ here. Details and workarounds in [troubleshooting.md](troubleshooting.md).
   student filtering for Japan will not find it. Fixing that properly means
   `country` becomes an array, which reaches the schema, the filters, discovery
   and every card.
-- **A scanned PDF yields nothing.** Text-layer PDFs are read like any other page
-  now, which is what the MEXT and KGSP rows were missing. A scan is an image;
-  it fails the short-text guard and is reported, because the alternative is OCR
-  and an approximate quote would pass a grounding check built to be exact.
-- **JavaScript-rendered pages yield nothing** and fail loudly rather than
-  silently returning an empty programme.
+- **A scanned PDF needs an OCR service configured.** Text-layer PDFs are read
+  like any other page. A scan is an image, so without `OCR_SERVICE_URL` it fails
+  the short-text guard and is reported. With one, its quotes are kept at a
+  distinct evidence tier (`match: "ocr"`) and flagged for a human, because a
+  machine's reading of a glyph is a weaker claim than text somebody published.
+- **JavaScript-rendered pages are recovered when the content is in the page.**
+  Most frameworks ship it as a hydration payload inside the initial HTML, which
+  costs no extra request to read. A page that genuinely builds its content
+  client-side still yields nothing unless `RENDER_SERVICE_URL` is configured,
+  and fails loudly rather than silently returning an empty programme.
 - **Depth of extracted detail depends on the funder.** ADB-JSP yields six
   coverage lines; Chevening publishes no reachable coverage page and yields one.
-  That is the pipeline being honest, not failing. Each run now prints
-  `12/25 field(s) filled` so a thin extraction is visible rather than silent.
+  That is the pipeline being honest, not failing. Each run prints
+  `12/25 field(s) filled` and, for the rest, *why* each one is empty — so a thin
+  extraction is not merely visible but diagnosed. `/admin/coverage` ranks the
+  catalogue by the blanks the pipeline could still fill.
+- **"No blanks at all" is not a goal and cannot be one.** A field is blank
+  precisely when nothing on the funder's pages proved it, and the only way to
+  zero that out is to write something nobody published. What the pipeline chases
+  instead is **no *recoverable* blanks** — every field the funder's pages, or a
+  credible second source, actually state. The rest are reported as
+  `not-published` and shown to students as "Not stated by the programme", which
+  is an answer rather than an absence.
 - **China and South Korea are thinly seeded** — one or two seeds each against
   eleven for the USA, which is most of why the catalogue is 19 USA rows to 1
   Chinese one. The best Chinese sources block crawlers or serve

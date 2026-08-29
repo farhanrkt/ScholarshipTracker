@@ -407,3 +407,55 @@ export function summariseChecklist(
     percent: total === 0 ? 0 : Math.round((completed / total) * 100),
   };
 }
+
+/* -------------------------------------------------------------------------- */
+/* "Not stated by the programme"                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Does this row know that the programme says nothing about a field?
+ *
+ * THE THIRD STATE THE UI WAS MISSING. A card had two: a value, and nothing.
+ * "Nothing" was doing two jobs — the funder does not publish this, and nobody
+ * has looked — and a reader had no way to tell which, on a page whose entire
+ * premise is that it tells you what it does and does not know. It is the same
+ * distinction migration 013 gave the eligibility filters, arriving on screen.
+ *
+ * Reading it here rather than at each call site because `not_stated` is a plain
+ * TEXT[] that Postgres does not police, rows predate the column, and a
+ * `.includes` on undefined is a blank page. Absent reads as "nobody looked",
+ * which is the honest default and the one that claims least.
+ */
+export function isNotStated(
+  scholarship: Pick<Scholarship, "not_stated"> | null | undefined,
+  field: string,
+): boolean {
+  const stated = scholarship?.not_stated;
+  return Array.isArray(stated) && stated.includes(field);
+}
+
+/**
+ * What to render where a value would go: the value, an explicit silence, or
+ * nothing at all.
+ *
+ * Three-valued on purpose, mirroring the data. Callers that flatten this back
+ * into a boolean are re-introducing the bug it exists to fix.
+ */
+export type Stated<T> =
+  | { state: "known"; value: T }
+  | { state: "not-stated" }
+  | { state: "unknown" };
+
+export function describeStated<T>(
+  scholarship: Pick<Scholarship, "not_stated"> | null | undefined,
+  field: string,
+  value: T | null | undefined,
+): Stated<T> {
+  if (value !== null && value !== undefined) return { state: "known", value };
+  if (isNotStated(scholarship, field)) return { state: "not-stated" };
+  return { state: "unknown" };
+}
+
+/** The words the UI uses for the two kinds of blank. Kept in one place. */
+export const NOT_STATED_LABEL = "Not stated by the programme";
+export const UNKNOWN_LABEL = "Not checked yet";

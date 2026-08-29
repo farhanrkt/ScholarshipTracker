@@ -1,7 +1,23 @@
-import { classifyAuthority, type Authority } from "../discover/authority.ts";
+import {
+  AUTHORITY_RANK,
+  classifyAuthority,
+  type Authority,
+} from "../discover/authority.ts";
 import { crawlProgramme } from "./crawl.ts";
-import { extractCycle } from "./extract.ts";
-import { groundExtraction, isEmpty } from "./ground.ts";
+import { extractCycle, extractProfileGaps } from "./extract.ts";
+import { gapPhrases } from "./diagnosis.ts";
+import {
+  describeGaps,
+  profileGaps,
+  selectGapPassages,
+  type GapField,
+} from "./gaps.ts";
+import {
+  groundExtraction,
+  isEmpty,
+  groundProfile,
+  type GroundedProfile,
+} from "./ground.ts";
 import { selectPassages } from "./passages.ts";
 import type { ExtractionProvider } from "./providers/index.ts";
 import {
@@ -24,11 +40,14 @@ import type { FieldSource, FieldSources } from "../../src/lib/types/database.ts"
  * free tier allows fifteen requests a minute. Verifying everything would
  * multiply a slow pipeline by the number of sources. The deadline is where
  * being wrong actually costs a student something they cannot recover — a missed
- * date is a missed year — so that is what gets the budget.
+ * date is a missed year — so that is what gets RECONCILED.
  *
- * The profile fields still benefit from secondary sources, just not through
- * this path: a second site that states a stipend the funder omits is read by
- * the ordinary extraction when that source is crawled.
+ * The profile fields are read from other sources too, by `verifyProfile` at the
+ * bottom of this file, under different and stricter rules: fill-only, never
+ * reconciled against the funder. This comment used to claim they were covered
+ * by "the ordinary extraction when that source is crawled", which was never
+ * true — `crawlProgramme` is same-origin only, so no second origin was ever
+ * read for them at all. See the note on `verifyProfile`.
  */
 
 export interface VerificationSource {
@@ -235,4 +254,212 @@ export async function verifyCycle(
     consulted,
     fieldSources,
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Profile fields from a second source                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Reading the money and the requirements off somebody else's page.
+ *
+ * WHY THE SCOPE NOTE AT THE TOP OF THIS FILE NO LONGER HOLDS. It said the
+ * profile fields "still benefit from secondary sources, just not through this
+ * path: a second site that states a stipend the funder omits is read by the
+ * ordinary extraction when that source is crawled." That was not true, and had
+ * never been true. `crawlProgramme` follows links same-origin only, so the
+ * ordinary extraction never crawls a second origin at all — the sentence
+ * described a route that does not exist. Coverage, eligibility, documents and
+ * scope were read exclusively from the funder's own site, and whatever the
+ * funder chose not to publish stayed blank permanently.
+ *
+ * That is a large share of the catalogue's blanks and it is the recoverable
+ * kind. A host university states the stipend its own scholars receive. A
+ * government portal lists the documents its embassy requires. Those pages are
+ * already on file in `scholarship_sources`, already tiered by authority, and
+ * were being read for three date fields and nothing else.
+ *
+ * THE RULES THAT MAKE IT SAFE, and they are stricter than the cycle path's:
+ *
+ *   1. FILL ONLY. A second source can fill a field the funder left empty. It
+ *      can never change one the funder stated — not even when it looks more
+ *      specific, not even when it agrees. `reconcileField` would let a same-tier
+ *      source win a tie; here the funder's reading is not entered into the
+ *      contest at all, because the contest is only over slots it left open.
+ *   2. ONLY THE GAPS ARE ASKED FOR. The prompt names the missing fields, so a
+ *      second source is never invited to opine on the rest.
+ *   3. GROUNDED AGAINST ITS OWN PAGES. Same as the cycle path. A quote from one
+ *      site can never be validated against another's text.
+ *   4. EVERY FILLED FIELD IS ATTRIBUTED. `field_sources` records the tier and
+ *      the URL, so the UI can say a figure came from the host university rather
+ *      than the funder, and a reviewer can weigh it accordingly.
+ *
+ * The result is that a blank becomes a sourced value or stays a blank. It never
+ * becomes an unsourced value.
+ */
+
+export interface ProfileVerificationOptions {
+  provider: ExtractionProvider;
+  title: string;
+  country: string;
+  /** The programme's own site, for tiering every other source against it. */
+  funderUrl: string;
+  sources: VerificationSource[];
+  maxSources?: number;
+  budgetChars: number;
+  /** Pages crawled per source. Small: this is a targeted read, not a survey. */
+  maxPages?: number;
+  /** The slots still empty after the funder's own site was read. */
+  gaps: GapField[];
+  say?: (line: string) => void;
+}
+
+export interface VerifiedProfile {
+  /**
+   * Grounded readings from other sites, in the order they were read.
+   *
+   * Returned rather than merged here so the caller keeps the one merge
+   * function — `mergeProfiles`, which is already fill-only and already tested.
+   * Two merge implementations that must agree about precedence is exactly the
+   * kind of duplication that drifts.
+   */
+  contributions: Array<{
+    source: VerificationSource;
+    profile: GroundedProfile;
+  }>;
+  /** Provenance for every field a second source filled. */
+  fieldSources: FieldSources;
+  consulted: VerificationSource[];
+  caveats: string[];
+}
+
+/**
+ * Which fields a grounded profile actually put a value in.
+ *
+ * The inverse of `profileGaps` over one reading, and it is what turns "this
+ * source said things" into "this source filled max_age and airfare" — the list
+ * the attribution and the log are both built from.
+ */
+function filledFields(profile: GroundedProfile, asked: GapField[]): GapField[] {
+  const remaining = new Set(profileGaps(profile.proposed));
+  return asked.filter((field) => !remaining.has(field));
+}
+
+export async function verifyProfile(
+  options: ProfileVerificationOptions,
+): Promise<VerifiedProfile> {
+  const say = options.say ?? (() => {});
+  const maxSources = options.maxSources ?? 2;
+
+  const result: VerifiedProfile = {
+    contributions: [],
+    fieldSources: {},
+    consulted: [],
+    caveats: [],
+  };
+
+  if (options.gaps.length === 0 || options.sources.length === 0) return result;
+
+  // Strongest first, exactly as the cycle path orders them: a budget of two
+  // should be spent on the two most worth believing.
+  const ordered = [...options.sources].sort(
+    (a, b) =>
+      AUTHORITY_RANK[b.authority] - AUTHORITY_RANK[a.authority],
+  );
+
+  /** Narrows as sources fill things: nobody is asked about a solved field. */
+  let outstanding = [...options.gaps];
+
+  for (const source of ordered.slice(0, maxSources)) {
+    if (outstanding.length === 0) break;
+
+    try {
+      const crawled = await crawlProgramme(source.url, {
+        maxPages: options.maxPages ?? 5,
+        titleHint: options.title,
+        // The second source is crawled FOR the missing facts, so its links are
+        // scored on those facts' own vocabulary rather than on general topic
+        // shape. This is the same list the gap retrieval uses.
+        gapPhrases: gapPhrases(outstanding),
+      });
+
+      if (crawled.pages.length === 0) {
+        say(`    · second source unreachable: ${source.url}`);
+        continue;
+      }
+
+      const passages = selectGapPassages(crawled.pages, outstanding, {
+        budgetChars: options.budgetChars,
+      });
+
+      if (passages.length === 0) {
+        say(
+          `    · second source says nothing about the ${outstanding.length} missing field(s): ${source.url}`,
+        );
+        continue;
+      }
+
+      const extracted = await extractProfileGaps(
+        options.provider,
+        options.title,
+        options.country,
+        passages,
+        describeGaps(outstanding),
+      );
+
+      // A source about something else would contribute confident values about
+      // the wrong award — worse than contributing nothing.
+      if (!extracted.extraction.page_is_about_requested_programme) {
+        say(`    · second source is about something else: ${source.url}`);
+        continue;
+      }
+
+      const grounded = groundProfile(extracted.extraction, crawled.pages);
+      const filled = filledFields(grounded, outstanding);
+
+      if (filled.length === 0) {
+        say(`    · second source added nothing grounded: ${source.url}`);
+        continue;
+      }
+
+      result.consulted.push(source);
+      result.contributions.push({ source, profile: grounded });
+
+      for (const field of filled) {
+        result.fieldSources[field] = {
+          authority: source.authority,
+          source_url: grounded.evidence[field]?.source_url ?? source.url,
+        };
+      }
+
+      /**
+       * A caveat for anything a non-funder source is the ONLY witness to.
+       *
+       * Not a conflict — nobody disagreed — but it is the fact a reviewer most
+       * needs and would otherwise have to notice for themselves: this figure is
+       * on a university's page and not on the funder's, so it may be that
+       * university's arrangement rather than the award's terms.
+       */
+      if (source.authority !== "funder") {
+        result.caveats.push(
+          `${filled.join(", ")}: filled from the ${source.authority} source ${source.url}, ` +
+            `which the funder's own pages do not state`,
+        );
+      }
+
+      say(
+        `    · ${source.authority} source ${source.url} filled ${filled.length} field(s): ${filled.join(", ")}`,
+      );
+
+      outstanding = outstanding.filter((field) => !filled.includes(field));
+    } catch (error) {
+      // A second opinion is a bonus. Failing to get one must never cost the
+      // reading we already have.
+      say(
+        `    · second source failed (${source.url}): ${error instanceof Error ? error.message : error}`,
+      );
+    }
+  }
+
+  return result;
 }

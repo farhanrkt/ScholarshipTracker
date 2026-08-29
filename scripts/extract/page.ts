@@ -1,6 +1,14 @@
 import { createHash } from "node:crypto";
 
-import { isPdf, MAX_PDF_BYTES, pdfToText } from "./pdf.ts";
+import {
+  isPdf,
+  MAX_PDF_BYTES,
+  ocrServiceUrl,
+  pdfToText,
+  pdfToTextViaOcr,
+} from "./pdf.ts";
+import { amphtmlUrl, hydrateText, renderPage, renderServiceUrl } from "./hydrate.ts";
+import { structuredText } from "./structured.ts";
 
 const USER_AGENT =
   process.env.CRAWL_USER_AGENT ||
@@ -68,6 +76,17 @@ export interface FetchedPage {
   html: string;
   sha256: string;
   fetchedAt: string;
+  /**
+   * The text came from OCR, so it is a machine's reading of an image rather
+   * than characters the publisher wrote.
+   *
+   * Grounding treats this page exactly like any other — a quote still has to be
+   * found in it. What the flag changes is the EVIDENCE TIER recorded against
+   * anything matched here: `match: "ocr"` rather than `exact` or `loose`, so a
+   * reviewer knows the underlying glyphs were guessed at and the verify queue
+   * can put those rows first.
+   */
+  viaOcr?: boolean;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -815,6 +834,17 @@ async function fetchPageUncached(url: string): Promise<FetchedPage> {
       );
     }
 
+    // No text layer: the document is a scan. OCR it if an engine is configured,
+    // and mark the result so every quote taken from it is tiered accordingly.
+    let viaOcr = false;
+    if (pdfText.length < 200 && ocrServiceUrl()) {
+      const recognised = await pdfToTextViaOcr(bytes);
+      if (recognised && recognised.length >= 200) {
+        pdfText = recognised;
+        viaOcr = true;
+      }
+    }
+
     if (pdfText.length < 200) {
       throw new Error(
         `${url} produced only ${pdfText.length} characters of text — a scanned PDF has no text layer, so it needs manual verification.`,
@@ -829,6 +859,7 @@ async function fetchPageUncached(url: string): Promise<FetchedPage> {
       html: "",
       sha256: createHash("sha256").update(pdfText).digest("hex"),
       fetchedAt: new Date().toISOString(),
+      ...(viaOcr ? { viaOcr: true } : {}),
     };
   }
 
@@ -841,12 +872,109 @@ async function fetchPageUncached(url: string): Promise<FetchedPage> {
   }
 
   const html = await response.text();
-  const text = htmlToText(html);
 
-  if (text.length < 200) {
-    throw new Error(
-      `${url} produced only ${text.length} characters of text — likely JavaScript-rendered, so it needs manual verification.`,
-    );
+  try {
+    return readHtml(html, landedUrl, url);
+  } catch (error) {
+    if (!(error instanceof ShellPageError)) throw error;
+    return recoverShellPage(error);
+  }
+}
+
+/**
+ * The last two rungs of the recovery ladder, for a page whose own bytes had
+ * nothing readable in them.
+ *
+ * Reached only after `readHtml` has already tried the free options — the
+ * hydration payload, `<noscript>` — so everything here costs a request. Ordered
+ * by what it costs: the AMP copy is one ordinary fetch of static markup, and an
+ * external renderer is a browser somebody is paying for.
+ *
+ * Rethrows the original error when both fail, so a page that genuinely cannot
+ * be read reports exactly what it always reported.
+ */
+async function recoverShellPage(shell: ShellPageError): Promise<FetchedPage> {
+  const amp = amphtmlUrl(shell.html, shell.landedUrl);
+  if (amp) {
+    try {
+      const { host } = new URL(amp);
+      const { delay, limit } = await politenessFor(amp);
+      const response = await schedulePerHost(host, delay, limit, () =>
+        fetchWithRetry(amp),
+      );
+      if (response.ok) {
+        // Recorded under the URL we were asked for, not the AMP one: the AMP
+        // copy is a rendering of this page, and a reviewer sent to `/amp/…`
+        // would be checking an address the funder does not publish.
+        return readHtml(await response.text(), shell.landedUrl, shell.url);
+      }
+    } catch {
+      // Fall through to the renderer. An AMP copy is a bonus, not a promise.
+    }
+  }
+
+  if (renderServiceUrl()) {
+    const rendered = await renderPage(shell.landedUrl);
+    if (rendered) {
+      try {
+        return readHtml(rendered, shell.landedUrl, shell.url);
+      } catch {
+        // A renderer that returns a shell has told us the page really is empty.
+      }
+    }
+  }
+
+  throw shell;
+}
+
+/**
+ * The shortest text we will accept as a page.
+ *
+ * Below this the markup is a shell and the content is somewhere else — behind
+ * JavaScript, in a hydration payload, or on an AMP copy. `recoverPage` is the
+ * ladder that goes and looks.
+ */
+const MIN_PAGE_CHARS = 200;
+
+/**
+ * HTML into a page, including everything on it that is not visible prose.
+ *
+ * TWO ADDITIONS TO WHAT `htmlToText` RETURNS, both of which are the page
+ * stating something about itself in a form we were discarding:
+ *
+ *  - `structuredText` renders JSON-LD, the description meta tags, and tables
+ *    into sentences. Tables are the important half — a coverage grid flattened
+ *    by the generic converter loses the pairing between a header and its cell,
+ *    which is the only thing that made it readable.
+ *  - `hydrateText` recovers content from a framework's hydration payload when
+ *    the visible markup is a shell.
+ *
+ * Both are appended to the page's TEXT rather than handled separately, so
+ * grounding, passage selection and the gap pass all treat them as ordinary page
+ * content. A value read out of JSON-LD grounds because its quote really is in
+ * the page — that is where the funder put it.
+ */
+export function readHtml(
+  html: string,
+  landedUrl: string,
+  requestedUrl: string = landedUrl,
+): FetchedPage {
+  const prose = htmlToText(html);
+  const structured = structuredText(html);
+
+  let text = [prose, structured].filter(Boolean).join("\n\n");
+
+  if (prose.length < MIN_PAGE_CHARS) {
+    // The shell case. Recovered content goes FIRST: it is the page's actual
+    // copy, and the shell's few words of chrome are not.
+    const hydrated = hydrateText(html, htmlToText);
+    if (hydrated.length > 0) {
+      text = [hydrated, structured, prose].filter(Boolean).join("\n\n");
+    }
+  }
+
+  if (text.length < MIN_PAGE_CHARS) {
+    throw new ShellPageError(requestedUrl, text.length, html, landedUrl);
   }
 
   return {
@@ -857,6 +985,35 @@ async function fetchPageUncached(url: string): Promise<FetchedPage> {
     sha256: createHash("sha256").update(text).digest("hex"),
     fetchedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * A page whose markup carried no readable content.
+ *
+ * Carries the HTML so the caller can try the remaining rungs of the ladder —
+ * the AMP copy the page links to, then an external renderer — without fetching
+ * it again. Still an Error, so a caller that does not care about recovery
+ * behaves exactly as it did before.
+ */
+export class ShellPageError extends Error {
+  // Explicit fields rather than TypeScript parameter properties: the test
+  // runner strips types without transforming, and `constructor(readonly x)`
+  // is syntax rather than a type annotation, so it does not survive.
+  url: string;
+  chars: number;
+  html: string;
+  landedUrl: string;
+
+  constructor(url: string, chars: number, html: string, landedUrl: string) {
+    super(
+      `${url} produced only ${chars} characters of text — likely JavaScript-rendered, so it needs manual verification.`,
+    );
+    this.name = "ShellPageError";
+    this.url = url;
+    this.chars = chars;
+    this.html = html;
+    this.landedUrl = landedUrl;
+  }
 }
 
 /* -------------------------------------------------------------------------- */

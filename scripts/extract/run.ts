@@ -13,6 +13,7 @@
  *   npm run extract -- --escalate              # retry empties on the other provider
  *   npm run extract -- --verify                # cross-check dates against other sources
  *   npm run extract -- --no-gap-fill           # skip the second look at empty fields
+ *   npm run extract -- --no-gap-crawl          # never crawl again for a starved topic
  *   npm run extract -- --no-fix-urls           # never rewrite a row's dead URL
  *   npm run extract -- --models                # list models your Groq key can reach
  *
@@ -99,6 +100,17 @@ const maxVerifySources = Number(option("verify-sources") ?? 2);
  * when a provider quota is the binding constraint.
  */
 const gapFill = !flag("no-gap-fill");
+/**
+ * Go back out to the site for the topics nothing was fetched about.
+ *
+ * On by default. It is the only gap mechanism that spends new requests rather
+ * than re-reading a crawl already paid for, and it is gated on the diagnosis
+ * saying a whole topic was starved — so on a site the first crawl covered well
+ * it never fires at all. Turn it off when the run is about wall-clock or when a
+ * host is rate-limiting.
+ */
+const gapCrawl = !flag("no-gap-crawl");
+const gapCrawlPages = Number(option("gap-crawl-pages") ?? 8);
 
 /**
  * Programmes extracted at once.
@@ -386,6 +398,8 @@ async function main() {
       verify,
       maxVerifySources,
       gapFill,
+      gapCrawl,
+      gapCrawlPages,
       previous: lastSeen.get(target.id) ?? null,
       sources: sourcesByScholarship.get(target.id) ?? [],
     });

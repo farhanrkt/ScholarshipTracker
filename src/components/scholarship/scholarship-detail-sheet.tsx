@@ -23,8 +23,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  NOT_STATED_LABEL,
   describeVerification,
   displayCountry,
+  isNotStated,
   recordList,
   safeText,
   textList,
@@ -72,6 +74,18 @@ export function ScholarshipDetailSheet({
   const duration = safeText(scholarship.award_duration);
   const awardCount = safeText(scholarship.number_of_awards);
   const studyFields = textList(scholarship.fields_of_study);
+
+  /**
+   * Scope facts the pages were read for and do not state.
+   *
+   * Shown rather than hidden, which is the opposite of what the section did
+   * before. A missing duration used to make the row vanish, so "we checked and
+   * the funder does not publish how long the money lasts" and "nobody has
+   * looked" were both rendered as the absence of a line — and the reader could
+   * not tell that a question had even been asked.
+   */
+  const durationSilent = isNotStated(scholarship, "award_duration");
+  const awardCountSilent = isNotStated(scholarship, "number_of_awards");
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -146,20 +160,28 @@ export function ScholarshipDetailSheet({
           )}
 
           {/* Scope ------------------------------------------------------- */}
-          {(duration || awardCount || studyFields.length > 0) && (
+          {(duration ||
+            awardCount ||
+            studyFields.length > 0 ||
+            durationSilent ||
+            awardCountSilent) && (
             <section>
               <SectionHeading>Scope of the award</SectionHeading>
               <dl className="divide-y">
-                {duration && (
+                {(duration || durationSilent) && (
                   <div className="grid grid-cols-[9rem_1fr] gap-3 py-2 text-sm">
                     <dt className="text-muted-foreground">Funded for</dt>
-                    <dd>{duration}</dd>
+                    <dd className={duration ? undefined : "text-muted-foreground"}>
+                      {duration ?? NOT_STATED_LABEL}
+                    </dd>
                   </div>
                 )}
-                {awardCount && (
+                {(awardCount || awardCountSilent) && (
                   <div className="grid grid-cols-[9rem_1fr] gap-3 py-2 text-sm">
                     <dt className="text-muted-foreground">Awards offered</dt>
-                    <dd>{awardCount}</dd>
+                    <dd className={awardCount ? undefined : "text-muted-foreground"}>
+                      {awardCount ?? NOT_STATED_LABEL}
+                    </dd>
                   </div>
                 )}
                 {studyFields.length > 0 && (
@@ -179,7 +201,10 @@ export function ScholarshipDetailSheet({
           {/* Coverage ---------------------------------------------------- */}
           <section>
             <SectionHeading>What the award covers</SectionHeading>
-            <CoverageGrid matrix={scholarship.coverage_matrix} />
+            <CoverageGrid
+              matrix={scholarship.coverage_matrix}
+              notStated={scholarship.not_stated}
+            />
           </section>
 
           <Separator />
@@ -187,7 +212,10 @@ export function ScholarshipDetailSheet({
           {/* Eligibility ------------------------------------------------- */}
           <section>
             <SectionHeading>Eligibility</SectionHeading>
-            <EligibilityList flags={scholarship.eligibility_flags} />
+            <EligibilityList
+              flags={scholarship.eligibility_flags}
+              notStated={scholarship.not_stated}
+            />
           </section>
 
           <Separator />

@@ -129,7 +129,16 @@ anon key and the data.
 | `user_targets` | every policy is `auth.uid() = user_id` |
 | `scholarship_extractions` | RLS on, **no policies** — deny-all |
 | `scholarship_candidates` | admins only |
+| `scholarship_sources` | admins only |
 | `admins` | not reachable with the anon key |
+
+Views need the same care and do not get it by default. A view reads its
+underlying tables with its **owner's** rights unless it declares
+`security_invoker`, so a view over a deny-all table hands out exactly what the
+policy just withheld. `scholarship_completeness` (migration 016) reads
+`scholarship_extractions` and declares it; migration 012 declined to add a view
+over `pipeline_jobs` at all rather than rely on remembering. Any new view over a
+staging table must do one or the other.
 
 Two rules that must not be relaxed:
 

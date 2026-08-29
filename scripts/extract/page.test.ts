@@ -559,3 +559,83 @@ describe("what a failed status means", () => {
     assert.equal(error.isDeadLink, false);
   });
 });
+
+describe("reading a page's full content", () => {
+  const prose = (words: string) => `<p>${words.repeat(12)}</p>`;
+
+  test("structured data is appended so grounding can quote it", () => {
+    // A value taken from JSON-LD is SELF-GROUNDING: the quote is literally in
+    // the page source, because that is where the funder put it. If this text is
+    // not on the page, the value is discarded and the funder's own machine-
+    // readable statement of its own deadline is worth nothing to us.
+    const page = pageModule.readHtml(
+      prose("The Example Scholarship is open to international students. ") +
+        `<table><tr><td>Tuition</td><td>Covered in full</td></tr></table>`,
+      "https://example.org/a",
+    );
+
+    assert.ok(page.text.includes("Tuition: Covered in full"));
+    assert.ok(page.text.includes("open to international students"));
+  });
+
+  test("a shell page is recovered from its own hydration payload", () => {
+    // Before this, the page threw and the programme kept every field blank —
+    // the largest category of blank in the catalogue and the one furthest from
+    // being the funder's fault.
+    const page = pageModule.readHtml(
+      `<div id="__next"></div><script id="__NEXT_DATA__" type="application/json">` +
+        JSON.stringify({
+          props: {
+            body:
+              "Applications for the 2027/28 intake close on 6 October 2026. " +
+              "The award covers full tuition, a monthly stipend and return " +
+              "airfare for every scholar, along with health insurance and a " +
+              "settling-in allowance paid shortly after arrival.",
+          },
+        }) +
+        `</script>`,
+      "https://example.org/a",
+    );
+
+    assert.ok(page.text.includes("close on 6 October 2026"));
+  });
+
+  test("recovered content comes before the shell's own words", () => {
+    // The shell's few words are chrome; the recovered text is the page. Putting
+    // the chrome first spends the front of every passage on a cookie notice.
+    const page = pageModule.readHtml(
+      `<p>Loading…</p><script>window.__NUXT__=${JSON.stringify({
+        body:
+          "The Example Scholarship covers full tuition and a monthly stipend of " +
+          "GBP 1,347 for every scholar on the programme, together with a return " +
+          "airfare, health insurance and a one-off settling-in allowance paid on " +
+          "arrival in the United Kingdom.",
+      })}</script>`,
+      "https://example.org/a",
+    );
+
+    assert.ok(page.text.startsWith("The Example Scholarship covers"));
+  });
+
+  test("a page with nothing recoverable still fails, and says why", () => {
+    // Failing loudly is the point: an empty programme staged as a success is
+    // how a row ends up looking checked when nothing read it.
+    assert.throws(
+      () => pageModule.readHtml("<div id=root></div>", "https://example.org/a"),
+      (error: unknown) =>
+        error instanceof pageModule.ShellPageError &&
+        /JavaScript-rendered/.test((error as Error).message),
+    );
+  });
+
+  test("the shell error carries the HTML so recovery costs no second fetch", () => {
+    try {
+      pageModule.readHtml("<div id=root></div>", "https://example.org/a");
+      assert.fail("expected a ShellPageError");
+    } catch (error) {
+      assert.ok(error instanceof pageModule.ShellPageError);
+      assert.equal(error.html, "<div id=root></div>");
+      assert.equal(error.landedUrl, "https://example.org/a");
+    }
+  });
+});

@@ -258,6 +258,60 @@ Free-tier daily cap, most often Groq's. The run stops cleanly so already-staged
 rows are reported rather than lost. Switch provider with `--provider gemini` or
 wait out the day.
 
+### Every row is re-read after upgrading, even unchanged ones
+
+Expected, once.
+
+The "unchanged since the last extraction" check compares `page_sha256` against
+the last proposal's, and that hash is taken over the page's **text**. Migration
+016's pipeline appends structured data — JSON-LD, meta descriptions, rendered
+tables — to that text, so every page hashes differently than it did before and
+every row looks changed.
+
+That is the outcome you want here: those rows have never been read with the
+table and JSON-LD content included, and several of them were thin precisely
+because of what was being discarded. It settles after one pass.
+
+### A field says "Not stated by the programme" and the page clearly states it
+
+Two possible causes, and they are told apart in `/admin/coverage`.
+
+If the field's cause reads `not-published`, the crawl reached that topic and the
+field's vocabulary appeared nowhere in anything fetched — usually because the
+statement is phrased in words the phrase list in `scripts/extract/gaps.ts` does
+not carry. Add the phrasing the site actually uses.
+
+If the cause is anything else, the row should not be showing that message at
+all — only `not-published` is allowed to reach a card. A row still showing it
+was most likely applied from an older extraction; re-run and re-apply.
+
+### A blank stays blank after several runs
+
+Open `/admin/coverage` and expand the row rather than raising `--pages` again.
+Each cause has a different fix and only three of the five are worth acting on —
+see [operations.md § Chasing blanks](operations.md#chasing-blanks--admincoverage).
+
+The commonest surprise is `not-retrieved`: the words are in the crawl and never
+reached a prompt, which is a missing phrase in `SPECS`, not a crawl problem.
+Raising the page budget for that one does nothing at all.
+
+### "no readable pages" on a site that works in a browser
+
+The page builds its content client-side and ships nothing in the initial HTML.
+The recovery ladder (`scripts/extract/hydrate.ts`) tries the hydration payload,
+`<noscript>` and the AMP copy first, all free; if none of those had it, the
+content genuinely is not in the bytes.
+
+Set `RENDER_SERVICE_URL` to a headless renderer to go further. Nothing here is
+bundled — see [pipeline.md § Pages a plain fetch cannot read](pipeline.md#pages-a-plain-fetch-cannot-read).
+
+### A scanned PDF is reported as unreadable
+
+There is no text layer and no `OCR_SERVICE_URL` configured. With one set, the
+scan is read and every quote from it is recorded as `match: "ocr"`, which the
+review UI flags — grounding is unchanged, but a human is told the characters
+were a machine's reading of an image before they mint `verified` off it.
+
 ## Pipeline console
 
 ### "Reviewers only"

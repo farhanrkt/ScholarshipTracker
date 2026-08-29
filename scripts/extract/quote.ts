@@ -50,6 +50,8 @@ export interface QuotePage {
   text: string;
   /** Tokenised on the first loose match against this page, then reused. */
   tokens?: Token[];
+  /** This page's text came from OCR. Carried onto the match it produces. */
+  viaOcr?: boolean;
 }
 
 export interface QuoteMatch {
@@ -60,6 +62,16 @@ export interface QuoteMatch {
    */
   text: string;
   exact: boolean;
+  /**
+   * The backing page was OCR'd.
+   *
+   * Reported rather than acted on: the match had to satisfy the same matcher as
+   * any other, and this only records that the characters it matched against
+   * were recognised from an image. It is what turns into `match: "ocr"` on the
+   * evidence, which is a claim about provenance, not about confidence in the
+   * search.
+   */
+  viaOcr?: boolean;
 }
 
 /**
@@ -199,7 +211,12 @@ export function findQuote(
 
   for (const page of pages) {
     if (page.text.includes(needle)) {
-      return { url: page.url, text: needle, exact: true };
+      return {
+        url: page.url,
+        text: needle,
+        exact: true,
+        ...(page.viaOcr ? { viaOcr: true } : {}),
+      };
     }
   }
 
@@ -208,7 +225,14 @@ export function findQuote(
 
   for (const page of pages) {
     const span = looseMatch(page, tokens);
-    if (span) return { url: page.url, text: span, exact: false };
+    if (span) {
+      return {
+        url: page.url,
+        text: span,
+        exact: false,
+        ...(page.viaOcr ? { viaOcr: true } : {}),
+      };
+    }
   }
 
   return null;

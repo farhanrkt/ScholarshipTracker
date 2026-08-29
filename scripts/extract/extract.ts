@@ -217,6 +217,9 @@ const PROFILE_SKELETON: Record<string, unknown> = {
   fields_of_study: NULL_LIST_CLAIM,
   award_duration: NULL_TEXT_CLAIM,
   number_of_awards: NULL_TEXT_CLAIM,
+  // Empty, never absent: a model that omits the key has told us nothing about
+  // silence, and the skeleton must not turn that into a claim of silence.
+  not_stated: [],
   notes_for_reviewer: "",
 };
 
@@ -259,6 +262,18 @@ export function repairProfile(value: unknown): unknown {
       (item) => typeof asRecord(item)?.covered === "boolean",
     );
   }
+
+  // `not_stated` is a list of field KEYS. A model that returns objects, nulls,
+  // or a single string instead is repaired to the nearest honest reading rather
+  // than failing the whole parse — the alternative loses a complete extraction
+  // over the least important field in it.
+  filled.not_stated = Array.isArray(filled.not_stated)
+    ? filled.not_stated.filter(
+        (item): item is string => typeof item === "string" && item.length > 0,
+      )
+    : typeof filled.not_stated === "string" && filled.not_stated.length > 0
+      ? [filled.not_stated]
+      : [];
 
   return filled;
 }

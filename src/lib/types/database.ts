@@ -220,6 +220,21 @@ export type Scholarship = {
    */
   field_sources: FieldSources;
 
+  /**
+   * Fields the pipeline read these pages for and found unstated (migration 016).
+   *
+   * THE DIFFERENCE THIS MAKES is between a blank and an answer. A card showing
+   * nothing next to "Airfare" makes the reader decide whether the award
+   * excludes flights or whether nobody checked, and gives them nothing to
+   * decide it with. A key listed here means the pages were reached, read, and
+   * say nothing — which is a fact about the programme worth planning around.
+   *
+   * Keys are the ones `gaps.ts` uses: `coverage.airfare`, `eligibility.max_age`,
+   * `award_duration`. Only ever written from a reading that actually reached
+   * the relevant pages — a blank caused by our own crawl is not in here.
+   */
+  not_stated: string[];
+
   /* Application window. All nullable — "not announced yet" is a real answer,
      and forcing a value here is what produced fabricated deadlines. */
   opens_date: string | null;
@@ -322,10 +337,12 @@ export interface FieldEvidence {
    * How the quote was found on that page. `loose` means the page states this
    * in wording the quote does not reproduce character for character — a quote
    * stitched across a bullet, an article dropped — and the value was checked
-   * against the page's own words rather than the model's. Absent on
+   * against the page's own words rather than the model's. `ocr` means the page
+   * was a scan and its characters are an OCR engine's reading of an image, so
+   * the value is grounded in text nobody published as text. Absent on
    * extractions staged before quote matching gained the second pass.
    */
-  match?: "exact" | "loose" | null;
+  match?: "exact" | "loose" | "ocr" | null;
   /** Tier of that page. Absent on extractions predating migration 011. */
   authority?: Authority;
   corroborated_by?: SourceRef[];
@@ -359,6 +376,17 @@ export interface ProposedUpdate {
    * migration 013.
    */
   eligibility_silent?: string[];
+  /**
+   * Every fact this reading proved the pages do not state, across coverage and
+   * scope as well as eligibility.
+   *
+   * Wider than `eligibility_silent` and with a different destination: that list
+   * becomes explicit nulls inside `eligibility_flags` so a FILTER can tell an
+   * unanswered question from an unasked one, while this one lands in
+   * `scholarships.not_stated` and is what the UI renders. Both are merged
+   * additively and neither can overwrite a value. See migration 016.
+   */
+  not_stated?: string[];
   document_checklist?: DocumentChecklist;
   post_study_obligations?: string | null;
   language_training_included?: boolean | null;
@@ -389,6 +417,39 @@ export type ScholarshipSource = {
   muted_reason: string | null;
 };
 
+/**
+ * Why a field came back empty. Mirrors `GAP_CAUSES` in
+ * scripts/extract/diagnosis.ts, which is where the reasoning lives.
+ *
+ * The first three are the pipeline's fault and are worth another run. The last
+ * two are the pipeline working correctly: a value that could not be quoted was
+ * a guess and was dropped, and a page that does not discuss a fact is the
+ * funder's decision, not a bug.
+ */
+export const GAP_CAUSES = [
+  "never-crawled",
+  "not-retrieved",
+  "model-silent",
+  "grounding-rejected",
+  "not-published",
+] as const;
+export type GapCause = (typeof GAP_CAUSES)[number];
+
+export const GAP_CAUSE_LABELS: Record<GapCause, string> = {
+  "never-crawled": "No page on this was fetched",
+  "not-retrieved": "Mentioned in the crawl, never sent to the model",
+  "model-silent": "Sent to the model, nothing came back",
+  "grounding-rejected": "Answered, but the quote was not on the page",
+  "not-published": "The pages were read and do not state it",
+};
+
+/** Causes that mean the blank is recoverable by running the pipeline again. */
+export const RECOVERABLE_GAP_CAUSES: readonly GapCause[] = [
+  "never-crawled",
+  "not-retrieved",
+  "model-silent",
+];
+
 export type ScholarshipExtraction = {
   id: string;
   scholarship_id: string;
@@ -402,12 +463,46 @@ export type ScholarshipExtraction = {
   ungrounded_fields: string[];
   /** Values kept, but qualified by the page — the reviewer must look. */
   caveats: string[];
+  /**
+   * Why each slot this reading left empty is empty (migration 016).
+   *
+   * Keyed by field, valued by `GapCause`. A property of the READING rather than
+   * of the programme — re-crawl with a bigger budget and the same field can go
+   * from `never-crawled` to a value — which is why it stays on the extraction
+   * and is never proposed onto the row.
+   */
+  gap_causes: Record<string, GapCause>;
   page_subject: string | null;
   model_notes: string | null;
   status: ExtractionStatus;
   reviewed_at: string | null;
   reviewer_notes: string | null;
   created_at: string;
+};
+
+/**
+ * How complete one scholarship row is, and how much of the rest is our fault
+ * (migration 016).
+ *
+ * A view rather than columns, because every number in it is derived and a
+ * stored copy would be wrong the moment anything changed — the same reasoning
+ * that keeps staleness out of `scholarships`. `gap_causes` is the newest
+ * reading's diagnosis and is null on rows nothing has read since 016.
+ */
+export type ScholarshipCompleteness = {
+  id: string;
+  title: string;
+  country: Country;
+  verification_status: VerificationStatus;
+  official_portal_url: string;
+  /** Of the 25 slots `gaps.ts` counts. */
+  filled: number;
+  total: number;
+  /** Fields the pages were read for and do not state. */
+  not_stated_count: number;
+  /** Blanks the last reading blamed on the pipeline. The backlog. */
+  recoverable: number;
+  gap_causes: Record<string, GapCause> | null;
 };
 
 export type Admin = {
@@ -562,14 +657,26 @@ export type Database = {
       };
       scholarship_extractions: {
         Row: ScholarshipExtraction;
+        // `gap_causes` is DB-defaulted to `{}`, so a staged row that predates
+        // the diagnosis — or one from a dates-only run — inserts without it.
         Insert: Omit<
           ScholarshipExtraction,
-          "id" | "status" | "reviewed_at" | "reviewer_notes" | "created_at"
+          | "id"
+          | "status"
+          | "reviewed_at"
+          | "reviewer_notes"
+          | "created_at"
+          | "gap_causes"
         > &
           Partial<
             Pick<
               ScholarshipExtraction,
-              "id" | "status" | "reviewed_at" | "reviewer_notes" | "created_at"
+              | "id"
+              | "status"
+              | "reviewed_at"
+              | "reviewer_notes"
+              | "created_at"
+              | "gap_causes"
             >
           >;
         Update: Partial<Omit<ScholarshipExtraction, "id">>;
@@ -636,10 +743,22 @@ export type Database = {
         ];
       };
     };
-    // `{ [_ in never]: never }` and not `Record<string, never>`: the latter
-    // carries a string index signature, and postgrest-js intersects Views into
-    // Tables — which would collapse every table type to `never`.
-    Views: { [_ in never]: never };
+    /**
+     * Read-only views.
+     *
+     * This was `{ [_ in never]: never }` — and the comment explaining why is
+     * still load-bearing for the EMPTY case: `Record<string, never>` carries a
+     * string index signature, postgrest-js intersects Views into Tables, and
+     * that collapses every table type to `never`. Naming the views explicitly
+     * has the same effect as the empty mapped type without the index signature,
+     * so it is safe; adding one as `Record<string, ...>` would not be.
+     */
+    Views: {
+      scholarship_completeness: {
+        Row: ScholarshipCompleteness;
+        Relationships: [];
+      };
+    };
     Functions: {
       is_admin: { Args: Record<string, never>; Returns: boolean };
       why_not_admin: {

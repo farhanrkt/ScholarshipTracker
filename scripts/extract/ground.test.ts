@@ -167,6 +167,7 @@ function profile(patch: Partial<ProfileExtraction> = {}): ProfileExtraction {
     number_of_awards: claim(null, null),
     post_study_obligations: claim(null, null),
     language_training_included: bool(null, null),
+    not_stated: [],
     notes_for_reviewer: "",
     ...patch,
   };
@@ -740,5 +741,56 @@ describe("archived cycles", () => {
     assert.equal(result.proposed.timeline[0]?.label, "Interviews");
     assert.equal(result.proposed.timeline[0]?.date, null);
     assert.match(result.ungroundedFields[0] ?? "", /archived cycle/);
+  });
+});
+
+describe("recorded silence", () => {
+  test("a reported not-stated field is kept", () => {
+    // The difference between a card that shows nothing and a card that says
+    // "the programme does not state this". The second is an answer; the first
+    // leaves the reader deciding whether the award excludes flights or whether
+    // nobody checked, with nothing to decide it with.
+    const result = groundProfile(
+      profile({ not_stated: ["coverage.airfare", "award_duration"] }),
+      [page("The award covers tuition fees in full for the whole programme.")],
+    );
+
+    assert.deepEqual(result.silentFields, ["award_duration", "coverage.airfare"]);
+  });
+
+  test("a field the same response filled is NOT reported as unstated", () => {
+    // A model can contradict itself: name a field in `not_stated` and return a
+    // value for it anyway. The value survived grounding, so it is the half
+    // worth keeping — and a row carrying both would render a figure next to
+    // "not stated by the programme".
+    const result = groundProfile(
+      profile({
+        coverage: [
+          {
+            key: "airfare",
+            covered: true,
+            detail: null,
+            evidence_quote: "The award covers a return airfare to the home country.",
+          },
+        ],
+        not_stated: ["coverage.airfare"],
+      }),
+      [page("The award covers a return airfare to the home country.")],
+    );
+
+    assert.deepEqual(result.silentFields, []);
+    assert.equal(result.proposed.coverage_matrix.airfare?.covered, true);
+  });
+
+  test("a key the schema never asked about is discarded", () => {
+    // A model naming something outside the field list is not answering any
+    // question we asked, and letting it through would put an arbitrary string
+    // into a column the UI reads by key.
+    const result = groundProfile(
+      profile({ not_stated: ["coverage.private_jet", "", "eligibility.max_age"] }),
+      [page("A page about a scholarship programme, at some reasonable length.")],
+    );
+
+    assert.deepEqual(result.silentFields, ["eligibility.max_age"]);
   });
 });

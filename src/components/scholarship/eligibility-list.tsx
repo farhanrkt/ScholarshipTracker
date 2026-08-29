@@ -1,4 +1,4 @@
-import { safeText, textList } from "@/lib/format";
+import { NOT_STATED_LABEL, UNKNOWN_LABEL, safeText, textList } from "@/lib/format";
 import type { EligibilityFlags } from "@/lib/types/database";
 
 interface Row {
@@ -19,14 +19,38 @@ interface Row {
  */
 type Flags = Partial<EligibilityFlags> | null | undefined;
 
-const NOT_STATED = "Not stated";
+/**
+ * The two kinds of blank, told apart at last.
+ *
+ * Every branch below already had three outcomes rather than two, and the third
+ * printed the same six characters — "Not stated" — whether the pages had been
+ * read and were silent or nobody had ever fetched them. The data has
+ * distinguished those since migration 013 (an explicit null under a present key
+ * means "asked, and the pages say nothing") and migration 016 extended it to
+ * every other field; only the screen was still collapsing them.
+ *
+ * A key present with a null value is the strongest signal, because it is this
+ * row's own record of having asked. `not_stated` is the same finding arriving
+ * from the wider list. Anything else is genuinely unknown.
+ */
+function silenceOf(
+  flags: Flags,
+  notStated: Set<string>,
+  key: keyof EligibilityFlags,
+): string {
+  const asked = flags !== null && flags !== undefined && key in flags;
+  return asked || notStated.has(`eligibility.${key}`)
+    ? NOT_STATED_LABEL
+    : UNKNOWN_LABEL;
+}
 
 function describeBoolean(
   value: boolean | null | undefined,
   whenTrue: string,
   whenFalse: string,
+  silence: string,
 ): Row["value"] {
-  if (typeof value !== "boolean") return NOT_STATED;
+  if (typeof value !== "boolean") return silence;
   return value ? whenTrue : whenFalse;
 }
 
@@ -44,8 +68,10 @@ function hasBeenRead(flags: Flags): boolean {
   return Object.keys(flags ?? {}).some((key) => key !== "notes");
 }
 
-function buildRows(flags: Flags): Row[] {
+function buildRows(flags: Flags, notStated: string[]): Row[] {
   const read = hasBeenRead(flags);
+  const silent = new Set(notStated);
+  const blank = (key: keyof EligibilityFlags) => silenceOf(flags, silent, key);
   // textList rather than a length check: the model occasionally returns objects
   // inside a list of strings, and those render as "[object Object]" — quieter
   // than a crash and just as wrong.
@@ -71,7 +97,7 @@ function buildRows(flags: Flags): Row[] {
           ? `${flags.max_age} years`
           : read
             ? "No age cap"
-            : NOT_STATED,
+            : blank("max_age"),
       demanding: typeof flags?.max_age === "number",
     },
     {
@@ -79,7 +105,7 @@ function buildRows(flags: Flags): Row[] {
       value:
         typeof flags?.min_gpa_4_scale === "number"
           ? `${flags.min_gpa_4_scale.toFixed(1)} / 4.0`
-          : "Not published",
+          : blank("min_gpa_4_scale"),
       demanding:
         typeof flags?.min_gpa_4_scale === "number" && flags.min_gpa_4_scale >= 3.5,
     },
@@ -87,7 +113,7 @@ function buildRows(flags: Flags): Row[] {
       label: "Work experience",
       value:
         typeof flags?.min_work_experience_years !== "number"
-          ? NOT_STATED
+          ? blank("min_work_experience_years")
           : flags.min_work_experience_years > 0
             ? `${flags.min_work_experience_years}+ years`
             : "None required",
@@ -99,7 +125,7 @@ function buildRows(flags: Flags): Row[] {
       label: "Language test",
       value:
         typeof flags?.language_test_required !== "boolean"
-          ? NOT_STATED
+          ? blank("language_test_required")
           : flags.language_test_required
             ? `Required${languageTests ? ` — ${languageTests}` : ""}`
             : "Not required",
@@ -107,7 +133,8 @@ function buildRows(flags: Flags): Row[] {
     },
     {
       label: "Minimum scores",
-      value: scoreParts.length > 0 ? scoreParts.join(" · ") : "Not published",
+      value:
+        scoreParts.length > 0 ? scoreParts.join(" · ") : blank("min_ielts"),
       demanding: false,
     },
     {
@@ -116,6 +143,7 @@ function buildRows(flags: Flags): Row[] {
         flags?.requires_university_admission_first,
         "Need a university offer before applying",
         "Apply without an offer",
+        blank("requires_university_admission_first"),
       ),
       demanding: flags?.requires_university_admission_first === true,
     },
@@ -125,6 +153,7 @@ function buildRows(flags: Flags): Row[] {
         flags?.requires_government_nomination,
         "Embassy / government nomination required",
         "Apply directly",
+        blank("requires_government_nomination"),
       ),
       demanding: flags?.requires_government_nomination === true,
     },
@@ -134,6 +163,7 @@ function buildRows(flags: Flags): Row[] {
         flags?.requires_research_proposal,
         "Required",
         "Not required",
+        blank("requires_research_proposal"),
       ),
       demanding: flags?.requires_research_proposal === true,
     },
@@ -143,14 +173,21 @@ function buildRows(flags: Flags): Row[] {
         ? `Restricted to ${nationalities.join(", ")}`
         : read
           ? "Open to all nationalities"
-          : NOT_STATED,
+          : blank("restricted_to_nationalities"),
       demanding: hasNationalities,
     },
   ];
 }
 
-export function EligibilityList({ flags }: { flags: Flags }) {
-  const rows = buildRows(flags);
+export function EligibilityList({
+  flags,
+  notStated,
+}: {
+  flags: Flags;
+  /** `scholarships.not_stated`. Absent on rows read before migration 016. */
+  notStated?: string[] | null;
+}) {
+  const rows = buildRows(flags, Array.isArray(notStated) ? notStated : []);
 
   return (
     <div className="flex flex-col">
@@ -162,7 +199,7 @@ export function EligibilityList({ flags }: { flags: Flags }) {
               className={
                 row.demanding
                   ? "font-medium"
-                  : row.value === NOT_STATED
+                  : row.value === NOT_STATED_LABEL || row.value === UNKNOWN_LABEL
                     ? "text-muted-foreground"
                     : undefined
               }

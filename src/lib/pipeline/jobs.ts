@@ -39,6 +39,14 @@ export interface ExtractArgs {
   /** Go back for the fields the profile call left empty. Defaults ON. */
   gapFill: boolean;
   /**
+   * Crawl again for topics nothing was fetched about. Defaults ON.
+   *
+   * The only gap mechanism that spends new requests, so it is a separate switch
+   * from `gapFill` rather than folded into it: an operator throttling a run
+   * wants to keep the free re-read and drop the extra fetches.
+   */
+  gapCrawl: boolean;
+  /**
    * Re-read what has gone out of date, instead of working the backlog.
    *
    * The ordinary run walks the never-checked rows first, which is right when
@@ -145,6 +153,7 @@ export function parseJobRequest(body: Record<string, unknown>): ParseResult {
         // Defaults ON: one extra call on a crawl already paid for, and it is
         // what stops a staged row being a deadline and a row of blanks.
         gapFill: body.gapFill !== false,
+        gapCrawl: body.gapCrawl !== false,
         staleOnly: bool(body.staleOnly),
       },
     };
@@ -190,6 +199,7 @@ export function describeJob(args: JobArgs): string {
     if (args.force) parts.push("forced");
     if (!args.fixUrls) parts.push("no URL repair");
     if (!args.gapFill) parts.push("no second look");
+    if (!args.gapCrawl) parts.push("no second crawl");
     if (args.staleOnly) parts.push("stale rows only");
   } else {
     if (args.seed) parts.push(`seed~"${args.seed}"`);

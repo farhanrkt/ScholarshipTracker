@@ -13,11 +13,23 @@
  * changes: the same quoting rule, the same verbatim search, the same rejection
  * of anything that cannot be quoted.
  *
- * WHAT IS DELIBERATELY NOT HANDLED. A scanned PDF is an image and yields no
- * text; it fails the short-text guard and is reported like a JavaScript-only
- * page, which is the honest outcome. There is no OCR here and should not be:
- * OCR output is approximate, and an approximate quote would pass a grounding
- * check that exists to be exact.
+ * SCANNED PDFs, AND WHY THEY NOW HAVE A PATH. A scan is an image and yields no
+ * text layer, and for a long time that was the end of it: the file failed the
+ * short-text guard and the programme kept its blanks. The objection to OCR was
+ * exactly right — OCR output is approximate, and an approximate quote would
+ * pass a grounding check that exists to be exact.
+ *
+ * The resolution is not to loosen grounding but to record how the text was
+ * obtained. OCR'd pages are marked, every quote matched against one is recorded
+ * as `match: "ocr"`, and the review UI shows that tier and sorts it to the
+ * front. Grounding is unchanged — an OCR quote still has to be found in the OCR
+ * text, exactly or loosely, by the same matcher. What changes is that a human
+ * is told which readings rest on a machine's guess at a glyph, which is a
+ * different and much smaller claim than "this is verbatim from the page".
+ *
+ * Like the page renderer, the OCR engine is a URL rather than a dependency:
+ * bundling one would put a native toolchain into a project that installs
+ * clean today and deploys to a serverless host.
  */
 
 /**
@@ -83,4 +95,68 @@ export async function pdfToText(bytes: Uint8Array): Promise<string> {
       .replace(/\n{3,}/g, "\n\n")
       .trim()
   );
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* OCR                                                                        */
+/* -------------------------------------------------------------------------- */
+
+/** Configured OCR endpoint, or null. See the note at the top of this file. */
+export function ocrServiceUrl(): string | null {
+  const configured = process.env.OCR_SERVICE_URL?.trim();
+  return configured ? configured : null;
+}
+
+const OCR_TIMEOUT_MS = Number(process.env.OCR_TIMEOUT_MS) || 120_000;
+
+/**
+ * Text from a scanned document, via whatever engine the operator configured.
+ *
+ * The contract is one POST of the raw PDF bytes returning either
+ * `{ "text": … }` or plain text. Returns null rather than throwing: a failed
+ * OCR must leave the caller reporting the same "no text layer" it reported
+ * before OCR existed, not a new kind of error.
+ */
+export async function pdfToTextViaOcr(
+  bytes: Uint8Array,
+): Promise<string | null> {
+  const service = ocrServiceUrl();
+  if (!service) return null;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), OCR_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(service, {
+      method: "POST",
+      headers: {
+        "content-type": "application/pdf",
+        ...(process.env.OCR_SERVICE_TOKEN
+          ? { authorization: `Bearer ${process.env.OCR_SERVICE_TOKEN}` }
+          : {}),
+      },
+      body: bytes as unknown as BodyInit,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) return null;
+
+    const contentType = response.headers.get("content-type") ?? "";
+    const text = contentType.includes("application/json")
+      ? String(((await response.json()) as { text?: unknown }).text ?? "")
+      : await response.text();
+
+    const cleaned = text
+      .replace(/[ \t\u00a0]+/g, " ")
+      .replace(/ ?\n ?/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
+    return cleaned.length > 0 ? cleaned : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }

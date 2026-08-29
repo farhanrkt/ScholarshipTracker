@@ -539,30 +539,60 @@ export function mergeProfiles(
     ...base.proposed.eligibility_flags,
   };
 
+  const merged = {
+    coverage_matrix: { ...extra.proposed.coverage_matrix, ...base.proposed.coverage_matrix },
+    eligibility_flags,
+    document_checklist:
+      base.proposed.document_checklist.length > 0
+        ? base.proposed.document_checklist
+        : extra.proposed.document_checklist,
+    post_study_obligations:
+      base.proposed.post_study_obligations ?? extra.proposed.post_study_obligations,
+    language_training_included:
+      base.proposed.language_training_included ?? extra.proposed.language_training_included,
+    fields_of_study:
+      base.proposed.fields_of_study.length > 0
+        ? base.proposed.fields_of_study
+        : extra.proposed.fields_of_study,
+    award_duration: base.proposed.award_duration ?? extra.proposed.award_duration,
+    number_of_awards: base.proposed.number_of_awards ?? extra.proposed.number_of_awards,
+  };
+
+  /**
+   * A field is only still "not stated" if the merged reading did not fill it.
+   *
+   * Both passes can report silence about the same field, and the second pass
+   * routinely fills something the first called unstated — which is the whole
+   * point of running it. Recomputing against the merge is what stops a stale
+   * marker from the first pass telling a student a programme does not state
+   * something the row now carries a grounded value for.
+   */
+  const filled = new Set(
+    Object.keys(merged.coverage_matrix)
+      .map((key) => `coverage.${key}`)
+      .concat(Object.keys(merged.eligibility_flags).map((key) => `eligibility.${key}`))
+      .concat(merged.document_checklist.length > 0 ? ["document_checklist"] : [])
+      .concat(merged.post_study_obligations !== null ? ["post_study_obligations"] : [])
+      .concat(
+        merged.language_training_included !== null ? ["language_training_included"] : [],
+      )
+      .concat(merged.fields_of_study.length > 0 ? ["fields_of_study"] : [])
+      .concat(merged.award_duration !== null ? ["award_duration"] : [])
+      .concat(merged.number_of_awards !== null ? ["number_of_awards"] : []),
+  );
+
   return {
     // Either pass hearing "the pages do not say" is enough to record it — but
     // never for a question the other pass went on to answer.
     eligibilitySilent: [
       ...new Set([...base.eligibilitySilent, ...extra.eligibilitySilent]),
     ].filter((key) => !(key in eligibility_flags)),
-    proposed: {
-      coverage_matrix: { ...extra.proposed.coverage_matrix, ...base.proposed.coverage_matrix },
-      eligibility_flags,
-      document_checklist:
-        base.proposed.document_checklist.length > 0
-          ? base.proposed.document_checklist
-          : extra.proposed.document_checklist,
-      post_study_obligations:
-        base.proposed.post_study_obligations ?? extra.proposed.post_study_obligations,
-      language_training_included:
-        base.proposed.language_training_included ?? extra.proposed.language_training_included,
-      fields_of_study:
-        base.proposed.fields_of_study.length > 0
-          ? base.proposed.fields_of_study
-          : extra.proposed.fields_of_study,
-      award_duration: base.proposed.award_duration ?? extra.proposed.award_duration,
-      number_of_awards: base.proposed.number_of_awards ?? extra.proposed.number_of_awards,
-    },
+    silentFields: [
+      ...new Set([...base.silentFields, ...extra.silentFields]),
+    ]
+      .filter((key) => !filled.has(key))
+      .sort(),
+    proposed: merged,
     evidence,
     ungroundedFields: [...base.ungroundedFields, ...extra.ungroundedFields],
     caveats: [...base.caveats, ...extra.caveats],

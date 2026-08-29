@@ -45,6 +45,7 @@ function grounded(patch: Partial<GroundedProfile> = {}): GroundedProfile {
     ungroundedFields: [],
     caveats: [],
     eligibilitySilent: [],
+    silentFields: [],
     ...patch,
   };
 }
@@ -309,5 +310,41 @@ describe("recording what the pages did not answer", () => {
     );
 
     assert.deepEqual(merged.eligibilitySilent.sort(), ["max_age", "min_gpa_4_scale"]);
+  });
+});
+
+describe("merging recorded silence", () => {
+  test("silence from either pass survives", () => {
+    const merged = mergeProfiles(
+      grounded({ silentFields: ["coverage.airfare"] }),
+      grounded({ silentFields: ["award_duration"] }),
+    );
+
+    assert.deepEqual(merged.silentFields, ["award_duration", "coverage.airfare"]);
+  });
+
+  test("a field the merge filled stops being reported as unstated", () => {
+    // The second look routinely fills something the first called unstated —
+    // that is the whole reason it runs. A stale marker surviving the merge
+    // would tell a student the programme does not state a figure the row is
+    // about to display.
+    const merged = mergeProfiles(
+      grounded({ silentFields: ["award_duration"] }),
+      grounded({
+        proposed: proposed({ award_duration: "up to 3 years" }),
+      }),
+    );
+
+    assert.deepEqual(merged.silentFields, []);
+    assert.equal(merged.proposed.award_duration, "up to 3 years");
+  });
+
+  test("merging is still fill-only for the values themselves", () => {
+    const merged = mergeProfiles(
+      grounded({ proposed: proposed({ award_duration: "one academic year" }) }),
+      grounded({ proposed: proposed({ award_duration: "up to 3 years" }) }),
+    );
+
+    assert.equal(merged.proposed.award_duration, "one academic year");
   });
 });

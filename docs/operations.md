@@ -15,6 +15,11 @@ Day-to-day running of the app and its pipeline.
 Steps 2, 4 and 5 are human by design. Nothing a model produces reaches a student
 without someone approving it.
 
+Once rows exist, the loop has a second half that is about depth rather than
+count: `/admin/coverage` ranks what is still blank by whether the pipeline could
+have filled it, and `--verify` fills from other sites what a funder never
+published. See [Chasing blanks](#chasing-blanks--admincoverage).
+
 ## Running the crawlers
 
 ### From the browser
@@ -174,6 +179,39 @@ select * from scholarships_needing_review;
 Everything unverified, stale, or past its deadline, with the URL to check and the
 reason it surfaced. Staleness is computed, not stored, so this query is always
 current.
+
+## Chasing blanks — `/admin/coverage`
+
+The other worklist, and the one to use when the question is "why is this row so
+empty". It ranks the catalogue by **recoverable** blanks — fields the last
+reading blamed on the pipeline rather than on the funder — and expands to a
+per-field diagnosis.
+
+The ranking matters more than it looks. A row with 6/25 filled whose every blank
+is `not-published` is **finished**: the funder does not publish the rest, and no
+amount of crawling will change that. A row with 18/25 filled and four
+`never-crawled` has real work in it. Sorting by emptiness alone puts the finished
+row at the top and sends you to re-run the one case that cannot improve.
+
+So `recoverable` is the number to watch, and the only honest measure of progress
+here — it is what should fall between runs.
+
+| Cause | What to do |
+| --- | --- |
+| `never-crawled` | Re-run with `--pages` raised, or check `--no-gap-crawl` is not set. If it persists the link scorer never saw the page — look at what the site calls it. |
+| `not-retrieved` | The words are in the crawl and never reached a prompt. Usually a missing phrase in `SPECS` in `scripts/extract/gaps.ts`. |
+| `model-silent` | Re-run with `--escalate`. If a strong model is also silent, the passage probably does not say what the phrase match suggested. |
+| `grounding-rejected` | Nothing. A value that could not be quoted was a guess and was correctly dropped. |
+| `not-published` | Nothing. The funder does not state it, and the card now says so. |
+
+The same query outside the UI:
+
+```sql
+select title, filled, total, recoverable, not_stated_count
+  from scholarship_completeness
+ order by recoverable desc, filled asc
+ limit 20;
+```
 
 ## Curating seeds
 

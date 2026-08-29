@@ -99,6 +99,7 @@ interface JobState {
   force: boolean;
   fixUrls: boolean;
   gapFill: boolean;
+  gapCrawl: boolean;
   staleOnly: boolean;
   useSitemap: boolean;
   filter: string;
@@ -114,6 +115,7 @@ const INITIAL: JobState = {
   force: false,
   fixUrls: true,
   gapFill: true,
+  gapCrawl: true,
   staleOnly: false,
   useSitemap: true,
   filter: "",
@@ -285,6 +287,7 @@ export function PipelineConsole({ job }: { job: JobName }) {
           force: state.force,
           fixUrls: state.fixUrls,
           gapFill: state.gapFill,
+          gapCrawl: state.gapCrawl,
           staleOnly: state.staleOnly,
           useSitemap: state.useSitemap,
           filter: state.filter,
@@ -424,6 +427,12 @@ export function PipelineConsole({ job }: { job: JobName }) {
               onChange={(value) => set("gapFill", value)}
               label="Second look"
               hint="go back for the fields left empty"
+            />
+            <Toggle
+              checked={state.gapCrawl}
+              onChange={(value) => set("gapCrawl", value)}
+              label="Second crawl"
+              hint="fetch more pages when a whole topic was missed"
             />
             <Toggle
               checked={state.staleOnly}

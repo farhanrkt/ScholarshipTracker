@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { BadgeCheck, Compass, Copy, ScanSearch, Terminal } from "lucide-react";
+import {
+  BadgeCheck,
+  Compass,
+  Copy,
+  Gauge,
+  ScanSearch,
+  Terminal,
+} from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -47,6 +54,12 @@ const STEPS = [
     icon: Copy,
     description: "rows that may be the same programme twice",
   },
+  {
+    href: "/admin/coverage",
+    label: "Coverage",
+    icon: Gauge,
+    description: "how complete each row is, and why",
+  },
 ] as const;
 
 export async function AdminQueueBar({ current }: { current: string }) {
@@ -72,6 +85,10 @@ export async function AdminQueueBar({ current }: { current: string }) {
     "/admin/candidates": candidates.count ?? 0,
     "/admin/review": extractions.count ?? 0,
     "/admin/verify": toVerify.count ?? 0,
+    // No badge: the useful number here is recoverable BLANKS, which is a sum
+    // over a view rather than a row count, and a bar of five badges stops
+    // reading as "where the work is" and starts reading as decoration.
+    "/admin/coverage": null,
     // No badge: counting duplicates means reading every row and comparing them
     // pairwise, and this bar renders on all five admin pages. The number is not
     // worth that on every navigation — the page itself computes it.

@@ -54,6 +54,21 @@ function Change({
           <Quote className="mt-0.5 size-3 shrink-0 opacity-50" />
           <span>
             &ldquo;{evidence.quote}&rdquo;
+            {/* How the quote was tied to a page, when that is not the plain
+                case. `ocr` is the one a reviewer must see: the characters were
+                recognised from a scanned image, so the quote is a machine's
+                reading of a picture rather than text anyone published — which
+                is a much weaker claim than the rest of this card makes. */}
+            {evidence.match === "ocr" && (
+              <span className="ml-1 rounded bg-amber-100 px-1 py-px text-[10px] font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                read by OCR — check the original
+              </span>
+            )}
+            {evidence.match === "loose" && (
+              <span className="ml-1 rounded bg-muted px-1 py-px text-[10px] font-medium">
+                paraphrased on the page
+              </span>
+            )}
             {evidence.source_url && (
               <a
                 href={evidence.source_url}

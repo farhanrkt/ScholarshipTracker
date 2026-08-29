@@ -28,6 +28,9 @@ silent and expensive.
 | `scripts/extract/repair.ts` | Decides where a moved programme is looked for. Each candidate is a request to a funder, and a bad guess wastes a crawl. |
 | `src/lib/pipeline/jobs.ts` | The boundary between an HTTP request and a crawler that spends a paid quota. |
 | `src/lib/pipeline/runner.ts` | The bookkeeping that lets a multi-minute run survive a host where nothing outlives a request: which units run, that the cursor only moves forward, that a finished job is written back as finished. |
+| `scripts/extract/diagnosis.ts` | Decides what an operator does next, and — through `not-published` — what a student is told the funder does not publish. A cause classified one step too confidently turns our own crawl failure into a claim about the programme. |
+| `scripts/extract/structured.ts` | Everything it emits becomes quotable page text, so it fails in both directions: a benefits table that does not survive is a coverage matrix nobody can fill, and a page of breadcrumbs that does survive is the passage budget spent on navigation. |
+| `scripts/extract/hydrate.ts` | A page that fails here is a programme with *every* field blank, not one field. The prose filter is a grounding control rather than a tidiness one — whatever it returns is text a model may quote. |
 
 Nothing here tests the model. Model output is checked at runtime by grounding,
 which is itself the thing under test.
@@ -49,6 +52,15 @@ actually happened:
 - A quote stitched across a bullet being rejected as a fabrication, and — the
   other side of the same change — a stipend figure that appears in the quote and
   on no page being rejected anyway.
+- A `coverage.airfare` blank on a crawl that fetched no benefits page being
+  reported as "the programme does not state it" — our failure printed as the
+  funder's decision.
+- A model naming a field in `not_stated` *and* returning a grounded value for
+  it, which would render a figure beside "not stated by the programme".
+- A hydration payload's class list (`flexItemsCenter justifyBetween`) coming
+  back as page text a quote could be grounded against.
+- A greedy brace match swallowing every later `<script>` on the page and losing
+  a payload that had parsed perfectly on its own.
 
 When you fix a bug in these files, add the case that would have caught it. The
 comment above each test says what breaks in the real world if it fails, because

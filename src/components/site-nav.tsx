@@ -15,6 +15,7 @@ const ADMIN_LINKS = [
   { href: "/admin/review", label: "Review" },
   { href: "/admin/candidates", label: "Candidates" },
   { href: "/admin/verify", label: "Verify" },
+  { href: "/admin/coverage", label: "Coverage" },
 ] as const;
 
 export function SiteNav({

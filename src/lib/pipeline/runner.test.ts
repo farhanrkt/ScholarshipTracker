@@ -140,6 +140,7 @@ const EXTRACT_ARGS = {
   force: false,
   fixUrls: true,
   gapFill: true,
+  gapCrawl: true,
   staleOnly: false,
 };
 

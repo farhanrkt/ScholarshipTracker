@@ -77,6 +77,28 @@ export interface CrawlOptions {
    */
   maxFetches?: number;
   /**
+   * Vocabulary of the facts this crawl is going after, for scoring links.
+   *
+   * WHY A SECOND CRAWL NEEDS ITS OWN WORDS. The topic scorers ask "is this page
+   * about eligibility"; after a first pass, the question has become "is this
+   * page about the AGE LIMIT, which is the one thing still missing". Those are
+   * different questions and the second one is much narrower — a link labelled
+   * `Age and residency` scores nothing on the eligibility phrase list, because
+   * that list is built out of page-level headings like "who can apply".
+   *
+   * These are the same phrases the gap pass retrieves passages with, so the
+   * crawl and the retrieval hunt the same fact with the same words.
+   */
+  gapPhrases?: string[];
+  /**
+   * Pages a previous crawl already has. Never fetched again.
+   *
+   * Passed as post-redirect canonical URLs, which is what `fetchedUrls` holds:
+   * a second crawl that re-fetched the first crawl's pages would spend its
+   * entire budget confirming what is already known.
+   */
+  skipUrls?: Iterable<string>;
+  /**
    * Requests this crawl keeps in flight at once.
    *
    * This is NOT a politeness dial. Spacing is the fetch layer's job and is
@@ -189,6 +211,31 @@ function titleAffinity(tokens: string[], label: string, url: string): number {
 }
 
 /**
+ * How strongly a link's words name a fact we are still missing.
+ *
+ * Deliberately worth more than a topic hit and less than a title match. A page
+ * called `Fees and funding` is a good guess about the benefits section; a page
+ * whose link text contains "settling-in allowance" is the page that states the
+ * settling-in allowance, and on a second pass that is the only thing worth
+ * spending a fetch on.
+ */
+function gapAffinity(phrases: string[], label: string, url: string): number {
+  if (phrases.length === 0) return 0;
+
+  let haystack = label.toLowerCase();
+  try {
+    haystack += ` ${decodeURIComponent(new URL(url).pathname).replace(/[-_/]+/g, " ").toLowerCase()}`;
+  } catch {
+    // Judged on the label alone.
+  }
+
+  const hits = phrases.filter((phrase) => haystack.includes(phrase)).length;
+  // Capped like `titleAffinity`, and for the same reason: a long phrase list
+  // must not be able to outrank every other signal by weight of numbers.
+  return Math.min(hits, 3) * 12;
+}
+
+/**
  * Ancestor URLs of the entry, nearest first, ending at the origin root.
  *
  * `/host-institutions/flta-program/flta-during-the-program` yields
@@ -262,6 +309,7 @@ export async function crawlProgramme(
   const quotas = { ...DEFAULT_QUOTAS, ...options.quotas };
   const maxHubs = options.maxHubs ?? 2;
   const tokens = titleTokens(options.titleHint ?? "");
+  const phrases = (options.gapPhrases ?? []).map((phrase) => phrase.toLowerCase());
   const lanes = Math.min(Math.max(options.concurrency ?? 4, 1), 8);
   let fetchBudget = options.maxFetches ?? maxPages * 2;
 
@@ -276,6 +324,26 @@ export async function crawlProgramme(
   /** Post-redirect URLs of pages actually kept. See the dedupe below. */
   const fetchedUrls = new Set<string>();
 
+  // A resumed crawl must not re-fetch what the first one already read. Seeded
+  // into BOTH sets: `seen` stops the links being queued, `fetchedUrls` stops a
+  // redirect landing on one of them and being counted.
+  //
+  // CANONICALISED HERE rather than by the caller. Both sets are keyed on the
+  // canonical spelling, and a caller naturally passes `page.url` — the
+  // post-redirect address, which may carry a trailing slash or a parameter the
+  // canonical form drops. Matching those by hand at every call site is a
+  // dedupe that silently stops working the first time somebody forgets.
+  for (const raw of options.skipUrls ?? []) {
+    let key = raw;
+    try {
+      key = canonicaliseUrl(new URL(raw));
+    } catch {
+      // Not a URL we can parse; the literal is still better than nothing.
+    }
+    seen.add(key.replace(/\/$/, ""));
+    fetchedUrls.add(key);
+  }
+
   const queue: Candidate[] = [];
 
   // The entry page always gets fetched, whatever it scores, and it is not
@@ -284,9 +352,21 @@ export async function crawlProgramme(
   try {
     const page = await fetchPage(entryUrl);
     entry = { ...page, topic: "entry", linkScore: Infinity, depth: 0 };
-    pages.push(entry);
-    fetchedUrls.add(canonicaliseUrl(new URL(page.url)));
-    seen.add(canonicaliseUrl(new URL(page.url)));
+
+    /**
+     * RETURNED only when the caller does not already have it.
+     *
+     * The entry is always FETCHED — it is free on a second crawl, because the
+     * page cache answers it, and its links are the whole frontier. But a
+     * resumed crawl starts from the same entry the first one did, so returning
+     * it again puts a duplicate page into the caller's list: the same text
+     * twice in the grounding corpus, and the same blocks competing twice for
+     * the gap pass's budget.
+     */
+    const landed = canonicaliseUrl(new URL(page.url));
+    if (!fetchedUrls.has(landed)) pages.push(entry);
+    fetchedUrls.add(landed);
+    seen.add(landed);
   } catch (error) {
     return {
       pages: [],
@@ -350,7 +430,9 @@ export async function crawlProgramme(
       // A link naming this programme is worth following even when it carries no
       // topic vocabulary at all — on a portal, the programme's own page is
       // usually just its name — so the affinity is added BEFORE the threshold.
-      const affinity = titleAffinity(tokens, link.label, link.url);
+      const affinity =
+        titleAffinity(tokens, link.label, link.url) +
+        gapAffinity(phrases, link.label, link.url);
       const total = score + affinity;
       if (total < minLinkScore) continue;
 

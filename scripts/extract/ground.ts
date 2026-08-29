@@ -1,3 +1,4 @@
+import { GAP_FIELDS } from "./gaps.ts";
 import { normalise, type FetchedPage } from "./page.ts";
 import { findQuote, type QuoteMatch, type QuotePage } from "./quote.ts";
 import {
@@ -40,9 +41,11 @@ export interface FieldEvidence {
    * How the quote was found. `loose` means the page says this in words the
    * quote does not reproduce character for character — a stitched bullet, a
    * dropped article — and the value was checked against the page's wording
-   * rather than the model's. Null when no page backed it at all.
+   * rather than the model's. `ocr` means the backing page was a scan read by an
+   * OCR engine, so the characters themselves are a machine's reading. Null when
+   * no page backed it at all.
    */
-  match: "exact" | "loose" | null;
+  match: "exact" | "loose" | "ocr" | null;
 }
 
 export interface GroundedExtraction {
@@ -185,9 +188,18 @@ function locate(pages: QuotePage[], quote: string | null): QuoteMatch | null {
   return findQuote(pages, quote);
 }
 
-/** How a match is recorded on the evidence, including "not found". */
-function matchKind(match: QuoteMatch | null): "exact" | "loose" | null {
-  return match ? (match.exact ? "exact" : "loose") : null;
+/**
+ * How a match is recorded on the evidence, including "not found".
+ *
+ * `ocr` outranks the exact/loose distinction because it answers a different and
+ * more important question. Exact-versus-loose is about how the quote was found;
+ * `ocr` is about whether the characters it was found in were ever published as
+ * characters at all. A reviewer needs to know the second before the first.
+ */
+function matchKind(match: QuoteMatch | null): "exact" | "loose" | "ocr" | null {
+  if (!match) return null;
+  if (match.viaOcr) return "ocr";
+  return match.exact ? "exact" : "loose";
 }
 
 /** The text a support check must run against — empty when nothing matched. */
@@ -204,6 +216,7 @@ export function groundExtraction(
   const corpus: QuotePage[] = pages.map((page) => ({
     url: page.url,
     text: normalise(page.text),
+    ...(page.viaOcr ? { viaOcr: true } : {}),
   }));
 
   /**
@@ -476,6 +489,21 @@ export interface GroundedProfile {
    * earlier reading established. See migration 013.
    */
   eligibilitySilent: string[];
+  /**
+   * Every fact the reader reported the pages do not state, as field keys.
+   *
+   * A superset of `eligibilitySilent` in scope but not a replacement for it:
+   * that list has a specific job in `apply_extraction()` (migration 013), where
+   * it becomes explicit nulls inside `eligibility_flags` so a filter can tell
+   * "asked, and the pages say nothing" from "nobody asked". This one covers the
+   * coverage lines and the scope columns too, which have no equivalent
+   * three-state representation of their own, and it is what the card renders as
+   * "Not stated by the programme".
+   *
+   * Only keys the schema asked about are kept — a model naming something else
+   * is telling us about a field that does not exist.
+   */
+  silentFields: string[];
   proposed: {
     coverage_matrix: Partial<Record<CoverageKey, CoverageItem>>;
     eligibility_flags: Partial<EligibilityFlags>;
@@ -601,6 +629,7 @@ export function groundProfile(
   const corpus: QuotePage[] = pages.map((page) => ({
     url: page.url,
     text: normalise(page.text),
+    ...(page.viaOcr ? { viaOcr: true } : {}),
   }));
 
   const evidence: Record<string, FieldEvidence> = {};
@@ -903,10 +932,41 @@ export function groundProfile(
     }
   }
 
+  /**
+   * What the reader said the pages do not state, filtered twice.
+   *
+   * Once against the known field list, because a key we did not ask about is
+   * not an answer to anything. Once against what actually got filled, because a
+   * model that reports a field as unstated AND returns a value for it has
+   * contradicted itself, and the value — which had to survive grounding to be
+   * here — is the half of that contradiction worth keeping.
+   */
+  const answered = new Set<string>([
+    ...Object.keys(coverage).map((key) => `coverage.${key}`),
+    ...Object.keys(flags).map((key) => `eligibility.${key}`),
+    ...(documents.length > 0 ? ["document_checklist"] : []),
+    ...(postStudy !== null ? ["post_study_obligations"] : []),
+    ...(languageTraining !== null ? ["language_training_included"] : []),
+    ...(fieldsOfStudy.length > 0 ? ["fields_of_study"] : []),
+    ...(awardDuration !== null ? ["award_duration"] : []),
+    ...(numberOfAwards !== null ? ["number_of_awards"] : []),
+  ]);
+
+  const known = new Set<string>(GAP_FIELDS);
+  const silentFields = [
+    ...new Set(
+      (Array.isArray(profile.not_stated) ? profile.not_stated : [])
+        .filter((key): key is string => typeof key === "string")
+        .map((key) => key.trim())
+        .filter((key) => known.has(key) && !answered.has(key)),
+    ),
+  ].sort();
+
   return {
     // A question that ended up answered needs no marker — the value is the
     // answer, and a marker beside it would only be a chance to disagree.
     eligibilitySilent: eligibilitySilent.filter((key) => !(key in flags)),
+    silentFields,
     proposed: {
       coverage_matrix: coverage,
       eligibility_flags: flags,
