@@ -37,9 +37,16 @@ export function SiteNav({
             key={link.href}
             href={link.href}
             aria-current={active ? "page" : undefined}
+            /* Where you are is wayfinding, and wayfinding is what an accent is
+               FOR. This was `bg-muted` — the same grey as a disabled surface —
+               so the current page announced itself with the quietest token in
+               the system, and on a header of seven items you had to hunt for
+               it. */
             className={cn(
-              "hover:bg-muted focus-visible:ring-ring flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none",
-              active ? "bg-muted font-medium" : "text-muted-foreground",
+              "focus-visible:ring-ring flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none",
+              active
+                ? "bg-accent text-accent-foreground font-medium"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
             {link.label}

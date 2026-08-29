@@ -46,75 +46,173 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
 }
+
+/* ---------------------------------------------------------------------------
+   The palette, and the ratio it is built on.
+
+   ScholarTrack was pure neutral: every structural surface was some value of
+   gray, and the only colour in the product was semantic — emerald for
+   verified, amber for stale, rose for rejected, sky for ai_extracted. Those
+   four carry MEANING and are deliberately untouched here. What was missing was
+   an identity: nothing in the chrome said which product you were in, so the
+   whole thing read as a wireframe with status chips on it.
+
+   60 / 30 / 10, as the ratio is actually useful rather than as an incantation:
+
+     60  CANVAS AND CARDS. Near-neutral, but not neutral — every gray in the
+         file carries 0.002–0.02 chroma of the brand hue. At that strength you
+         cannot name the colour; you only notice its absence, which is what
+         makes a screen of grays feel composed rather than unfinished. Pure
+         #fff is kept for `--card` alone, so a card lifts off the canvas by
+         being CLEANER than its surroundings rather than by a heavier border.
+
+     30  STRUCTURE. Muted surfaces, secondary text, borders, the filter rail,
+         the header. More hue than the canvas, still subordinate to content.
+
+     10  THE ACCENT, and it is spent, not sprinkled: primary actions, the
+         focus ring, selection, the active nav item, progress. Rarity is what
+         gives it force — a page with one indigo button tells you where to go,
+         and a page with nine tells you nothing.
+
+   WHY INDIGO (hue 275) AND NOT THE OBVIOUS BLUE. The four semantic hues are
+   already spoken for, and one of them is sky — so a mid-blue accent would put
+   the brand a few degrees from "a model read this and a human has not", which
+   is the single distinction this product exists to make. 275 sits ~40° off
+   sky, keeps the institutional, academic register the domain wants, and stays
+   legible at 1px against both canvases. Every pair below was measured, not
+   eyeballed; the tightest is muted-foreground at 5.4:1.
+--------------------------------------------------------------------------- */
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* 60 — canvas and cards */
+  --background: oklch(0.994 0.0025 275);
+  --foreground: oklch(0.17 0.015 275);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.17 0.015 275);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.17 0.015 275);
+
+  /* 30 — structure */
+  --secondary: oklch(0.965 0.007 275);
+  --secondary-foreground: oklch(0.27 0.03 275);
+  --muted: oklch(0.965 0.007 275);
+  --muted-foreground: oklch(0.5 0.022 275);
+  --border: oklch(0.9 0.009 275);
+  --input: oklch(0.9 0.009 275);
+
+  /* 10 — the accent */
+  --primary: oklch(0.47 0.16 275);
+  --primary-foreground: oklch(0.99 0.005 275);
+  --accent: oklch(0.955 0.018 275);
+  --accent-foreground: oklch(0.36 0.13 275);
+  --ring: oklch(0.55 0.16 275);
+
+  /* Semantic. Destructive keeps its own hue: an error must never be mistakable
+     for a primary action, and sharing a family is how that happens. */
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+
+  /* A scale, not five grays. Ordered so adjacent series stay separable for the
+     ~8% of men with a red-green deficiency: the steps are lightness-first, and
+     colour is never the only difference in a chart that ships. */
+  --chart-1: oklch(0.47 0.16 275);
+  --chart-2: oklch(0.62 0.13 262);
+  --chart-3: oklch(0.72 0.1 248);
+  --chart-4: oklch(0.55 0.09 300);
+  --chart-5: oklch(0.4 0.06 275);
+
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Shadows carry an offset and a soft blur, and are tinted with the hue
+     rather than pure black — a neutral shadow over a tinted canvas turns the
+     surface under it grey and flattens exactly the elevation it was meant to
+     create. */
+  --shadow-color: 275 40% 12%;
+  --shadow-xs: 0 1px 2px -1px hsl(var(--shadow-color) / 0.08);
+  --shadow-sm:
+    0 1px 2px -1px hsl(var(--shadow-color) / 0.08),
+    0 2px 6px -2px hsl(var(--shadow-color) / 0.06);
+  --shadow-md:
+    0 2px 4px -2px hsl(var(--shadow-color) / 0.08),
+    0 6px 16px -4px hsl(var(--shadow-color) / 0.1);
+
+  --sidebar: oklch(0.978 0.005 275);
+  --sidebar-foreground: oklch(0.17 0.015 275);
+  --sidebar-primary: oklch(0.47 0.16 275);
+  --sidebar-primary-foreground: oklch(0.99 0.005 275);
+  --sidebar-accent: oklch(0.955 0.018 275);
+  --sidebar-accent-foreground: oklch(0.36 0.13 275);
+  --sidebar-border: oklch(0.9 0.009 275);
+  --sidebar-ring: oklch(0.55 0.16 275);
 }
 
+/* Dark is composed, not inverted. Three things change beyond the obvious:
+
+   - The canvas drops further than a mechanical flip would put it, so a card
+     can sit ABOVE it. Inverting the light theme gives canvas and card almost
+     the same value and every surface boundary then depends on a border.
+   - The accent gets lighter and loses chroma. `oklch(0.47 0.16)` on a dark
+     canvas is a hole, not a button; readable indigo here is a different
+     colour, arrived at by measuring rather than by negating.
+   - Borders are an explicit tinted value rather than white at 10%. Alpha
+     borders inherit whatever is behind them, so the same token reads at three
+     strengths across canvas, card and muted — which is why dark surfaces so
+     often look untidy at the seams. */
+
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  /* 60 */
+  --background: oklch(0.135 0.013 275);
+  --foreground: oklch(0.965 0.004 275);
+  --card: oklch(0.215 0.019 275);
+  --card-foreground: oklch(0.965 0.004 275);
+  --popover: oklch(0.215 0.019 275);
+  --popover-foreground: oklch(0.965 0.004 275);
+
+  /* 30 */
+  --secondary: oklch(0.285 0.022 275);
+  --secondary-foreground: oklch(0.965 0.004 275);
+  --muted: oklch(0.285 0.022 275);
+  --muted-foreground: oklch(0.73 0.022 275);
+  --border: oklch(0.34 0.024 275);
+  --input: oklch(0.36 0.026 275);
+
+  /* 10 */
+  --primary: oklch(0.7 0.14 275);
+  --primary-foreground: oklch(0.16 0.04 275);
+  --accent: oklch(0.3 0.045 275);
+  --accent-foreground: oklch(0.92 0.03 275);
+  --ring: oklch(0.62 0.15 275);
+
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+
+  --chart-1: oklch(0.7 0.14 275);
+  --chart-2: oklch(0.62 0.13 262);
+  --chart-3: oklch(0.78 0.1 248);
+  --chart-4: oklch(0.62 0.11 300);
+  --chart-5: oklch(0.48 0.08 275);
+
+  /* Darker and deeper: a shadow on a dark canvas reads as absence of light,
+     so the same opacities that work on white disappear here. */
+  --shadow-color: 275 60% 2%;
+  --shadow-xs: 0 1px 2px -1px hsl(var(--shadow-color) / 0.5);
+  --shadow-sm:
+    0 1px 2px -1px hsl(var(--shadow-color) / 0.5),
+    0 2px 6px -2px hsl(var(--shadow-color) / 0.4);
+  --shadow-md:
+    0 2px 4px -2px hsl(var(--shadow-color) / 0.5),
+    0 6px 16px -4px hsl(var(--shadow-color) / 0.45);
+
+  --sidebar: oklch(0.185 0.017 275);
+  --sidebar-foreground: oklch(0.965 0.004 275);
+  --sidebar-primary: oklch(0.7 0.14 275);
+  --sidebar-primary-foreground: oklch(0.16 0.04 275);
+  --sidebar-accent: oklch(0.3 0.045 275);
+  --sidebar-accent-foreground: oklch(0.92 0.03 275);
+  --sidebar-border: oklch(0.34 0.024 275);
+  --sidebar-ring: oklch(0.62 0.15 275);
 }
 
 @layer base {
@@ -123,8 +221,90 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Grays this faint are where sub-pixel antialiasing shows its colour
+       fringing worst, and the tint makes it more obvious, not less. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   html {
     @apply font-sans;
+  }
+
+  /* ---------------------------------------------------------------------
+     The surfaces we did not draw.
+
+     Selection, the caret, the scrollbar and the focus ring ship with browser
+     defaults that belong to no design system — a Chrome-blue highlight over a
+     carefully tinted page is the single loudest tell that a theme was applied
+     rather than designed. They are also where the accent gets to appear for
+     free, without spending any of the 10%.
+  --------------------------------------------------------------------- */
+
+  ::selection {
+    /* Tinted rather than solid: a full-strength accent behind text drops the
+       contrast of the very words being selected. */
+    background-color: color-mix(in oklab, var(--primary) 22%, transparent);
+    color: var(--foreground);
+  }
+
+  :where(input, textarea, [contenteditable]) {
+    caret-color: var(--primary);
+  }
+
+  /* Firefox and the standards track. */
+  * {
+    scrollbar-color: var(--border) transparent;
+    scrollbar-width: thin;
+  }
+
+  /* WebKit. Overlaid on transparent so a scrolling panel does not gain a
+     grey gutter the layout never accounted for. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted-foreground);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* One ring, everywhere, keyboard-only. The offset is what keeps it legible
+     against a filled button, where a flush ring merges with the fill. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Figures that change in place — counts, deadlines, progress — must not
+     reflow as their digits change. */
+  :where(time, [data-numeric]) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  a {
+    text-underline-offset: 0.2em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

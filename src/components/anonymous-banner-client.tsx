@@ -32,7 +32,20 @@ export function AnonymousBannerClient() {
   }
 
   return (
-    <div className="border-b bg-amber-50 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+    /* The accent family, not amber.
+     *
+     * This was `bg-amber-50 / text-amber-950`, which made it the loudest band
+     * on every page in the app for a message that is an INVITATION — link an
+     * email, keep your tracker — not a warning. It also collided head-on with
+     * meaning: amber is the caution colour here, worn by "Cycle has rolled
+     * over" and "may be out of date", so the same hue was saying "check this"
+     * on a chip and "hello, here is a tip" on a full-width bar six pixels
+     * above it.
+     *
+     * The accent is the right family precisely because the bar asks for an
+     * action, and it is quiet enough at this tint to sit under the header
+     * without competing with the scholarships underneath. */
+    <div className="bg-accent text-accent-foreground border-b">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 text-sm sm:px-6">
         <Ghost className="size-4 shrink-0 opacity-70" />
 
