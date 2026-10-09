@@ -13,7 +13,8 @@
     "extract": "node --env-file=.env.local scripts/extract/run.ts",
     "discover": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.local scripts/discover/run.ts",
     "discover:verify": "node scripts/discover/verify-seeds.ts",
-    "discover:find-seeds": "node scripts/discover/find-seeds.ts"
+    "discover:find-seeds": "node scripts/discover/find-seeds.ts",
+    "eval:providers": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.local scripts/eval/compare-providers.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
