@@ -1,0 +1,72 @@
+{
+  "as_of": "2026-10-30",
+  "method": "20 of 43 programmes, seeded sample (mulberry32, seed 20261030, scripts/audit/sample-dossiers.ts). For each, the stored values and quotes were read against the funder's page as it stands today. Verdicts below are judgements made by reading; the material they were formed from is in hand-check-dossiers.json.",
+  "sample_size": 20,
+  "catalogue_size": 43,
+  "share_of_catalogue": "47%",
+  "caveat": "20 observations. Proportions below carry Wilson 95% intervals because at this size the interval is wider than the estimate is precise. This sample cannot distinguish a 40% problem from a 60% one.",
+  "headline": "No fabricated value was found. Every stored value inspected traced to a real sentence on a funder page. The defects are of three other kinds: the catalogue is frozen at August 2026 while funders have moved on, almost half the rows are not open to an Indonesian applicant, and several rows cite a page about something other than the programme.",
+  "fabrication": {
+    "values_inspected_against_a_live_page": "all stored quotes on the 16 readable pages",
+    "found_unsupported_at_the_time_they_were_taken": 0,
+    "note": "The quote check is doing its job. See quote-drift.json for the systematic version of this over all 1,732 grounded quotes."
+  },
+  "indonesian_eligibility": {
+    "question": "Could an Indonesian national, applying from Indonesia, apply to this?",
+    "not_open": 9,
+    "plausibly_open": 10,
+    "cannot_tell_from_the_source_page": 1,
+    "not_open_rate": "9/20 = 45%, Wilson 95% CI [26%, 66%]",
+    "not_open_detail": [
+      { "title": "A*STAR Scholarships", "why": "stored restricted_to_nationalities is Singaporean / Singapore PR" },
+      { "title": "NextGen Service Fellowship", "why": "page: 'All applicants must be U.S. citizens'" },
+      { "title": "Medtronic Spark Scholarship", "why": "page lists accepted citizenship documents for the US, Ireland, Mexico, South Korea and others; Indonesia is not among them" },
+      { "title": "Chevening LSE Fellowship", "why": "page: 'Be a citizen of China, currently live in the country' — the stored China restriction is CORRECT; the row simply does not belong in an Indonesia-facing catalogue" },
+      { "title": "FAS Humanities and Social Sciences Summer Stipend Awards", "why": "page: 'For PhD students in the humanities and social sciences programs of the Faculty of Arts and Sciences' — a Harvard-internal award" },
+      { "title": "Iris Burton Bulls ROTC Fellowship", "why": "US ROTC programme" },
+      { "title": "Richard Rockefeller Fellowship", "why": "page: 'supports two Chinese citizens' — and its deadline was 9 December 2019" },
+      { "title": "Professional Development Fund", "why": "Harvard GSAS internal; source page now 404s behind a Harvard login" },
+      { "title": "Language Study Fellowships", "why": "page: 'open to all Harvard Griffin GSAS students' — a Harvard-internal award" }
+    ],
+    "plausibly_open": [
+      "Japanese Government (MEXT) Scholarship",
+      "MEXT Scholarship - Research Student (Embassy Track)",
+      "Chevening Fellowships",
+      "Knight-Hennessy Scholars (Stanford)",
+      "Rotary Peace Fellowship",
+      "Chinese Government Scholarship (CSC) - Type A",
+      "ASEAN Undergraduate Scholarship (NUS) — Indonesia is named in the stored nationality list",
+      "Hubert H. Humphrey Fellowship Program — not established from the stored source page",
+      "Distinguished Humphrey Fellowship Program — not established from the stored source page",
+      "Fulbright Foreign Language Teaching Assistant Program — not established from the stored source page"
+    ],
+    "cannot_tell": ["Google DeepMind AI Master’s Scholarships — the stored source is a general education landing page with no eligibility section"]
+  },
+  "freshness": {
+    "source_pages_unreadable_today": 4,
+    "detail": [
+      { "title": "Rotary Peace Fellowship", "status": "HTTP 429 on two separate attempts — rotary.org rate-limits ScholarTrackBot" },
+      { "title": "Chinese Government Scholarship (CSC) - Type A", "status": "campuschina.org does not resolve (ENOTFOUND) — the portal link shown to students is dead at the DNS level" },
+      { "title": "ASEAN Undergraduate Scholarship (NUS)", "status": "returns 83 characters of text — a JavaScript shell the pipeline cannot read" },
+      { "title": "Professional Development Fund", "status": "HTTP 404, redirecting to a Harvard login page" }
+    ],
+    "verified_case_of_a_superseded_date": {
+      "title": "Language Study Fellowships",
+      "catalogue_holds": "2026-03-05",
+      "page_says_today": "Submit the following materials in CARAT by the deadline: March 4, 2027, at noon",
+      "meaning": "Not a wrong value — a frozen one. The funder published the next cycle and nothing re-read the page, because the weekly refresh has never run."
+    }
+  },
+  "provenance_quality": {
+    "rows_whose_source_page_is_not_the_programme_s_own_page": [
+      { "title": "Chevening LSE Fellowship", "source_url": "https://www.chevening.org/apply/page/2/", "issue": "a paginated listing of many awards, not the fellowship's page. The value extracted from it is correct, but the link offered as provenance does not show a reader where it came from." },
+      { "title": "Fulbright Foreign Language Teaching Assistant Program", "source_url": "https://foreign.fulbrightonline.org/host-institutions/flta-program/flta-thinking-of-applying", "issue": "a page addressed to US host institutions, not to the non-US applicants the row is for" },
+      { "title": "Global Korea Scholarship (GKS-G) - Graduate", "source_url": "https://www.studyinkorea.go.kr/", "issue": "a site root that redirects to the Korean-language homepage" }
+    ]
+  },
+  "internal_consistency": [
+    { "title": "Medtronic Spark Scholarship", "issue": "cycle_label '2025/2026' beside a deadline of 2027-01-15, whose quote ('January 15, 2027: Application submission deadline') is still on the page. The deadline is right; the cycle label is from an older reading and nothing reconciles them." },
+    { "title": "Iris Burton Bulls ROTC Fellowship", "issue": "cycle_label 'summer 2025'" },
+    { "title": "Richard Rockefeller Fellowship", "issue": "cycle_label '2020'; the award's deadline was 9 December 2019. Worth noting the pipeline's CYCLE_DAYS=365 rule correctly refused to store that date as deadline_date — the control worked; the row should never have been promoted at all." }
+  ]
+}

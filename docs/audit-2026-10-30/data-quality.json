@@ -1,0 +1,900 @@
+{
+  "as_of": "2026-10-30",
+  "programmes": 43,
+  "completeness": {
+    "title": {
+      "filled": 43,
+      "notStated": 0,
+      "unread": 0
+    },
+    "country": {
+      "filled": 43,
+      "notStated": 0,
+      "unread": 0
+    },
+    "degree_levels": {
+      "filled": 43,
+      "notStated": 0,
+      "unread": 0
+    },
+    "official_portal_url": {
+      "filled": 43,
+      "notStated": 0,
+      "unread": 0
+    },
+    "source_url": {
+      "filled": 41,
+      "notStated": 0,
+      "unread": 2
+    },
+    "opens_date": {
+      "filled": 10,
+      "notStated": 0,
+      "unread": 33
+    },
+    "deadline_date": {
+      "filled": 19,
+      "notStated": 0,
+      "unread": 24
+    },
+    "cycle_label": {
+      "filled": 27,
+      "notStated": 0,
+      "unread": 16
+    },
+    "timeline": {
+      "filled": 31,
+      "notStated": 0,
+      "unread": 12
+    },
+    "coverage_matrix": {
+      "filled": 37,
+      "notStated": 0,
+      "unread": 6
+    },
+    "eligibility_flags": {
+      "filled": 43,
+      "notStated": 0,
+      "unread": 0
+    },
+    "document_checklist": {
+      "filled": 31,
+      "notStated": 12,
+      "unread": 0
+    },
+    "post_study_obligations": {
+      "filled": 15,
+      "notStated": 21,
+      "unread": 7
+    },
+    "language_training_included": {
+      "filled": 43,
+      "notStated": 0,
+      "unread": 0
+    },
+    "fields_of_study": {
+      "filled": 7,
+      "notStated": 21,
+      "unread": 15
+    },
+    "award_duration": {
+      "filled": 29,
+      "notStated": 7,
+      "unread": 7
+    },
+    "number_of_awards": {
+      "filled": 8,
+      "notStated": 20,
+      "unread": 15
+    },
+    "field_sources": {
+      "filled": 0,
+      "notStated": 0,
+      "unread": 43
+    },
+    "coverage_matrix.tuition": {
+      "filled": 30,
+      "notStated": 0,
+      "unread": 13
+    },
+    "coverage_matrix.monthly_stipend": {
+      "filled": 29,
+      "notStated": 0,
+      "unread": 14
+    },
+    "coverage_matrix.airfare": {
+      "filled": 23,
+      "notStated": 0,
+      "unread": 20
+    },
+    "coverage_matrix.accommodation": {
+      "filled": 18,
+      "notStated": 0,
+      "unread": 25
+    },
+    "coverage_matrix.health_insurance": {
+      "filled": 20,
+      "notStated": 0,
+      "unread": 23
+    },
+    "coverage_matrix.settling_in_allowance": {
+      "filled": 20,
+      "notStated": 0,
+      "unread": 23
+    },
+    "coverage_matrix.research_grant": {
+      "filled": 13,
+      "notStated": 0,
+      "unread": 30
+    },
+    "coverage_matrix.visa_fees": {
+      "filled": 12,
+      "notStated": 0,
+      "unread": 31
+    },
+    "eligibility_flags.max_age": {
+      "filled": 37,
+      "notStated": 0,
+      "unread": 6
+    },
+    "eligibility_flags.min_gpa_4_scale": {
+      "filled": 37,
+      "notStated": 0,
+      "unread": 6
+    },
+    "eligibility_flags.min_work_experience_years": {
+      "filled": 43,
+      "notStated": 0,
+      "unread": 0
+    },
+    "eligibility_flags.language_test_required": {
+      "filled": 37,
+      "notStated": 0,
+      "unread": 6
+    },
+    "eligibility_flags.accepted_language_tests": {
+      "filled": 37,
+      "notStated": 0,
+      "unread": 6
+    },
+    "eligibility_flags.min_toefl_ibt": {
+      "filled": 37,
+      "notStated": 0,
+      "unread": 6
+    },
+    "eligibility_flags.min_ielts": {
+      "filled": 37,
+      "notStated": 0,
+      "unread": 6
+    },
+    "eligibility_flags.requires_university_admission_first": {
+      "filled": 41,
+      "notStated": 0,
+      "unread": 2
+    },
+    "eligibility_flags.requires_government_nomination": {
+      "filled": 37,
+      "notStated": 0,
+      "unread": 6
+    },
+    "eligibility_flags.requires_research_proposal": {
+      "filled": 39,
+      "notStated": 0,
+      "unread": 4
+    },
+    "eligibility_flags.restricted_to_nationalities": {
+      "filled": 39,
+      "notStated": 0,
+      "unread": 4
+    }
+  },
+  "staleness": {
+    "as_stored": {
+      "never": 2,
+      "under30": 0,
+      "over30": 0,
+      "over60": 41,
+      "over90": 0
+    },
+    "human_verified_only": {
+      "never": 0,
+      "under30": 0,
+      "over30": 0,
+      "over60": 9,
+      "over90": 0
+    }
+  },
+  "deadlines": {
+    "set": 19,
+    "past": 16,
+    "open": 3,
+    "none": 24,
+    "past_rows": [
+      {
+        "id": "758299b7-0678-4e85-81af-46d568974cd9",
+        "title": "Chevening Fellowships",
+        "deadline_date": "2026-10-06",
+        "days_ago": 24,
+        "cycle_label": "2027/28 intake"
+      },
+      {
+        "id": "ba728ec2-ed2c-4365-a6fd-7d58c5ad8ab9",
+        "title": "Gates Cambridge Scholarship",
+        "deadline_date": "2026-10-14",
+        "days_ago": 16,
+        "cycle_label": "2027/8 intake"
+      },
+      {
+        "id": "5a1bb284-e148-4bef-bb0c-0084b5fbd5c4",
+        "title": "Chevening Scholarship",
+        "deadline_date": "2026-10-06",
+        "days_ago": 24,
+        "cycle_label": "2027/28 intake"
+      },
+      {
+        "id": "2eb651a3-5181-47be-a78c-879e701ad097",
+        "title": "Language Study Fellowships",
+        "deadline_date": "2026-03-05",
+        "days_ago": 239,
+        "cycle_label": "2026"
+      },
+      {
+        "id": "1db2726e-a8f8-4db4-beeb-eb5938ad325f",
+        "title": "Chevening SIDS Scholarship",
+        "deadline_date": "2026-10-06",
+        "days_ago": 24,
+        "cycle_label": "2027/28 intake"
+      },
+      {
+        "id": "162e257b-e425-4dbb-908d-772a65d0bf4f",
+        "title": "Knight-Hennessy Scholars (Stanford)",
+        "deadline_date": "2026-10-06",
+        "days_ago": 24,
+        "cycle_label": "2027 cohort"
+      },
+      {
+        "id": "d25aa78f-3417-45fe-93ff-2432dcc6295e",
+        "title": "NextGen Service Fellowship",
+        "deadline_date": "2026-05-18",
+        "days_ago": 165,
+        "cycle_label": "2026 intake"
+      },
+      {
+        "id": "e7bec666-4fab-4a1a-a3e0-1672c42bfb1b",
+        "title": "Chevening Scholarships",
+        "deadline_date": "2026-10-06",
+        "days_ago": 24,
+        "cycle_label": "2027/28 intake"
+      },
+      {
+        "id": "cbc13aa5-62c5-4190-92f7-695c03e236f8",
+        "title": "Chevening Oxford Centre for Islamic Studies Fellowship",
+        "deadline_date": "2026-10-06",
+        "days_ago": 24,
+        "cycle_label": "2026/2027"
+      },
+      {
+        "id": "fe72e319-8c34-4e95-a398-c995d14b5e03",
+        "title": "The Top Up Stipend",
+        "deadline_date": "2026-10-11",
+        "days_ago": 19,
+        "cycle_label": "2027–2028 academic year"
+      },
+      {
+        "id": "f9a330d9-3f22-4364-8b2a-de8b41735b14",
+        "title": "Chevening LSE Fellowship",
+        "deadline_date": "2026-10-06",
+        "days_ago": 24,
+        "cycle_label": "2026/2027"
+      },
+      {
+        "id": "0ca8af45-4eb6-445b-abef-de35fbfc477c",
+        "title": "Professional Development Fund",
+        "deadline_date": "2026-10-11",
+        "days_ago": 19,
+        "cycle_label": "2026/2027 academic year"
+      },
+      {
+        "id": "ea092815-f1c8-428a-bca4-ec11afbe4848",
+        "title": "Chevening Scholarships in Australia",
+        "deadline_date": "2026-10-06",
+        "days_ago": 24,
+        "cycle_label": "2027/28 intake"
+      },
+      {
+        "id": "2b50859d-755c-4fbd-bdd9-34a33d902f37",
+        "title": "GE Vernova STAR Scholarship",
+        "deadline_date": "2026-04-09",
+        "days_ago": 204,
+        "cycle_label": "2026 intake"
+      },
+      {
+        "id": "87edf634-da0d-48d3-abb8-f2f56e4c6ea1",
+        "title": "Freeman-ASIA Award",
+        "deadline_date": "2026-04-07",
+        "days_ago": 206,
+        "cycle_label": "Academic Year 2026-2027"
+      },
+      {
+        "id": "b9181f1f-6004-49e2-b7eb-c8f4d8c68265",
+        "title": "The Paul & Daisy Soros Fellowship for New Americans",
+        "deadline_date": "2026-10-29",
+        "days_ago": 1,
+        "cycle_label": "2027/28 intake"
+      }
+    ]
+  },
+  "verification_status": {
+    "verified": 9,
+    "unverified": 2,
+    "ai_extracted": 32
+  },
+  "field_sources_populated": 0,
+  "nationality_restriction_stated": 9,
+  "hosts": {
+    "www.chevening.org": 14,
+    "www.gatescambridge.org": 2,
+    "www.campuschina.org": 1,
+    "www.iie.org": 24,
+    "gsas.harvard.edu": 12,
+    "www.nus.edu.sg": 1,
+    "www.studyinjapan.go.jp": 6,
+    "www.studyinkorea.go.kr": 2,
+    "knight-hennessy.stanford.edu": 2,
+    "www.adb.org": 2,
+    "foreign.fulbrightonline.org": 4,
+    "www.humphreyfellowship.org": 6,
+    "www.a-star.edu.sg": 4,
+    "www.rotary.org": 2,
+    "pdsoros.org": 2
+  },
+  "rows": [
+    {
+      "id": "758299b7-0678-4e85-81af-46d568974cd9",
+      "title": "Chevening Fellowships",
+      "country": "UK",
+      "verification_status": "verified",
+      "last_verified_at": "2026-08-05T15:30:45.41+00:00",
+      "deadline_date": "2026-10-06",
+      "source_url": "https://www.chevening.org/scholarships/application-timeline/",
+      "official_portal_url": "https://www.chevening.org/fellowships/",
+      "not_stated_count": 0
+    },
+    {
+      "id": "ba728ec2-ed2c-4365-a6fd-7d58c5ad8ab9",
+      "title": "Gates Cambridge Scholarship",
+      "country": "UK",
+      "verification_status": "verified",
+      "last_verified_at": "2026-08-05T15:31:46.968+00:00",
+      "deadline_date": "2026-10-14",
+      "source_url": "https://www.gatescambridge.org/apply/timeline/",
+      "official_portal_url": "https://www.gatescambridge.org/",
+      "not_stated_count": 0
+    },
+    {
+      "id": "06a48c10-05bb-4ce2-992a-0bc0837dcd0b",
+      "title": "Chinese Government Scholarship (CSC) - Type A",
+      "country": "China",
+      "verification_status": "unverified",
+      "last_verified_at": null,
+      "deadline_date": null,
+      "source_url": null,
+      "official_portal_url": "https://www.campuschina.org/",
+      "not_stated_count": 0
+    },
+    {
+      "id": "22f0fd74-1828-4800-a2df-8e3fc5d62bd0",
+      "title": "Iris Burton Bulls ROTC Fellowship",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:55:24.839+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.iie.org/programs/ibbfellowship/application",
+      "official_portal_url": "https://www.iie.org/programs/ibbfellowship/application/eligibility",
+      "not_stated_count": 24
+    },
+    {
+      "id": "cd19bc17-786a-4de6-81ed-fb5c32ac1a60",
+      "title": "Foreign Language and Area Studies Fellowships",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:54:58.284+00:00",
+      "deadline_date": null,
+      "source_url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/foreign-language-area-studies-grants",
+      "official_portal_url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/foreign-language-area-studies-grants",
+      "not_stated_count": 19,
+      "restricted_to_nationalities": [
+        "US"
+      ]
+    },
+    {
+      "id": "8ac4786f-da77-4b69-bc8d-16827ae15012",
+      "title": "ASEAN Undergraduate Scholarship (NUS)",
+      "country": "Singapore",
+      "verification_status": "unverified",
+      "last_verified_at": null,
+      "deadline_date": null,
+      "source_url": null,
+      "official_portal_url": "https://www.nus.edu.sg/oam/scholarships/freshmen-international-students",
+      "not_stated_count": 0,
+      "restricted_to_nationalities": [
+        "Brunei",
+        "Cambodia",
+        "Indonesia",
+        "Laos",
+        "Malaysia",
+        "Myanmar",
+        "Philippines",
+        "Thailand",
+        "Vietnam"
+      ]
+    },
+    {
+      "id": "5a1bb284-e148-4bef-bb0c-0084b5fbd5c4",
+      "title": "Chevening Scholarship",
+      "country": "UK",
+      "verification_status": "verified",
+      "last_verified_at": "2026-08-02T00:00:00+00:00",
+      "deadline_date": "2026-10-06",
+      "source_url": "https://www.chevening.org/scholarships/who-can-apply/",
+      "official_portal_url": "https://www.chevening.org/scholarships/",
+      "not_stated_count": 0
+    },
+    {
+      "id": "822f83b6-bb56-4e81-8b6b-4aef4c5c0701",
+      "title": "Monbukagakusho Honors Scholarship for Privately Financed International Students",
+      "country": "Japan",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:45:55.701+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.studyinjapan.go.jp/en/planning/scholarships/jasso-scholarships/",
+      "official_portal_url": "https://www.studyinjapan.go.jp/en/planning/scholarships/jasso-scholarships/",
+      "not_stated_count": 20
+    },
+    {
+      "id": "da28d542-c074-4e95-90a8-af775f9e6374",
+      "title": "Medtronic Spark Scholarship",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-20T11:52:24.966+00:00",
+      "deadline_date": "2027-01-15",
+      "source_url": "https://www.iie.org/programs/medtronicsparkscholarship/application",
+      "official_portal_url": "https://www.iie.org/programs/medtronicsparkscholarship/eligibility",
+      "not_stated_count": 0
+    },
+    {
+      "id": "2eb651a3-5181-47be-a78c-879e701ad097",
+      "title": "Language Study Fellowships",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:57:50.323+00:00",
+      "deadline_date": "2026-03-05",
+      "source_url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/language-study-fellowships",
+      "official_portal_url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/language-study-fellowships",
+      "not_stated_count": 0
+    },
+    {
+      "id": "abb02c79-8c66-494e-ae16-1237b64637d6",
+      "title": "Global Korea Scholarship (GKS-G) - Graduate",
+      "country": "South Korea",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:57:26.07+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.studyinkorea.go.kr/",
+      "official_portal_url": "https://www.studyinkorea.go.kr/",
+      "not_stated_count": 0
+    },
+    {
+      "id": "1db2726e-a8f8-4db4-beeb-eb5938ad325f",
+      "title": "Chevening SIDS Scholarship",
+      "country": "UK",
+      "verification_status": "verified",
+      "last_verified_at": "2026-08-09T13:13:28.044+00:00",
+      "deadline_date": "2026-10-06",
+      "source_url": "https://www.chevening.org/scholarships/application-timeline/",
+      "official_portal_url": "https://www.chevening.org/sids-chevening-scholarship/",
+      "not_stated_count": 0
+    },
+    {
+      "id": "162e257b-e425-4dbb-908d-772a65d0bf4f",
+      "title": "Knight-Hennessy Scholars (Stanford)",
+      "country": "USA",
+      "verification_status": "verified",
+      "last_verified_at": "2026-08-05T15:31:38.669+00:00",
+      "deadline_date": "2026-10-06",
+      "source_url": "https://knight-hennessy.stanford.edu/admission/preparing-your-applications/your-applications",
+      "official_portal_url": "https://knight-hennessy.stanford.edu/",
+      "not_stated_count": 0
+    },
+    {
+      "id": "1dfd1cba-6355-442f-bc50-90f3ece33dad",
+      "title": "Barsa Scholarships Program",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:56:05.36+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.iie.org/programs/barsa-scholarships-program/eligibility",
+      "official_portal_url": "https://www.iie.org/programs/barsa-scholarships-program/eligibility",
+      "not_stated_count": 23,
+      "restricted_to_nationalities": [
+        "Argentina",
+        "Brazil",
+        "Chile",
+        "Colombia",
+        "Costa Rica",
+        "Ecuador",
+        "Guatemala",
+        "Honduras",
+        "Mexico",
+        "Nicaragua",
+        "Panama",
+        "Peru",
+        "Uruguay",
+        "Venezuela"
+      ]
+    },
+    {
+      "id": "4702815d-cad5-4bee-9385-03be0df6aee1",
+      "title": "ADB-Japan Scholarship Program (JSP)",
+      "country": "Japan",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-29T12:55:43.249+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.adb.org/work-with-us/careers/japan-scholarship-program",
+      "official_portal_url": "https://www.adb.org/work-with-us/careers/japan-scholarship-program",
+      "not_stated_count": 11
+    },
+    {
+      "id": "d25aa78f-3417-45fe-93ff-2432dcc6295e",
+      "title": "NextGen Service Fellowship",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:56:33.982+00:00",
+      "deadline_date": "2026-05-18",
+      "source_url": "https://www.iie.org/programs/nextgen-service-fellowship/timeline",
+      "official_portal_url": "https://www.iie.org/programs/nextgen-service-fellowship/eligibility-and-selection-criteria",
+      "not_stated_count": 14,
+      "restricted_to_nationalities": [
+        "U.S."
+      ]
+    },
+    {
+      "id": "47b2e510-0750-426e-92a7-807ff5f414c0",
+      "title": "Dissertation Completion Fellowships",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:57:22.653+00:00",
+      "deadline_date": "2027-02-12",
+      "source_url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/dissertation-completion-fellowships",
+      "official_portal_url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/dissertation-completion-fellowships",
+      "not_stated_count": 0
+    },
+    {
+      "id": "bcfb32eb-1756-4986-b412-5620e9def296",
+      "title": "Japan-IMF Scholarship Program",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:56:22.51+00:00",
+      "deadline_date": "2026-11-30",
+      "source_url": "https://www.iie.org/wp-content/uploads/2026/06/FY26-1923550_JISP_Annual_Flyer_2027-2029_ENG-v2.pdf",
+      "official_portal_url": "https://www.iie.org/programs/japan-imf-scholarship-program/eligibility",
+      "not_stated_count": 11,
+      "restricted_to_nationalities": [
+        "Japanese"
+      ]
+    },
+    {
+      "id": "e257aea2-545a-47d1-9eb7-e742c9bf72b6",
+      "title": "Fulbright Foreign Language Teaching Assistant Program",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-29T10:57:27.729+00:00",
+      "deadline_date": null,
+      "source_url": "https://foreign.fulbrightonline.org/host-institutions/flta-program/flta-thinking-of-applying",
+      "official_portal_url": "https://foreign.fulbrightonline.org/host-institutions/flta-program/flta-thinking-of-applying",
+      "not_stated_count": 13
+    },
+    {
+      "id": "65f6616a-ebfa-495d-85ed-70c62fb91e3d",
+      "title": "Fulbright Foreign Student Program",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:45:55.858+00:00",
+      "deadline_date": null,
+      "source_url": "https://foreign.fulbrightonline.org/host-institutions/flta-program/flta-thinking-of-applying",
+      "official_portal_url": "https://foreign.fulbrightonline.org/",
+      "not_stated_count": 17
+    },
+    {
+      "id": "bcd12663-b118-48ea-9e91-bfa5f3676f56",
+      "title": "Humphrey Fellowship Program",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:55:20.766+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.humphreyfellowship.org/program-overview",
+      "official_portal_url": "https://www.humphreyfellowship.org/program-overview",
+      "not_stated_count": 15
+    },
+    {
+      "id": "722dc3cc-59a8-4ea4-a7f6-b9fbeb221339",
+      "title": "Hubert H. Humphrey Fellowship Program",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:46:37.343+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.humphreyfellowship.org/how-to-apply/eligibility/",
+      "official_portal_url": "https://www.humphreyfellowship.org/how-to-apply/eligibility/",
+      "not_stated_count": 10
+    },
+    {
+      "id": "e7bec666-4fab-4a1a-a3e0-1672c42bfb1b",
+      "title": "Chevening Scholarships",
+      "country": "UK",
+      "verification_status": "verified",
+      "last_verified_at": "2026-08-05T15:31:22.788+00:00",
+      "deadline_date": "2026-10-06",
+      "source_url": "https://www.chevening.org/scholarships/application-timeline/",
+      "official_portal_url": "https://www.chevening.org/scholarships/who-can-apply/",
+      "not_stated_count": 0
+    },
+    {
+      "id": "d20f03f1-0ec9-40e6-92ca-b266b9cd90de",
+      "title": "Distinguished Humphrey Fellowship Program",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:46:34.533+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.humphreyfellowship.org/our-network/other-partners/distinguished-humphrey-fellowship-program",
+      "official_portal_url": "https://www.humphreyfellowship.org/our-network/other-partners/distinguished-humphrey-fellowship-program",
+      "not_stated_count": 13
+    },
+    {
+      "id": "c75ed408-e457-492c-89f3-8d5b25f1aa86",
+      "title": "Invensys Children of Employee Scholarship Programme",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-29T10:48:08.91+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.iie.org/programs/invensys-scholarship-programme/about",
+      "official_portal_url": "https://www.iie.org/programs/invensys-scholarship-programme/about",
+      "not_stated_count": 25
+    },
+    {
+      "id": "cbc13aa5-62c5-4190-92f7-695c03e236f8",
+      "title": "Chevening Oxford Centre for Islamic Studies Fellowship",
+      "country": "UK",
+      "verification_status": "verified",
+      "last_verified_at": "2026-08-05T15:31:14.345+00:00",
+      "deadline_date": "2026-10-06",
+      "source_url": "https://www.chevening.org/fellowship/ocis/",
+      "official_portal_url": "https://www.chevening.org/fellowship/ocis",
+      "not_stated_count": 0,
+      "restricted_to_nationalities": [
+        "Afghanistan",
+        "Algeria",
+        "Azerbaijan",
+        "Bangladesh",
+        "Egypt",
+        "Indonesia",
+        "Iraq",
+        "Jordan",
+        "Kazakhstan",
+        "Kyrgyzstan",
+        "Lebanon",
+        "Libya",
+        "Malaysia",
+        "Morocco",
+        "Nigeria",
+        "Pakistan",
+        "Palestine",
+        "Philippines",
+        "Senegal",
+        "Sudan",
+        "Syria",
+        "Tajikistan",
+        "Tunisia",
+        "Turkey",
+        "Turkmenistan",
+        "Uzbekistan"
+      ]
+    },
+    {
+      "id": "c668eac6-dc16-4531-92d4-4117799a4533",
+      "title": "MEXT Scholarship - Research Student (Embassy Track)",
+      "country": "Japan",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:56:32.06+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.studyinjapan.go.jp/en/planning/scholarship/",
+      "official_portal_url": "https://www.studyinjapan.go.jp/en/planning/scholarship/",
+      "not_stated_count": 19
+    },
+    {
+      "id": "fe72e319-8c34-4e95-a398-c995d14b5e03",
+      "title": "The Top Up Stipend",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:36:39.65+00:00",
+      "deadline_date": "2026-10-11",
+      "source_url": "https://gsas.harvard.edu/apply",
+      "official_portal_url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students/fas-humanities-and-social-2",
+      "not_stated_count": 21
+    },
+    {
+      "id": "f9a330d9-3f22-4364-8b2a-de8b41735b14",
+      "title": "Chevening LSE Fellowship",
+      "country": "UK",
+      "verification_status": "verified",
+      "last_verified_at": "2026-08-09T13:13:12.298+00:00",
+      "deadline_date": "2026-10-06",
+      "source_url": "https://www.chevening.org/apply/page/2/",
+      "official_portal_url": "https://www.chevening.org/fellowship/lse",
+      "not_stated_count": 0,
+      "restricted_to_nationalities": [
+        "China"
+      ]
+    },
+    {
+      "id": "882b8776-7e41-4a9a-9848-52df8448dab7",
+      "title": "A*STAR Scholarships",
+      "country": "Singapore",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:57:57.726+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.a-star.edu.sg/scholarships/home/scholarships/ags--scholarship",
+      "official_portal_url": "https://www.a-star.edu.sg/scholarships/home/scholarships",
+      "not_stated_count": 0,
+      "restricted_to_nationalities": [
+        "Singaporean",
+        "Singapore Permanent Resident"
+      ]
+    },
+    {
+      "id": "96b561a0-9b32-4708-9546-972d89454bc0",
+      "title": "Singapore International Graduate Award (SINGA)",
+      "country": "Singapore",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-29T10:47:43.104+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.a-star.edu.sg/scholarships",
+      "official_portal_url": "https://www.a-star.edu.sg/scholarships",
+      "not_stated_count": 24
+    },
+    {
+      "id": "0ca8af45-4eb6-445b-abef-de35fbfc477c",
+      "title": "Professional Development Fund",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-20T11:52:52.604+00:00",
+      "deadline_date": "2026-10-11",
+      "source_url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students/professional-development-fund",
+      "official_portal_url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students",
+      "not_stated_count": 18
+    },
+    {
+      "id": "ea092815-f1c8-428a-bca4-ec11afbe4848",
+      "title": "Chevening Scholarships in Australia",
+      "country": "UK",
+      "verification_status": "verified",
+      "last_verified_at": "2026-08-09T13:13:22.442+00:00",
+      "deadline_date": "2026-10-06",
+      "source_url": "https://www.chevening.org/scholarships/application-timeline/",
+      "official_portal_url": "https://www.chevening.org/scholarship/australia",
+      "not_stated_count": 0
+    },
+    {
+      "id": "62502ebe-f68f-4fa1-b21a-cc4331fb29a5",
+      "title": "FAS Humanities and Social Sciences Summer Stipend Awards",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-29T10:48:32.797+00:00",
+      "deadline_date": null,
+      "source_url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students/fas-humanities-and-social-1",
+      "official_portal_url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students/fas-humanities-and-social-1",
+      "not_stated_count": 22
+    },
+    {
+      "id": "2b50859d-755c-4fbd-bdd9-34a33d902f37",
+      "title": "GE Vernova STAR Scholarship",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:56:11.579+00:00",
+      "deadline_date": "2026-04-09",
+      "source_url": "https://www.iie.org/programs/ge-vernova-star-scholarship/timeline-and-how-to-apply",
+      "official_portal_url": "https://www.iie.org/programs/ge-vernova-star-scholarship/eligibility-and-selection",
+      "not_stated_count": 22
+    },
+    {
+      "id": "797b4949-caa1-43e6-9567-68bd2f89fa71",
+      "title": "Richard Rockefeller Fellowship",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:55:20.896+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.iie.org/about/offices/east-asia-and-the-pacific/beijing/programs/2020-richard-rockefeller-fellowship",
+      "official_portal_url": "https://www.iie.org/about/offices/east-asia-and-the-pacific/beijing/programs/2020-richard-rockefeller-fellowship",
+      "not_stated_count": 19,
+      "restricted_to_nationalities": [
+        "Chinese"
+      ]
+    },
+    {
+      "id": "28d54c01-2b7c-4708-92c8-98ae937c5262",
+      "title": "Google DeepMind AI Master’s Scholarships",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:54:59.801+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.iie.org/programs/google-deepmind-ai-masters-scholarships/iie-faq",
+      "official_portal_url": "https://www.iie.org/programs/google-deepmind-ai-masters-scholarships/eligibility-and-application-process",
+      "not_stated_count": 17
+    },
+    {
+      "id": "87edf634-da0d-48d3-abb8-f2f56e4c6ea1",
+      "title": "Freeman-ASIA Award",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-29T12:54:01.241+00:00",
+      "deadline_date": "2026-04-07",
+      "source_url": "https://www.iie.org/programs/freeman-asia/apply",
+      "official_portal_url": "https://www.iie.org/programs/freeman-asia/about/award-details",
+      "not_stated_count": 16
+    },
+    {
+      "id": "89366713-5095-4376-b69c-8b8ba95df1af",
+      "title": "Rotary Peace Fellowship",
+      "country": "Multiple",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:46:34.094+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.rotary.org/en/get-involved/our-programs/peace-fellowships",
+      "official_portal_url": "https://www.rotary.org/en/get-involved/our-programs/peace-fellowships",
+      "not_stated_count": 19
+    },
+    {
+      "id": "b9181f1f-6004-49e2-b7eb-c8f4d8c68265",
+      "title": "The Paul & Daisy Soros Fellowship for New Americans",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:37:17.14+00:00",
+      "deadline_date": "2026-10-29",
+      "source_url": "https://pdsoros.org/eligibility/",
+      "official_portal_url": "https://pdsoros.org/about-the-fellowship",
+      "not_stated_count": 18
+    },
+    {
+      "id": "4da88bd7-c0a3-4b4b-8b24-155c16a732af",
+      "title": "Leonora Lindsley Memorial Fellowship",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:36:36.175+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.iie.org/programs/leonora-lindsley-memorial-fellowship/about",
+      "official_portal_url": "https://www.iie.org/programs/leonora-lindsley-memorial-fellowship/about",
+      "not_stated_count": 22
+    },
+    {
+      "id": "778a6079-1db2-4efd-85d6-59348e4e8c57",
+      "title": "Centroamérica en Ascenso Fellowship - Non-Degree Fellowship Programs",
+      "country": "USA",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:46:34.358+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.iie.org/programs/centroamerica-en-ascenso/fellowship-tracks/non-degree-fellowship-programs",
+      "official_portal_url": "https://www.iie.org/programs/centroamerica-en-ascenso/fellowship-tracks/non-degree-fellowship-programs",
+      "not_stated_count": 19
+    },
+    {
+      "id": "9d460b95-4e95-4eba-afc0-8c61c2c59e52",
+      "title": "Japanese Government (MEXT) Scholarship",
+      "country": "Japan",
+      "verification_status": "ai_extracted",
+      "last_verified_at": "2026-08-10T11:45:56.491+00:00",
+      "deadline_date": null,
+      "source_url": "https://www.studyinjapan.go.jp/en/planning/scholarships/mext-scholarships/",
+      "official_portal_url": "https://www.studyinjapan.go.jp/en/planning/scholarships/mext-scholarships/",
+      "not_stated_count": 18
+    }
+  ]
+}

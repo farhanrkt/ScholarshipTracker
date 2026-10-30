@@ -1,0 +1,45 @@
+{
+  "as_of": "2026-10-30",
+  "method": "Measured in the Claude desktop browser pane against the live site, not Lighthouse. `npx lighthouse` was not available in the audit sandbox, so these come from the Performance API (navigation, paint, largest-contentful-paint, layout-shift) and from computed styles resolved to sRGB through a canvas. Single-machine, warm-cache, desktop viewport 1440x900 — directional, not a lab score.",
+  "url": "https://scholartrack.rangkalabs.cloud/dashboard",
+  "performance": {
+    "runs": [
+      { "run": 1, "ttfb_ms": 76, "html_stream_end_ms": 2986, "fcp_ms": 3128, "lcp_ms": 3128, "cls": 0, "load_ms": 3014 },
+      { "run": 2, "ttfb_ms": 19, "html_stream_end_ms": 3146, "load_ms": 3159 },
+      { "run": 3, "ttfb_ms": 28, "html_stream_end_ms": 3531, "load_ms": 3552 },
+      { "run": 4, "ttfb_ms": 37, "html_stream_end_ms": 3224, "load_ms": 3236 }
+    ],
+    "html_stream_end_ms_range": [2986, 3531],
+    "bytes": { "html_kb": 38, "js_kb": 253, "css_kb": 16, "font_kb": 51, "requests": 23 },
+    "reading": "TTFB is fast (19-76ms, the Vercel edge answering). The ~3s is the server component render: /dashboard is force-dynamic and runs getUser() plus three uncached PostgREST queries per request, so LCP is server time, not asset weight. CLS 0."
+  },
+  "contrast": {
+    "standard": "WCAG 2.2 AA, 1.4.3 (4.5:1 body, 3:1 large text)",
+    "dark_theme": { "distinct_pairs_sampled": 16, "failing": 0, "worst_ratio": 6.02, "worst_example": "'· 239 days ago' rgb(163,167,182) on rgb(39,41,53)" },
+    "light_theme": { "distinct_pairs_sampled": 15, "failing": 0, "worst_ratio": 5.41, "worst_example": "'· 239 days ago' rgb(95,99,112) on rgb(242,243,248)" },
+    "note": "Leaf text nodes in header and main, deduplicated by colour pair and font size. Non-text contrast (1.4.11) was not measured programmatically."
+  },
+  "keyboard": {
+    "skip_link": "present, first in tab order, reveals on focus",
+    "focus_visible": "yes — a 3px ring from :focus-visible in globals.css, confirmed by real Tab presses, not programmatic focus",
+    "focus_not_obscured_2_4_11": "pass at the point tested — focused control at y=537, sticky header ends at y=57",
+    "cards": "each card is a <button> with an accessible name, e.g. 'Chevening Scholarships — UK. Open details.'"
+  },
+  "structure": {
+    "lang": "en (hardcoded, no Indonesian)",
+    "h1_count": 2,
+    "duplicate_ids": "the filter panel renders twice — desktop rail and mobile sheet — so every filter id (degree-Masters, noWorkExperience, coversTuition, …) appears twice in one document; the second copy's inputs lose their label association",
+    "checkbox_target_px": { "w": 16, "h": 16, "label_also_clickable": true, "label_px": { "w": 52, "h": 20 } },
+    "footer": "none — no site-wide disclaimer, privacy or methodology link",
+    "landmarks": ["header", "nav", "main", "aside"]
+  },
+  "seo": {
+    "robots_txt": 404,
+    "sitemap_xml": 404,
+    "metadata": "title + description on the root layout only",
+    "open_graph": "none",
+    "structured_data": "none",
+    "canonical": "none",
+    "per_programme_url": "none — details open in a client-side sheet, so no scholarship has an indexable URL"
+  }
+}

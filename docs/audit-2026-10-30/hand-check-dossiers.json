@@ -1,0 +1,2158 @@
+{
+  "as_of": "2026-10-30",
+  "seed": 20261030,
+  "sample_size": 20,
+  "catalogue_size": 43,
+  "note": "Assembled for a human to read. Verdicts are recorded in the audit report, not here — this file is the material the verdicts were formed from.",
+  "dossiers": [
+    {
+      "id": "9d460b95-4e95-4eba-afc0-8c61c2c59e52",
+      "title": "Japanese Government (MEXT) Scholarship",
+      "country": "Japan",
+      "url": "https://www.studyinjapan.go.jp/en/planning/scholarships/mext-scholarships/",
+      "page_readable": true,
+      "page_chars": 13982,
+      "last_extraction": {
+        "fetched_at": "2026-08-29T10:57:28.584+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": null,
+        "opens_date": null,
+        "cycle_label": null,
+        "award_duration": "Irregular course: within 2 years Regular course: standard school year (when necessary, 6 months preliminary education will be added)",
+        "number_of_awards": null,
+        "degree_levels": [
+          "Bachelors",
+          "Masters",
+          "PhD"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {
+          "airfare": {
+            "detail": "Round-trip travel expenses (airfare) provided",
+            "covered": true
+          },
+          "tuition": {
+            "detail": "Tuition Exempted",
+            "covered": true
+          },
+          "monthly_stipend": {
+            "detail": "￥242,000 per month",
+            "covered": true
+          }
+        },
+        "restricted_to_nationalities": null,
+        "language_test_required": null,
+        "min_work_experience_years": 5,
+        "max_age": 40,
+        "verification_status": "ai_extracted",
+        "last_verified_at": "2026-08-10T11:45:56.491+00:00"
+      },
+      "stored_quotes": {
+        "award_duration": {
+          "quote": "[Embassy Recommendation] Irregular course: within 2 years Regular course: standard school year (when necessary, 6 months preliminary education will be added)",
+          "still_on_page": true
+        },
+        "coverage.airfare": {
+          "quote": "Round-trip travel expenses (airfare) provided",
+          "still_on_page": true
+        },
+        "coverage.tuition": {
+          "quote": "Exempted",
+          "still_on_page": true
+        },
+        "eligibility.max_age": {
+          "quote": "You must be under 40 years of age (in principle)",
+          "still_on_page": true
+        },
+        "coverage.monthly_stipend": {
+          "quote": "￥242,000 per month",
+          "still_on_page": true
+        },
+        "language_training_included": {
+          "quote": "5 years including Japanese language training (7 years for medicine, dentistry, pharmacy and veterinary science)",
+          "still_on_page": true
+        }
+      },
+      "page_says_about_eligibility": [
+        "government-approved information site english 日本語 english 简体中文 繁體中文 한국어 ภาษาไทย tiếng việt bahasa indonesia монгол français español العربية planning to study in japan scholarships home planning to study in japan scholarships japanese government (mext) scholarship tabl",
+        "y in japan scholarships japanese government (mext) scholarship table of contents types types and their status eligibility examinations required for embassy recommendation application process 1. embassy recommendation 2. university recommendation japanese government (mext) scholar",
+        "mending organizations &lowast;3 the institutions offering \"preliminary training of japanese etc.\" may change. eligibility research students you must be under 35 years of age and be eligible for admission to a master's program or a doctoral program (first or second stage) at a jap",
+        "ts and academic standards vary depending on the accepting university. in addition, the scholarship period and eligibility may vary depending on the type of recommendation framework a university has, so please check with the university you wish to enroll in for details. japanese g"
+      ]
+    },
+    {
+      "id": "722dc3cc-59a8-4ea4-a7f6-b9fbeb221339",
+      "title": "Hubert H. Humphrey Fellowship Program",
+      "country": "USA",
+      "url": "https://www.humphreyfellowship.org/how-to-apply/eligibility/",
+      "page_readable": true,
+      "page_chars": 4229,
+      "last_extraction": {
+        "fetched_at": "2026-08-29T11:06:32.276+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": null,
+        "opens_date": null,
+        "cycle_label": null,
+        "award_duration": "ten-month",
+        "number_of_awards": null,
+        "degree_levels": [
+          "Masters"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {
+          "airfare": {
+            "detail": null,
+            "covered": true
+          },
+          "tuition": {
+            "detail": null,
+            "covered": true
+          },
+          "monthly_stipend": {
+            "detail": null,
+            "covered": true
+          },
+          "health_insurance": {
+            "detail": null,
+            "covered": true
+          },
+          "settling_in_allowance": {
+            "detail": null,
+            "covered": true
+          }
+        },
+        "restricted_to_nationalities": null,
+        "language_test_required": true,
+        "min_work_experience_years": 5,
+        "max_age": null,
+        "verification_status": "ai_extracted",
+        "last_verified_at": "2026-08-10T11:46:37.343+00:00"
+      },
+      "stored_quotes": {
+        "award_duration": {
+          "quote": "This ten-month Fellowship program is offered to mid-career professionals with a proven track record of leadership, a public service commitment, and the capacity to take full advantage of a self-defined program of independent non-degree study at a leading U.S. university.",
+          "still_on_page": false
+        },
+        "coverage.airfare": {
+          "quote": "Air travel (international travel to and from the U.S. for the Program and domestic travel to required program events)",
+          "still_on_page": false
+        },
+        "coverage.tuition": {
+          "quote": "Payment of tuition and fees at the assigned host university",
+          "still_on_page": false
+        },
+        "timeline.results": {
+          "quote": "Selection of Fellows are announced in March the following year",
+          "still_on_page": false
+        },
+        "documents[3].diplomas": {
+          "quote": "Diplomas need only be uploaded if the transcript does not show proof that the degree was obtained.",
+          "still_on_page": true
+        },
+        "timeline.course_start": {
+          "quote": "Humphrey Fellows start their program in the U.S. between August and September of the same year.",
+          "still_on_page": false
+        },
+        "post_study_obligations": {
+          "quote": "61% of alumni return home and work in government in some capacity.",
+          "still_on_page": false
+        },
+        "coverage.monthly_stipend": {
+          "quote": "A maintenance (living) allowance, including a one-time settling-in allowance",
+          "still_on_page": false
+        },
+        "coverage.health_insurance": {
+          "quote": "Accident and sickness coverage",
+          "still_on_page": false
+        },
+        "language_training_included": {
+          "quote": "The presentations are the culmination of the eight-week program of intensive English language and professional training that prepares fellows for their year-long Humphrey Fellowship.",
+          "still_on_page": false
+        },
+        "documents[0].essay_responses": {
+          "quote": "Complete answers to all questions; essay responses in English must thoroughly address the prompt.",
+          "still_on_page": true
+        },
+        "timeline.embassy_nominations": {
+          "quote": "U.S. Embassies and Commissions must submit their nominations to the Institute of International Education in Washington, D.C., by mid September.",
+          "still_on_page": false
+        },
+        "coverage.settling_in_allowance": {
+          "quote": "A maintenance (living) allowance, including a one-time settling-in allowance",
+          "still_on_page": false
+        },
+        "documents[2].official_transcripts": {
+          "quote": "Official transcripts in English: Ensure all transcripts uploaded by the applicant are official, valid documents. Transcripts must list courses taken and grades received.",
+          "still_on_page": true
+        },
+        "eligibility.language_test_required": {
+          "quote": "Testing alternatives such as International English Language Testing System (IELTS) or Duolingo English Test can be utilized for all candidates.",
+          "still_on_page": false
+        },
+        "eligibility.accepted_language_tests": {
+          "quote": "I am not proficient in English as measured by the Test of English as a Foreign Language (TOEFL). Am I eligible to apply? Please contact the U.S. Embassy (Public Affairs Section) or Binational Fulbright Commission in your country regarding eligibility. Testing alternatives such as International English Language Testing System (IELTS) or Duolingo English Test can be utilized for all candidates.",
+          "still_on_page": false
+        },
+        "eligibility.min_work_experience_years": {
+          "quote": "Have a minimum of five years of full-time professional experience",
+          "still_on_page": true
+        },
+        "documents[1].letters_of_recommendation": {
+          "quote": "Two letters of recommendation in English; one must be from the applicant’s current employer.",
+          "still_on_page": true
+        },
+        "documents[1].two_letters_of_recommendation": {
+          "quote": "Two letters of recommendation in English; one must be from the applicant’s current employer.",
+          "still_on_page": true
+        },
+        "eligibility.requires_government_nomination": {
+          "quote": "Humphrey Fellows who meet the eligibility requirements apply for the program through their Binational Fulbright Commissions or Public Affairs Section of the U.S. Embassy in their home countries.",
+          "still_on_page": true
+        },
+        "documents[0].application_with_essay_responses": {
+          "quote": "Complete answers to all questions; essay responses in English must thoroughly address the prompt.",
+          "still_on_page": true
+        },
+        "eligibility.requires_university_admission_first": {
+          "quote": "Humphrey Fellows are placed in cohorts at one of 7 Humphrey host universities based on the host university’s impact areas and the Fellows’ professional expertise. Humphrey Fellows partake in an educational experience where they learn from renowned faculty without the expectation of meeting specific degree or diploma requirements.",
+          "still_on_page": false
+        }
+      },
+      "page_says_about_eligibility": [
+        "skip to main content search for: login eligibility 2021-2022 humphrey fellows meet at the annual global leadership forum, a key component of the humphrey fellowship program. humphrey fellows who meet the eligi",
+        "al global leadership forum, a key component of the humphrey fellowship program. humphrey fellows who meet the eligibility requirements apply for the program through their binational fulbright commissions or public affairs section of the u.s. embassy in their home countries. pleas",
+        "ulbright commission or the u.s. embassy for information on how to apply, including deadlines. see the country eligibility list to check if you are eligible for the program. check eligibility impact areas human & institutional capacity field of study economic development finance a",
+        "ly, including deadlines. see the country eligibility list to check if you are eligible for the program. check eligibility impact areas human & institutional capacity field of study economic development finance and banking public policy analysis and public administration technolog",
+        "nagement substance abuse education, treatment and prevention educational administration, planning, and policy eligibility requirements to be eligible for a humphrey fellowship program, applicants must: be a citizen of an eligible country have an undergraduate (first university or",
+        "stinguished humphrey fellowship program associate campus partners professional affiliation hosts how to apply eligibility fellowship components u.s. embassies & commissions frequently asked questions humphrey fellows on-program guide dhfp fellow resources humphrey alumni east asi"
+      ]
+    },
+    {
+      "id": "882b8776-7e41-4a9a-9848-52df8448dab7",
+      "title": "A*STAR Scholarships",
+      "country": "Singapore",
+      "url": "https://www.a-star.edu.sg/scholarships/home/scholarships/ags--scholarship",
+      "page_readable": true,
+      "page_chars": 17553,
+      "last_extraction": {
+        "fetched_at": "2026-08-10T11:57:57.726+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": null,
+        "opens_date": null,
+        "cycle_label": "First application cycle / Second application cycle",
+        "award_duration": "up to 4 years",
+        "number_of_awards": null,
+        "degree_levels": [
+          "Bachelors",
+          "Masters",
+          "PhD"
+        ],
+        "fields_of_study": [
+          "biomedical sciences",
+          "chemistry",
+          "physics",
+          "engineering"
+        ],
+        "coverage_matrix": {
+          "airfare": {
+            "detail": "Annual return airfare",
+            "covered": true
+          },
+          "tuition": {
+            "detail": "full sponsorship of the tuition fees",
+            "covered": true
+          },
+          "accommodation": {
+            "detail": null,
+            "covered": true
+          },
+          "research_grant": {
+            "detail": null,
+            "covered": false
+          },
+          "monthly_stipend": {
+            "detail": null,
+            "covered": true
+          },
+          "health_insurance": {
+            "detail": null,
+            "covered": true
+          },
+          "settling_in_allowance": {
+            "detail": "one-off settling-in allowance",
+            "covered": true
+          }
+        },
+        "restricted_to_nationalities": [
+          "Singaporean",
+          "Singapore Permanent Resident"
+        ],
+        "language_test_required": false,
+        "min_work_experience_years": 0,
+        "max_age": null,
+        "verification_status": "ai_extracted",
+        "last_verified_at": "2026-08-10T11:57:57.726+00:00"
+      },
+      "stored_quotes": {
+        "opens_date": {
+          "quote": "First application cycle: Opens on  1 November",
+          "still_on_page": false
+        },
+        "cycle_label": {
+          "quote": "First application cycle: Opens on  1 November Closes on  1 February",
+          "still_on_page": false
+        },
+        "deadline_date": {
+          "quote": "Closes on  1 February",
+          "still_on_page": true
+        },
+        "award_duration": {
+          "quote": "Successful applicants will be given the following support* for up to 4 years:",
+          "still_on_page": true
+        },
+        "timeline.opens": {
+          "quote": "Second application cycle: Opens on  1 June",
+          "still_on_page": true
+        },
+        "fields_of_study": {
+          "quote": "A*STAR Graduate Scholarship (STEM) Enabling aspiring researchers to pursue PhD studies in biomedical sciences, chemistry, physics, engineering, and related fields.",
+          "still_on_page": true
+        },
+        "timeline.closes": {
+          "quote": "Closes on  10 August",
+          "still_on_page": true
+        },
+        "coverage.airfare": {
+          "quote": "Annual return airfare",
+          "still_on_page": false
+        },
+        "coverage.tuition": {
+          "quote": "During the PhD studies, A*STAR scholars receive competitive monthly allowance besides full sponsorship of the tuition fees.",
+          "still_on_page": true
+        },
+        "timeline.results": {
+          "quote": "From mid-November",
+          "still_on_page": true
+        },
+        "timeline.interviews": {
+          "quote": "Mid-August to October",
+          "still_on_page": true
+        },
+        "coverage.accommodation": {
+          "quote": "Monthly Housing allowance",
+          "still_on_page": false
+        },
+        "post_study_obligations": {
+          "quote": "For overseas scholarships students, will have to serve a bond from 2-6 years.",
+          "still_on_page": false
+        },
+        "coverage.research_grant": {
+          "quote": "A*STAR does not cover consumables or research-related fees.",
+          "still_on_page": false
+        },
+        "coverage.monthly_stipend": {
+          "quote": "During the PhD studies, A*STAR scholars receive competitive monthly allowance besides full sponsorship of the tuition fees.",
+          "still_on_page": true
+        },
+        "coverage.health_insurance": {
+          "quote": "Medical insurance",
+          "still_on_page": false
+        },
+        "eligibility.min_gpa_4_scale": {
+          "quote": "Applicants should have at least an Honours (Distinction) or a cumulative GPA of 4.0/5.0 (or equivalent).",
+          "still_on_page": false
+        },
+        "documents[3].application_form": {
+          "quote": "Complete the ARIA Application Form",
+          "still_on_page": false
+        },
+        "coverage.settling_in_allowance": {
+          "quote": "At the commencement of the post-doctoral training, we will provide a one-off settling-in allowance.",
+          "still_on_page": false
+        },
+        "documents[2].most_updated_resume": {
+          "quote": "your most updated resume",
+          "still_on_page": false
+        },
+        "eligibility.language_test_required": {
+          "quote": "The programme does not require students to undertake English language proficiency tests.",
+          "still_on_page": false
+        },
+        "eligibility.requires_research_proposal": {
+          "quote": "In consultation with them, develop a research proposal that aligns with your research interests and contributes to Singapore's Research, Innovation and Enterprise (RIE) ecosystem .",
+          "still_on_page": true
+        },
+        "eligibility.restricted_to_nationalities": {
+          "quote": "Be Singaporean or Singapore Permanent Resident (SPR) who have obtained, or are on track to obtain, at least a Second-Class (Upper) Honours degree or equivalent in a relevant discipline.",
+          "still_on_page": false
+        },
+        "documents[0].latest_university_transcript": {
+          "quote": "your latest university transcript",
+          "still_on_page": false
+        },
+        "eligibility.requires_university_admission_first": {
+          "quote": "Satisfy the criteria for and gain admission to a PhD programme in an autonomous university",
+          "still_on_page": true
+        },
+        "documents[1].official_junior_college_or_polytechnic_transcrip": {
+          "quote": "your official junior college or polytechnic transcript",
+          "still_on_page": false
+        }
+      },
+      "page_says_about_eligibility": [
+        "us university in singapore funding period: 4 years bond-free scholarship for singapore citizens and singapore permanent residents application period: 1 november to 1 february & 1 june to 10 august mid-term scholars will receive the same level of support as the full-term scholars",
+        "nts by a*star from time to time. a*star graduate scholarship's monthly allowance: singapore citizen singapore permanent resident international students ags (stem) $4,500 $4,100 $3,600 ags (specialised tracks) $6,200 $5,600 $5,000 service commitment for singaporeans and singapore",
+        "$4,100 $3,600 ags (specialised tracks) $6,200 $5,600 $5,000 service commitment for singaporeans and singapore permanent residents: no service commitment for foreigners who are non-sprs: 3-year service in singapore-based companies^ without commitment to any specific organisation.",
+        "uate studies? how long is the service commitment period? ags scholars who are singapore citizens or singapore permanent residents have no service commitment. non-singaporean ags scholars without singapore permanent residency are required to serve a 3-year service commitment perio",
+        "published page data description: a*star graduate scholarship ags (stem): singapore citizen $4,500, singapore permanent resident $4,100, international students $3,600 ags (specialised tracks): singapore citizen $6,200, singapore permanent resident $5,600, international students $",
+        "resident $4,100, international students $3,600 ags (specialised tracks): singapore citizen $6,200, singapore permanent resident $5,600, international students $5,000 first application cycle: opens on 15 december closes on 1 february of the following year: interviews mid-february"
+      ]
+    },
+    {
+      "id": "28d54c01-2b7c-4708-92c8-98ae937c5262",
+      "title": "Google DeepMind AI Master’s Scholarships",
+      "country": "USA",
+      "url": "https://www.iie.org/programs/google-deepmind-ai-masters-scholarships/iie-faq",
+      "page_readable": true,
+      "page_chars": 5201,
+      "last_extraction": {
+        "fetched_at": "2026-08-29T11:06:29.253+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": null,
+        "opens_date": null,
+        "cycle_label": "2026",
+        "award_duration": "up to two years",
+        "number_of_awards": null,
+        "degree_levels": [
+          "Masters"
+        ],
+        "fields_of_study": [
+          "artificial intelligence (AI)"
+        ],
+        "coverage_matrix": {
+          "airfare": {
+            "detail": null,
+            "covered": true
+          },
+          "tuition": {
+            "detail": null,
+            "covered": true
+          },
+          "accommodation": {
+            "detail": null,
+            "covered": true
+          },
+          "monthly_stipend": {
+            "detail": null,
+            "covered": true
+          },
+          "settling_in_allowance": {
+            "detail": "Stipend for travel and relocation costs to attend the partner university",
+            "covered": true
+          }
+        },
+        "restricted_to_nationalities": null,
+        "language_test_required": null,
+        "min_work_experience_years": null,
+        "max_age": null,
+        "verification_status": "ai_extracted",
+        "last_verified_at": "2026-08-10T11:54:59.801+00:00"
+      },
+      "stored_quotes": {
+        "award_duration": {
+          "quote": "A scholarship to fully fund their postgraduate degree at a partner university (up to two years)",
+          "still_on_page": true
+        },
+        "coverage.airfare": {
+          "quote": "Stipend for travel and relocation costs to attend the partner university",
+          "still_on_page": true
+        },
+        "coverage.tuition": {
+          "quote": "A scholarship to fully fund their postgraduate degree at a partner university (up to two years)",
+          "still_on_page": true
+        },
+        "coverage.accommodation": {
+          "quote": "Stipend to cover housing and living costs",
+          "still_on_page": true
+        },
+        "coverage.monthly_stipend": {
+          "quote": "Stipend to cover housing and living costs",
+          "still_on_page": true
+        },
+        "eligibility.requires_university_admission_first": {
+          "quote": "To be eligible for the Scholarships, students must be admitted to a specific postgraduate program at one of Google DeepMind’s partner universities.",
+          "still_on_page": true
+        }
+      },
+      "page_says_about_eligibility": [
+        ", turkey, and uganda. for more information, visit university websites or the google deepmind education site . who can apply for a scholarship? to be eligible for google deepmind scholarships, students must be admitted to a specific postgraduate program at one of google deepmind's",
+        "pply to these courses and, where relevant, any separate application process for the scholarships. to find out eligibility, we recommend consulting university websites for more details as this can vary from university to university. for scholarships outside the uk in 2026, please"
+      ]
+    },
+    {
+      "id": "d25aa78f-3417-45fe-93ff-2432dcc6295e",
+      "title": "NextGen Service Fellowship",
+      "country": "USA",
+      "url": "https://www.iie.org/programs/nextgen-service-fellowship/timeline",
+      "page_readable": true,
+      "page_chars": 1362,
+      "last_extraction": {
+        "fetched_at": "2026-08-29T12:54:04.467+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": "2026-05-18",
+        "opens_date": null,
+        "cycle_label": "2026 intake",
+        "award_duration": "4-week program",
+        "number_of_awards": "50",
+        "degree_levels": [
+          "Masters"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {
+          "airfare": {
+            "detail": "Round-trip economy airfare from the United States to program destination*",
+            "covered": true
+          },
+          "visa_fees": {
+            "detail": "$5,000 to cover housing, food, local transportation, and incidentals, including visa expenses, over a 4-week period",
+            "covered": true
+          },
+          "accommodation": {
+            "detail": "$5,000 to cover housing, food, local transportation, and incidentals, including visa expenses, over a 4-week period",
+            "covered": true
+          },
+          "monthly_stipend": {
+            "detail": "$5,000 to cover housing, food, local transportation, and incidentals, including visa expenses, over a 4-week period",
+            "covered": true
+          },
+          "health_insurance": {
+            "detail": "Enrollment in IIE’s International Health Insurance Plan*",
+            "covered": true
+          },
+          "settling_in_allowance": {
+            "detail": "Included in the $5,000 covering incidentals and local transportation over 4 weeks",
+            "covered": true
+          }
+        },
+        "restricted_to_nationalities": [
+          "U.S."
+        ],
+        "language_test_required": null,
+        "min_work_experience_years": null,
+        "max_age": null,
+        "verification_status": "ai_extracted",
+        "last_verified_at": "2026-08-10T11:56:33.982+00:00"
+      },
+      "stored_quotes": {
+        "cycle_label": {
+          "quote": "Summer 2026",
+          "still_on_page": false
+        },
+        "deadline_date": {
+          "quote": "May 18, 2026",
+          "still_on_page": true
+        },
+        "award_duration": {
+          "quote": "Program benefits are for a 4-week program.",
+          "still_on_page": false
+        },
+        "fields_of_study": {
+          "quote": "All fields of study are eligible",
+          "still_on_page": false
+        },
+        "timeline.closes": {
+          "quote": "Application Deadline: May 18, 2026",
+          "still_on_page": true
+        },
+        "coverage.airfare": {
+          "quote": "Round-trip economy airfare from the United States to program destination*",
+          "still_on_page": false
+        },
+        "number_of_awards": {
+          "quote": "The NextGen Service Fellowship will provide funding for 50 U.S. college students at partner universities to gain hands-on experience in international development while addressing the needs of communities overseas.",
+          "still_on_page": false
+        },
+        "timeline.results": {
+          "quote": "Applicants Notified of Results: 2 nd week of June",
+          "still_on_page": true
+        },
+        "coverage.visa_fees": {
+          "quote": "$5,000 to cover housing, food, local transportation, and incidentals, including visa expenses, over a 4-week period",
+          "still_on_page": false
+        },
+        "timeline.placement": {
+          "quote": "IIE Places Fellows with International Organizations (as needed): 2 nd half of June",
+          "still_on_page": true
+        },
+        "timeline.kickoff_call": {
+          "quote": "Fellows Required Kick-Off Call: June 17, 2-4 p.m. ET",
+          "still_on_page": true
+        },
+        "coverage.accommodation": {
+          "quote": "$5,000 to cover housing, food, local transportation, and incidentals, including visa expenses, over a 4-week period",
+          "still_on_page": false
+        },
+        "timeline.virtual_event": {
+          "quote": "Careers in International Development Virtual Event: Fall 2026",
+          "still_on_page": true
+        },
+        "coverage.monthly_stipend": {
+          "quote": "$5,000 to cover housing, food, local transportation, and incidentals, including visa expenses, over a 4-week period",
+          "still_on_page": false
+        },
+        "coverage.health_insurance": {
+          "quote": "Enrollment in IIE’s International Health Insurance Plan*",
+          "still_on_page": false
+        },
+        "documents[0].three_essays": {
+          "quote": "Three Essays – Up to 3,500 characters each, including spaces",
+          "still_on_page": false
+        },
+        "timeline.submit_documents": {
+          "quote": "Fellows Submit Required Documents: 2 nd half of June",
+          "still_on_page": true
+        },
+        "timeline.travel_coordination": {
+          "quote": "IIE Coordinates Travel: June/July",
+          "still_on_page": true
+        },
+        "timeline.post_program_reports": {
+          "quote": "Post Program Reports: Mid-August through Mid-September",
+          "still_on_page": true
+        },
+        "timeline.travel_international": {
+          "quote": "Fellows Travel International: July 17-August 15 (or individual program dates)",
+          "still_on_page": true
+        },
+        "coverage.settling_in_allowance": {
+          "quote": "$5,000 to cover housing, food, local transportation, and incidentals, including visa expenses, over a 4-week period",
+          "still_on_page": false
+        },
+        "documents[1].relevant_activities": {
+          "quote": "Identify up to five current or past jobs, internships, volunteer activities, or clubs that are most relevant to this fellowship.",
+          "still_on_page": false
+        },
+        "documents[3].letter_of_recommendation": {
+          "quote": "Letter of Recommendation (optional) Letters should be academic or professional in nature. Your recommender should be able to speak to your interest in and abilities to participate in an international internship or service-learning program. Your recommender should email the letter, from their work email address, to NextGen@iie.org .",
+          "still_on_page": false
+        },
+        "eligibility.restricted_to_nationalities": {
+          "quote": "All applicants must be U.S. citizens and meet the following criteria by the application deadline:",
+          "still_on_page": false
+        },
+        "documents[2].most_recent_transcript_from_current_university": {
+          "quote": "Most Recent Transcript from Current University (official or unofficial) Upload your most recent university transcript here . If you are in your first semester at your current university, and a transcript will not be available by the deadline, upload a current class schedule along with your prior university’s transcript.",
+          "still_on_page": false
+        }
+      },
+      "page_says_about_eligibility": []
+    },
+    {
+      "id": "c668eac6-dc16-4531-92d4-4117799a4533",
+      "title": "MEXT Scholarship - Research Student (Embassy Track)",
+      "country": "Japan",
+      "url": "https://www.studyinjapan.go.jp/en/planning/scholarship/",
+      "page_readable": true,
+      "page_chars": 743,
+      "last_extraction": {
+        "fetched_at": "2026-08-29T12:55:43.841+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": null,
+        "opens_date": null,
+        "cycle_label": null,
+        "award_duration": "Irregular course: within 2 years Regular course: standard school year (when necessary, 6 months preliminary education will be added)",
+        "number_of_awards": null,
+        "degree_levels": [
+          "Masters",
+          "PhD"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {
+          "airfare": {
+            "detail": "Round-trip travel expenses (airfare)",
+            "covered": true
+          },
+          "tuition": {
+            "detail": null,
+            "covered": true
+          },
+          "visa_fees": {
+            "detail": "Student visa issued free of charge",
+            "covered": true
+          },
+          "accommodation": {
+            "detail": "University housing offered at subsidised rent",
+            "covered": false
+          },
+          "research_grant": {
+            "covered": false
+          },
+          "monthly_stipend": {
+            "detail": "¥143,000～145,000 per month",
+            "covered": true
+          },
+          "health_insurance": {
+            "detail": "National Health Insurance paid from the stipend",
+            "covered": false
+          },
+          "settling_in_allowance": {
+            "covered": false
+          }
+        },
+        "restricted_to_nationalities": null,
+        "language_test_required": false,
+        "min_work_experience_years": null,
+        "max_age": 35,
+        "verification_status": "ai_extracted",
+        "last_verified_at": "2026-08-10T11:56:32.06+00:00"
+      },
+      "stored_quotes": {
+        "award_duration": {
+          "quote": "[Embassy Recommendation] Irregular course: within 2 years Regular course: standard school year (when necessary, 6 months preliminary education will be added)",
+          "still_on_page": false
+        },
+        "coverage.airfare": {
+          "quote": "Travel allowance Round-trip travel expenses (airfare) provided",
+          "still_on_page": false
+        },
+        "coverage.tuition": {
+          "quote": "Tuition Exempted",
+          "still_on_page": false
+        },
+        "eligibility.max_age": {
+          "quote": "You must be under 35 years of age and be eligible for admission to a master's program or a doctoral program (first or second stage) at a Japanese graduate school.",
+          "still_on_page": false
+        },
+        "coverage.monthly_stipend": {
+          "quote": "Scholarship ¥143,000～145,000 per month",
+          "still_on_page": false
+        },
+        "language_training_included": {
+          "quote": "(when necessary, 6 months preliminary education will be added)",
+          "still_on_page": false
+        }
+      },
+      "page_says_about_eligibility": [
+        "government-approved information site english 日本語 english 简体中文 繁體中文 한국어 ภาษาไทย tiếng việt bahasa indonesia монгол français español العربية planning to study in japan scholarships home planning to study in japan scholarships overview of scholarships in japan japanese"
+      ]
+    },
+    {
+      "id": "758299b7-0678-4e85-81af-46d568974cd9",
+      "title": "Chevening Fellowships",
+      "country": "UK",
+      "url": "https://www.chevening.org/scholarships/application-timeline/",
+      "page_readable": true,
+      "page_chars": 3649,
+      "last_extraction": {
+        "fetched_at": "2026-08-04T23:51:25.238+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": "2026-10-06",
+        "opens_date": "2026-08-04",
+        "cycle_label": "2027/28 intake",
+        "award_duration": null,
+        "number_of_awards": null,
+        "degree_levels": [
+          "Masters"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {
+          "settling_in_allowance": {
+            "detail": "£150 departure allowance",
+            "covered": true
+          }
+        },
+        "min_work_experience_years": 5,
+        "verification_status": "verified",
+        "last_verified_at": "2026-08-05T15:30:45.41+00:00"
+      },
+      "stored_quotes": {
+        "opens_date": {
+          "quote": "4 August 2026 Applications open at 11:00 UTC",
+          "still_on_page": false
+        },
+        "cycle_label": {
+          "quote": "2027-28 Chevening scholars commence their studies in the UK",
+          "still_on_page": true
+        },
+        "deadline_date": {
+          "quote": "6 October 2026 Applications close at 11:00 UTC",
+          "still_on_page": false
+        },
+        "timeline.opens": {
+          "quote": "4 August 2026 Applications open at 11:00 UTC",
+          "still_on_page": false
+        },
+        "timeline.closes": {
+          "quote": "6 October 2026 Applications close at 11:00 UTC",
+          "still_on_page": false
+        },
+        "timeline.results": {
+          "quote": "Mid-June 2027 Results",
+          "still_on_page": true
+        },
+        "timeline.sifting": {
+          "quote": "From October 2026 Applications are sifted against eligibility criteria.",
+          "still_on_page": true
+        },
+        "timeline.interviews": {
+          "quote": "March to April 2027 Interviews take place",
+          "still_on_page": true
+        },
+        "timeline.shortlisting": {
+          "quote": "Mid-February 2027 Applicants shortlisted for interviews",
+          "still_on_page": true
+        },
+        "timeline.studies_begin": {
+          "quote": "September/October 2027 Studies begin in the UK",
+          "still_on_page": true
+        },
+        "timeline.offer_deadline": {
+          "quote": "8 July 2027 Offer deadline",
+          "still_on_page": true
+        },
+        "timeline.reading_committee": {
+          "quote": "Mid-October 2026 to January 2027 Reading committee assessments",
+          "still_on_page": true
+        },
+        "coverage.settling_in_allowance": {
+          "quote": "If you’re on a full award, you’ll receive a £150 departure allowance with your final stipend.",
+          "still_on_page": false
+        },
+        "documents[0].identification_id": {
+          "quote": "1. Upload your identification (ID). Acceptable forms of ID are your passport or national ID card.",
+          "still_on_page": false
+        },
+        "documents[2].reference_letters": {
+          "quote": "3. Upload two reference letters.",
+          "still_on_page": false
+        },
+        "eligibility.min_work_experience_years": {
+          "quote": "Minimum five years of work experience in a relevant related field.",
+          "still_on_page": false
+        },
+        "documents[1].undergraduate_education_certificate_diploma": {
+          "quote": "2. Upload your undergraduate education certificate/diploma. Please note that undergraduate transcripts will not be accepted.",
+          "still_on_page": false
+        }
+      },
+      "page_says_about_eligibility": [
+        "e sure you check what time 11:00 utc is in your time zone . from october 2026 applications are sifted against eligibility criteria. read about chevening's eligibility criteria . mid-october 2026 to january 2027 reading committee assessments independent reading committees assess a",
+        "ur time zone . from october 2026 applications are sifted against eligibility criteria. read about chevening's eligibility criteria . mid-october 2026 to january 2027 reading committee assessments independent reading committees assess all eligible applications. mid-february 2027 a"
+      ]
+    },
+    {
+      "id": "162e257b-e425-4dbb-908d-772a65d0bf4f",
+      "title": "Knight-Hennessy Scholars (Stanford)",
+      "country": "USA",
+      "url": "https://knight-hennessy.stanford.edu/admission/preparing-your-applications/your-applications",
+      "page_readable": true,
+      "page_chars": 11042,
+      "last_extraction": {
+        "fetched_at": "2026-08-04T23:56:46.559+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": "2026-10-06",
+        "opens_date": "2026-06-01",
+        "cycle_label": "2027 cohort",
+        "award_duration": "up to three years",
+        "number_of_awards": null,
+        "degree_levels": [
+          "Masters",
+          "PhD"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {
+          "airfare": {
+            "detail": "economy-class ticket for one annual trip to and from Stanford",
+            "covered": true
+          },
+          "tuition": {
+            "detail": "up to three years of tuition , depending upon their degree length",
+            "covered": true
+          },
+          "visa_fees": {
+            "covered": false
+          },
+          "accommodation": {
+            "detail": "A stipend for living and academic expenses (such as room and board ...)",
+            "covered": true
+          },
+          "research_grant": {
+            "detail": "Scholars in their second and third years may apply for supplemental funds to support academic enrichment activities (e.g., conference travel).",
+            "covered": true
+          },
+          "monthly_stipend": {
+            "detail": "a stipend for living and academic expenses",
+            "covered": true
+          },
+          "health_insurance": {
+            "covered": true
+          },
+          "settling_in_allowance": {
+            "detail": "one-time relocation stipend intended to offset some of the costs associated with relocation to the area and/or technology purchases",
+            "covered": true
+          }
+        },
+        "restricted_to_nationalities": null,
+        "language_test_required": true,
+        "min_work_experience_years": null,
+        "max_age": null,
+        "verification_status": "verified",
+        "last_verified_at": "2026-08-05T15:31:38.669+00:00"
+      },
+      "stored_quotes": {
+        "opens_date": {
+          "quote": "Application Opens June 1, 2026",
+          "still_on_page": true
+        },
+        "cycle_label": {
+          "quote": "The application for the 2027 cohort of Knight-Hennessy Scholars will open June 1, 2026, and is due October 6, 2026.",
+          "still_on_page": false
+        },
+        "deadline_date": {
+          "quote": "October 6, 2026 1:00 pm Pacific Time",
+          "still_on_page": true
+        },
+        "award_duration": {
+          "quote": "Scholars receive a fellowship for up to three years of tuition , depending upon their degree length.",
+          "still_on_page": false
+        },
+        "timeline.opens": {
+          "quote": "Application Opens June 1, 2026",
+          "still_on_page": true
+        },
+        "fields_of_study": {
+          "quote": "Knight-Hennessy Scholars has no restrictions based on age, college or university, field of study, or career aspiration.",
+          "still_on_page": false
+        },
+        "timeline.closes": {
+          "quote": "Application Deadline October 6, 2026 1:00 pm Pacific Time",
+          "still_on_page": true
+        },
+        "coverage.airfare": {
+          "quote": "A travel stipend intended to cover an economy-class ticket for one annual trip to and from Stanford",
+          "still_on_page": false
+        },
+        "coverage.tuition": {
+          "quote": "Scholars receive a fellowship for up to three years of tuition , depending upon their degree length.",
+          "still_on_page": false
+        },
+        "documents[1].resume": {
+          "quote": "Prepare a one-page resume that includes the highlights of your experiences, interests, and academic record in reverse-chronological order.",
+          "still_on_page": false
+        },
+        "eligibility.min_ielts": {
+          "quote": "and the minimum IELTS score for admission consideration is 7.",
+          "still_on_page": false
+        },
+        "coverage.accommodation": {
+          "quote": "A stipend for living and academic expenses (such as room and board, books, academic supplies, instructional materials, local transportation, and reasonable personal expenses)",
+          "still_on_page": false
+        },
+        "coverage.research_grant": {
+          "quote": "Scholars in their second and third years may apply for supplemental funds to support academic enrichment activities (e.g., conference travel).",
+          "still_on_page": false
+        },
+        "coverage.monthly_stipend": {
+          "quote": "In addition, scholars receive a stipend for living and academic expenses, and a travel stipend for one annual trip to and from Stanford.",
+          "still_on_page": false
+        },
+        "eligibility.min_toefl_ibt": {
+          "quote": "For most graduate degree programs at Stanford, the minimum TOEFL score for admission consideration is 90",
+          "still_on_page": false
+        },
+        "timeline.video_statements": {
+          "quote": "Video statement invitations sent on rolling basis throughout January",
+          "still_on_page": true
+        },
+        "timeline.scholars_notified": {
+          "quote": "Scholars notified on March 16, 2027",
+          "still_on_page": true
+        },
+        "timeline.finalists_notified": {
+          "quote": "Finalists notified on January 27, 2027",
+          "still_on_page": true
+        },
+        "coverage.settling_in_allowance": {
+          "quote": "Newly enrolling scholars receive a one-time relocation stipend intended to offset some of the costs associated with relocation to the area and/or technology purchases.",
+          "still_on_page": false
+        },
+        "documents[0].online_application": {
+          "quote": "Online Application",
+          "still_on_page": true
+        },
+        "documents[4].short_answers_essay": {
+          "quote": "Short Answers & Essay",
+          "still_on_page": true
+        },
+        "documents[3].recommendation_letters": {
+          "quote": "The recommendation letters allow you to nominate two strong advocates who will complement your application contributions and confirm your qualifications, your potential, and your demonstration of our three criteria.",
+          "still_on_page": false
+        },
+        "eligibility.accepted_language_tests": {
+          "quote": "All Stanford graduate degree programs accept the TOEFL . Most, but not all, Stanford graduate programs accept the IELTS . The MBA Program is the only Stanford graduate program that also accepts the PTE .",
+          "still_on_page": false
+        },
+        "documents[2].transcripts_test_scores": {
+          "quote": "Please scan and upload transcripts of your academic performance at the undergraduate level (and graduate level, if applicable) for each institution you attended for one academic year or longer.",
+          "still_on_page": false
+        },
+        "eligibility.requires_government_nomination": {
+          "quote": "We do not require applicants to seek endorsements from colleges, universities, or other institutions.",
+          "still_on_page": false
+        },
+        "eligibility.requires_university_admission_first": {
+          "quote": "you must apply to, be accepted by, and enroll in a full-time Stanford graduate degree program",
+          "still_on_page": true
+        }
+      },
+      "page_says_about_eligibility": []
+    },
+    {
+      "id": "89366713-5095-4376-b69c-8b8ba95df1af",
+      "title": "Rotary Peace Fellowship",
+      "country": "Multiple",
+      "url": "https://www.rotary.org/en/get-involved/our-programs/peace-fellowships",
+      "page_readable": false,
+      "page_error": "HTTP 429 fetching https://www.rotary.org/en/get-involved/our-programs/peace-fellowships",
+      "page_chars": 0,
+      "last_extraction": {
+        "fetched_at": "2026-08-29T10:58:06.644+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": null,
+        "opens_date": null,
+        "cycle_label": "2028-29",
+        "award_duration": "15 to 24 months",
+        "number_of_awards": "up to 170",
+        "degree_levels": [
+          "Masters"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {
+          "airfare": {
+            "detail": null,
+            "covered": true
+          },
+          "tuition": {
+            "detail": null,
+            "covered": true
+          },
+          "accommodation": {
+            "detail": null,
+            "covered": true
+          }
+        },
+        "restricted_to_nationalities": null,
+        "language_test_required": null,
+        "min_work_experience_years": 3,
+        "max_age": null,
+        "verification_status": "ai_extracted",
+        "last_verified_at": "2026-08-10T11:46:34.094+00:00"
+      },
+      "stored_quotes": {
+        "opens_date": {
+          "quote": "The 2028-29 Rotary Peace Fellowship application will be available online in February 2027.",
+          "still_on_page": null
+        },
+        "cycle_label": {
+          "quote": "The 2028-29 Rotary Peace Fellowship application will be available online in February 2027.",
+          "still_on_page": null
+        },
+        "award_duration": {
+          "quote": "The programs last 15 to 24 months and include a two- to three-month field study, which participants design themselves.",
+          "still_on_page": null
+        },
+        "timeline.opens": {
+          "quote": "The 2028-29 Rotary Peace Fellowship application will be available online in February 2027.",
+          "still_on_page": null
+        },
+        "coverage.airfare": {
+          "quote": "The fellowships cover tuition and fees, room and board, round-trip transportation, and internship and field-study expenses.",
+          "still_on_page": null
+        },
+        "coverage.tuition": {
+          "quote": "The fellowships cover tuition and fees, room and board, round-trip transportation, and internship and field-study expenses.",
+          "still_on_page": null
+        },
+        "number_of_awards": {
+          "quote": "Each year, Rotary selects up to 170 professionals from around the world to receive fully funded academic fellowships at our Rotary Peace Centers.",
+          "still_on_page": null
+        },
+        "coverage.accommodation": {
+          "quote": "The fellowships cover tuition and fees, room and board, round-trip transportation, and internship and field-study expenses.",
+          "still_on_page": null
+        },
+        "eligibility.min_work_experience_years": {
+          "quote": "Have at least three years of full-time relevant experience in peace or development work",
+          "still_on_page": null
+        }
+      },
+      "page_says_about_eligibility": []
+    },
+    {
+      "id": "06a48c10-05bb-4ce2-992a-0bc0837dcd0b",
+      "title": "Chinese Government Scholarship (CSC) - Type A",
+      "country": "China",
+      "url": "https://www.campuschina.org/",
+      "page_readable": false,
+      "page_error": "fetch failed",
+      "page_chars": 0,
+      "last_extraction": null,
+      "claims": {
+        "deadline_date": null,
+        "opens_date": null,
+        "cycle_label": null,
+        "award_duration": null,
+        "number_of_awards": null,
+        "degree_levels": [
+          "Bachelors",
+          "Masters",
+          "PhD"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {
+          "airfare": {
+            "detail": "Not covered under most bilateral agreements",
+            "covered": false
+          },
+          "tuition": {
+            "detail": "Full tuition waiver at the host university",
+            "covered": true
+          },
+          "visa_fees": {
+            "covered": false
+          },
+          "accommodation": {
+            "detail": "Free on-campus dormitory or housing subsidy",
+            "covered": true
+          },
+          "research_grant": {
+            "covered": false
+          },
+          "monthly_stipend": {
+            "detail": "CNY 2,500 / 3,000 / 3,500 per month by degree level",
+            "covered": true
+          },
+          "health_insurance": {
+            "detail": "Comprehensive insurance for international students",
+            "covered": true
+          },
+          "settling_in_allowance": {
+            "covered": false
+          }
+        },
+        "restricted_to_nationalities": null,
+        "language_test_required": true,
+        "min_work_experience_years": null,
+        "max_age": 35,
+        "verification_status": "unverified",
+        "last_verified_at": null
+      },
+      "stored_quotes": {},
+      "page_says_about_eligibility": []
+    },
+    {
+      "id": "da28d542-c074-4e95-90a8-af775f9e6374",
+      "title": "Medtronic Spark Scholarship",
+      "country": "USA",
+      "url": "https://www.iie.org/programs/medtronicsparkscholarship/application",
+      "page_readable": true,
+      "page_chars": 4890,
+      "last_extraction": {
+        "fetched_at": "2026-08-20T11:52:24.966+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": "2027-01-15",
+        "opens_date": null,
+        "cycle_label": "2025/2026",
+        "award_duration": "renewable for the duration of the degree* (up to 4 years); credential programs are one-time non-renewable awards",
+        "number_of_awards": "up to 100 new scholarships each year",
+        "degree_levels": [
+          "Bachelors"
+        ],
+        "fields_of_study": [
+          "healthcare technology"
+        ],
+        "coverage_matrix": {
+          "tuition": {
+            "detail": "up to USD$15,000 (in the U.S.) or up to USD$10,000 (outside of the U.S.) per year",
+            "covered": true
+          },
+          "accommodation": {
+            "detail": "The Medtronic Spark Scholarship can be used to cover the remaining cost of tuition and fees, room and board, books, supplies, and equipment required for education programs.",
+            "covered": true
+          }
+        },
+        "restricted_to_nationalities": null,
+        "language_test_required": null,
+        "min_work_experience_years": null,
+        "max_age": null,
+        "verification_status": "ai_extracted",
+        "last_verified_at": "2026-08-20T11:52:24.966+00:00"
+      },
+      "stored_quotes": {
+        "opens_date": {
+          "quote": "Late October 2026: Online application opens",
+          "still_on_page": true
+        },
+        "deadline_date": {
+          "quote": "January 15, 2027: Application submission deadline",
+          "still_on_page": true
+        },
+        "award_duration": {
+          "quote": "Funding of up to USD$15,000 (in the U.S.) or up to USD$10,000 (outside of the U.S.) per year, renewable for the duration of the degree* (up to 4 years); credential programs are one-time non-renewable awards.",
+          "still_on_page": false
+        },
+        "timeline.opens": {
+          "quote": "Late October 2026: Online application opens",
+          "still_on_page": true
+        },
+        "fields_of_study": {
+          "quote": "The Medtronic Spark Scholarship removes financial barriers for students pursuing undergraduate degrees or credentials in healthcare technology fields",
+          "still_on_page": false
+        },
+        "timeline.closes": {
+          "quote": "January 15, 2027: Application submission deadline",
+          "still_on_page": true
+        },
+        "coverage.tuition": {
+          "quote": "Renewable funding of up to USD$15,000 (in the U.S.) or up to USD$10,000 (outside of the U.S.) per year in addition to development opportunities and resources.",
+          "still_on_page": false
+        },
+        "number_of_awards": {
+          "quote": "The Medtronic Spark Scholarship will award up to 100 new scholarships each year.",
+          "still_on_page": false
+        },
+        "timeline.notification": {
+          "quote": "May 2027: Notification*",
+          "still_on_page": true
+        },
+        "coverage.accommodation": {
+          "quote": "The Medtronic Spark Scholarship can be used to cover the remaining cost of tuition and fees, room and board, books, supplies, and equipment required for education programs.",
+          "still_on_page": false
+        },
+        "eligibility.min_gpa_4_scale": {
+          "quote": "Minimum 2.5 GPA out of 4.0 (or international equivalents).",
+          "still_on_page": false
+        },
+        "documents[1].recent_academic_transcript": {
+          "quote": "Recent academic transcript (not required for credential applicants).",
+          "still_on_page": false
+        },
+        "eligibility.requires_university_admission_first": {
+          "quote": "Applicants do not need to be accepted into a program at the time of application; however, if selected for a scholarship, proof of full-time enrollment will be required along with full financial aid package details before scholarship funds can be released.",
+          "still_on_page": false
+        },
+        "documents[4].a_self_introduction_video_submission": {
+          "quote": "A self-introduction video submission (up to 30 seconds): This video will only be considered as part of the selection process if the applicant reaches the final review stage.",
+          "still_on_page": false
+        },
+        "documents[0].responses_to_a_series_of_short_essay_questions": {
+          "quote": "Responses to a series of short essay questions.",
+          "still_on_page": false
+        },
+        "documents[2].recent_financial_information_and_supporting_docu": {
+          "quote": "Recent financial information and supporting documents including household income, education expenses, Financial Aid (for students who study in the U.S. only), and any additional scholarships or financial awards received.",
+          "still_on_page": false
+        },
+        "documents[3].agreement_to_privacy_statement_communications_re": {
+          "quote": "Agreement to privacy statement, communications release, social media acknowledgement, and participation statement.",
+          "still_on_page": true
+        }
+      },
+      "page_says_about_eligibility": [
+        "if you are selected as a finalist, you must upload documentation showing you are either a citizen or a legal permanent resident in the country in which you plan to study. 🇺🇸 united states passport 🇺🇸 united states permanent resident card 🇮🇪 ireland residence permit with st",
+        "permanent resident in the country in which you plan to study. 🇺🇸 united states passport 🇺🇸 united states permanent resident card 🇮🇪 ireland residence permit with stamp 5 🇲🇽 mexico acta de nacimiento 🇰🇷 south korea national id card 🇵🇭 philippines identification certif"
+      ]
+    },
+    {
+      "id": "f9a330d9-3f22-4364-8b2a-de8b41735b14",
+      "title": "Chevening LSE Fellowship",
+      "country": "UK",
+      "url": "https://www.chevening.org/apply/page/2/",
+      "page_readable": true,
+      "page_chars": 5614,
+      "last_extraction": {
+        "fetched_at": "2026-08-06T15:56:49.528+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": "2026-10-06",
+        "opens_date": "2026-08-04",
+        "cycle_label": "2026/2027",
+        "award_duration": null,
+        "number_of_awards": null,
+        "degree_levels": [
+          "Masters"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {
+          "airfare": {
+            "detail": "Return economy airfare",
+            "covered": true
+          },
+          "tuition": {
+            "detail": "Full programme fees",
+            "covered": true
+          },
+          "research_grant": {
+            "detail": "Allowance package for research-related activities",
+            "covered": true
+          },
+          "monthly_stipend": {
+            "detail": "Living expenses for the duration of the fellowship",
+            "covered": true
+          },
+          "settling_in_allowance": {
+            "detail": "£150 departure allowance",
+            "covered": true
+          }
+        },
+        "restricted_to_nationalities": [
+          "China"
+        ],
+        "min_work_experience_years": 5,
+        "verification_status": "verified",
+        "last_verified_at": "2026-08-09T13:13:12.298+00:00"
+      },
+      "stored_quotes": {
+        "opens_date": {
+          "quote": "4 August 2026 Applications open at 11:00 UTC",
+          "still_on_page": false
+        },
+        "deadline_date": {
+          "quote": "Chevening LSE Fellowship Open for applications until 6 October 2026",
+          "still_on_page": false
+        },
+        "timeline.opens": {
+          "quote": "4 August 2026 Applications open at 11:00 UTC",
+          "still_on_page": false
+        },
+        "timeline.closes": {
+          "quote": "6 October 2026 Applications close at 11:00 UTC",
+          "still_on_page": false
+        },
+        "coverage.airfare": {
+          "quote": "Return economy airfare",
+          "still_on_page": false
+        },
+        "coverage.tuition": {
+          "quote": "Full programme fees",
+          "still_on_page": false
+        },
+        "timeline.results": {
+          "quote": "Mid-June 2027 Results After months of preparation and trepidation, successful candidates will experience jubilation when interview results are announced from mid-June onwards.",
+          "still_on_page": false
+        },
+        "timeline.sifting": {
+          "quote": "From October 2026 Applications are sifted against eligibility criteria.",
+          "still_on_page": false
+        },
+        "timeline.shortlist": {
+          "quote": "Mid-February 2027 Applicants shortlisted for interviews",
+          "still_on_page": false
+        },
+        "timeline.interviews": {
+          "quote": "March to April 2027 Interviews take place",
+          "still_on_page": false
+        },
+        "timeline.course_start": {
+          "quote": "September/October 2027 Studies begin in the UK",
+          "still_on_page": false
+        },
+        "post_study_obligations": {
+          "quote": "Be a citizen of China, currently live in the country, and intend to return to China at the end of the period of study",
+          "still_on_page": false
+        },
+        "coverage.research_grant": {
+          "quote": "Allowance package for research-related activities",
+          "still_on_page": false
+        },
+        "timeline.offer_deadline": {
+          "quote": "8 July 2027 Offer deadline",
+          "still_on_page": false
+        },
+        "coverage.monthly_stipend": {
+          "quote": "Living expenses for the duration of the fellowship",
+          "still_on_page": false
+        },
+        "timeline.reading_committee": {
+          "quote": "Mid-October 2026 to January 2027",
+          "still_on_page": false
+        },
+        "coverage.settling_in_allowance": {
+          "quote": "If you’re on a full award, you’ll receive a £150 departure allowance with your final stipend.",
+          "still_on_page": false
+        },
+        "documents[0].identification_id": {
+          "quote": "1. Upload your identification (ID). Acceptable forms of ID are your passport or national ID card.",
+          "still_on_page": false
+        },
+        "documents[2].reference_letters": {
+          "quote": "3. Upload two reference letters.",
+          "still_on_page": false
+        },
+        "documents[3].research_proposal": {
+          "quote": "Please note, all applications must include a research proposal.",
+          "still_on_page": false
+        },
+        "eligibility.min_work_experience_years": {
+          "quote": "Have at least five years’ work experience prior to applying or be currently enrolled as a PhD candidate (PhD must not be with a UK/EU or USA university)",
+          "still_on_page": false
+        },
+        "eligibility.requires_research_proposal": {
+          "quote": "Please note, all applications must include a research proposal.",
+          "still_on_page": false
+        },
+        "eligibility.restricted_to_nationalities": {
+          "quote": "Be a citizen of China, currently live in the country, and intend to return to China at the end of the period of study",
+          "still_on_page": false
+        },
+        "documents[1].undergraduate_education_certificate_diploma": {
+          "quote": "2. Upload your undergraduate education certificate/diploma. Please note that undergraduate transcripts will not be accepted.",
+          "still_on_page": false
+        }
+      },
+      "page_says_about_eligibility": [
+        "eenland grenada guatemala guinea guinea bissau guyana haiti holy see honduras hong kong hungary iceland india indonesia iran iraq ireland israel italy jamaica japan jordan kazakhstan kenya kiribati kosovo kyrgyzstan laos latvia lebanon lesotho liberia libya liechtenstein lithuani"
+      ]
+    },
+    {
+      "id": "62502ebe-f68f-4fa1-b21a-cc4331fb29a5",
+      "title": "FAS Humanities and Social Sciences Summer Stipend Awards",
+      "country": "USA",
+      "url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students/fas-humanities-and-social-1",
+      "page_readable": true,
+      "page_chars": 3485,
+      "last_extraction": {
+        "fetched_at": "2026-08-29T10:48:32.797+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": null,
+        "opens_date": null,
+        "cycle_label": null,
+        "award_duration": "two months",
+        "number_of_awards": null,
+        "degree_levels": [
+          "PhD"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {
+          "monthly_stipend": {
+            "detail": "a stipend equivalent to two months of the standard Harvard Griffin GSAS academic year stipend",
+            "covered": true
+          }
+        },
+        "restricted_to_nationalities": null,
+        "language_test_required": null,
+        "min_work_experience_years": null,
+        "max_age": null,
+        "verification_status": "ai_extracted",
+        "last_verified_at": "2026-08-29T10:48:32.797+00:00"
+      },
+      "stored_quotes": {
+        "award_duration": {
+          "quote": "The summer research award is a stipend equivalent to two months of the standard Harvard Griffin GSAS academic year stipend.",
+          "still_on_page": true
+        },
+        "coverage.monthly_stipend": {
+          "quote": "The summer research award is a stipend equivalent to two months of the standard Harvard Griffin GSAS academic year stipend.",
+          "still_on_page": true
+        },
+        "eligibility.requires_university_admission_first": {
+          "quote": "For PhD students in the humanities and social sciences programs of the Faculty of Arts and Sciences, eligibility for summer stipend awards is indicated in the Notice of Financial Support provided at the time of admission.",
+          "still_on_page": true
+        }
+      },
+      "page_says_about_eligibility": [
+        "t center student services student success admitted students incoming students housing news calendar resources eligibility for phd students in the humanities and social sciences programs of the faculty of arts and sciences, eligibility for summer stipend awards is indicated in the",
+        "gibility for phd students in the humanities and social sciences programs of the faculty of arts and sciences, eligibility for summer stipend awards is indicated in the notice of financial support provided at the time of admission. students with outside awards that provide compara",
+        "are strongly encouraged to contact their financial aid officer to determine how such actions may impact their eligibility. information about the leave of absence policy can be found in the academics and enrollment section of the handbook for students . disbursement eligible stude"
+      ]
+    },
+    {
+      "id": "22f0fd74-1828-4800-a2df-8e3fc5d62bd0",
+      "title": "Iris Burton Bulls ROTC Fellowship",
+      "country": "USA",
+      "url": "https://www.iie.org/programs/ibbfellowship/application",
+      "page_readable": true,
+      "page_chars": 1032,
+      "last_extraction": {
+        "fetched_at": "2026-08-29T11:08:41.242+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": null,
+        "opens_date": null,
+        "cycle_label": "summer 2025",
+        "award_duration": "two-day seminar",
+        "number_of_awards": null,
+        "degree_levels": [
+          "Bachelors",
+          "Masters"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {},
+        "restricted_to_nationalities": null,
+        "language_test_required": null,
+        "min_work_experience_years": null,
+        "max_age": null,
+        "verification_status": "ai_extracted",
+        "last_verified_at": "2026-08-10T11:55:24.839+00:00"
+      },
+      "stored_quotes": {
+        "cycle_label": {
+          "quote": "summer 2025",
+          "still_on_page": true
+        },
+        "timeline.capstone_admission": {
+          "quote": "admitted to Capstone before April 2025",
+          "still_on_page": false
+        },
+        "eligibility.requires_government_nomination": {
+          "quote": "The Iris Burton Bulls ROTC Fellowship Program has a nomination-based application.",
+          "still_on_page": true
+        }
+      },
+      "page_says_about_eligibility": [
+        "application the iris burton bulls rotc fellowship program has a nomination-based application. please see the eligibility , nomination , and selection criteria sections for additional details. nominations for summer 2025 fellows are closed. published page data name: application |",
+        "description: the iris burton bulls rotc fellowship program has a nomination-based application. please see the eligibility, nomination, and selection criteria sections url: https://www.iie.org/programs/ibbfellowship/application/ url: https://www.iie.org/wp-content/uploads/2024/08/"
+      ]
+    },
+    {
+      "id": "8ac4786f-da77-4b69-bc8d-16827ae15012",
+      "title": "ASEAN Undergraduate Scholarship (NUS)",
+      "country": "Singapore",
+      "url": "https://www.nus.edu.sg/oam/scholarships/freshmen-international-students",
+      "page_readable": false,
+      "page_error": "https://www.nus.edu.sg/oam/scholarships/freshmen-international-students produced only 83 characters of text — likely JavaScript-rendered, so it needs manual verification.",
+      "page_chars": 0,
+      "last_extraction": null,
+      "claims": {
+        "deadline_date": null,
+        "opens_date": null,
+        "cycle_label": null,
+        "award_duration": null,
+        "number_of_awards": null,
+        "degree_levels": [
+          "Bachelors"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {
+          "airfare": {
+            "covered": false
+          },
+          "tuition": {
+            "detail": "Tuition fees after the MOE Tuition Grant subsidy",
+            "covered": true
+          },
+          "visa_fees": {
+            "covered": false
+          },
+          "accommodation": {
+            "detail": "SGD 3,000 annual accommodation allowance",
+            "covered": true
+          },
+          "research_grant": {
+            "covered": false
+          },
+          "monthly_stipend": {
+            "detail": "SGD 5,800 annual living allowance",
+            "covered": true
+          },
+          "health_insurance": {
+            "covered": false
+          },
+          "settling_in_allowance": {
+            "covered": false
+          }
+        },
+        "restricted_to_nationalities": [
+          "Brunei",
+          "Cambodia",
+          "Indonesia",
+          "Laos",
+          "Malaysia",
+          "Myanmar",
+          "Philippines",
+          "Thailand",
+          "Vietnam"
+        ],
+        "language_test_required": true,
+        "min_work_experience_years": null,
+        "max_age": null,
+        "verification_status": "unverified",
+        "last_verified_at": null
+      },
+      "stored_quotes": {},
+      "page_says_about_eligibility": []
+    },
+    {
+      "id": "797b4949-caa1-43e6-9567-68bd2f89fa71",
+      "title": "Richard Rockefeller Fellowship",
+      "country": "USA",
+      "url": "https://www.iie.org/about/offices/east-asia-and-the-pacific/beijing/programs/2020-richard-rockefeller-fellowship",
+      "page_readable": true,
+      "page_chars": 2378,
+      "last_extraction": {
+        "fetched_at": "2026-08-29T11:08:22.735+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": null,
+        "opens_date": null,
+        "cycle_label": "2020",
+        "award_duration": "up to four months",
+        "number_of_awards": "two",
+        "degree_levels": [
+          "Masters"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {},
+        "restricted_to_nationalities": [
+          "Chinese"
+        ],
+        "language_test_required": null,
+        "min_work_experience_years": null,
+        "max_age": 35,
+        "verification_status": "ai_extracted",
+        "last_verified_at": "2026-08-10T11:55:20.896+00:00"
+      },
+      "stored_quotes": {
+        "cycle_label": {
+          "quote": "2020 Richard Rockefeller Fellowship",
+          "still_on_page": true
+        },
+        "deadline_date": {
+          "quote": "Application Deadline: December 9, 2019",
+          "still_on_page": true
+        },
+        "award_duration": {
+          "quote": "This fellowship supports two Chinese citizens between the ages of 25 and 35 to work and conduct research at the Rockefeller Brother’s Fund’s (RBF) office in New York for up to four months.",
+          "still_on_page": true
+        },
+        "timeline.closes": {
+          "quote": "Application Deadline: December 9, 2019",
+          "still_on_page": true
+        },
+        "number_of_awards": {
+          "quote": "This fellowship supports two Chinese citizens between the ages of 25 and 35 to work and conduct research at the Rockefeller Brother’s Fund’s (RBF) office in New York for up to four months.",
+          "still_on_page": true
+        },
+        "eligibility.max_age": {
+          "quote": "This fellowship supports two Chinese citizens between the ages of 25 and 35 to work and conduct research at the Rockefeller Brother’s Fund’s (RBF) office in New York for up to four months.",
+          "still_on_page": true
+        },
+        "documents[2].a_one_to_two_minute_video": {
+          "quote": "A one to two-minute video of yourself answering the following question: Your name, current work/study status. What motivates you about your current work and what would you love to spend more time doing?",
+          "still_on_page": true
+        },
+        "documents[0].completed_application_form": {
+          "quote": "Completed Application Form",
+          "still_on_page": true
+        },
+        "eligibility.restricted_to_nationalities": {
+          "quote": "This fellowship supports two Chinese citizens between the ages of 25 and 35 to work and conduct research at the Rockefeller Brother’s Fund’s (RBF) office in New York for up to four months.",
+          "still_on_page": true
+        },
+        "documents[1].completed_personal_statement": {
+          "quote": "Completed Personal Statement (see Application Form)",
+          "still_on_page": true
+        },
+        "documents[2].a_one_to_two_minute_video_of_yourself_answering_": {
+          "quote": "A one to two-minute video of yourself answering the following question: Your name, current work/study status. What motivates you about your current work and what would you love to spend more time doing?",
+          "still_on_page": true
+        }
+      },
+      "page_says_about_eligibility": []
+    },
+    {
+      "id": "0ca8af45-4eb6-445b-abef-de35fbfc477c",
+      "title": "Professional Development Fund",
+      "country": "USA",
+      "url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students/professional-development-fund",
+      "page_readable": false,
+      "page_error": "HTTP 404 fetching https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students/professional-development-fund",
+      "page_chars": 0,
+      "last_extraction": {
+        "fetched_at": "2026-08-29T10:48:09.913+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": "2026-10-11",
+        "opens_date": "2026-09-14",
+        "cycle_label": "2026/2027 academic year",
+        "award_duration": null,
+        "number_of_awards": null,
+        "degree_levels": [
+          "PhD"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {
+          "tuition": {
+            "detail": null,
+            "covered": true
+          },
+          "monthly_stipend": {
+            "detail": "up to $2,500",
+            "covered": true
+          },
+          "health_insurance": {
+            "detail": null,
+            "covered": true
+          }
+        },
+        "restricted_to_nationalities": null,
+        "language_test_required": null,
+        "min_work_experience_years": null,
+        "max_age": null,
+        "verification_status": "ai_extracted",
+        "last_verified_at": "2026-08-20T11:52:52.604+00:00"
+      },
+      "stored_quotes": {
+        "opens_date": {
+          "quote": "September 14, 2026 – Application opens.",
+          "still_on_page": null
+        },
+        "cycle_label": {
+          "quote": "Application Timeline for 2026-2027 Fall Term",
+          "still_on_page": null
+        },
+        "deadline_date": {
+          "quote": "October 11, 2026, at 11:59 p.m. – Application deadline.",
+          "still_on_page": null
+        },
+        "timeline.opens": {
+          "quote": "September 14, 2026 – Application opens.",
+          "still_on_page": null
+        },
+        "timeline.closes": {
+          "quote": "October 11, 2026, at 11:59 p.m. – Application deadline.",
+          "still_on_page": null
+        },
+        "coverage.tuition": {
+          "quote": "The Harvard Kenneth C. Griffin Graduate School of Arts and Sciences (Harvard Griffin GSAS) offers incoming PhD students a comprehensive package of financial support including tuition, health insurance fees, and basic living expenses.",
+          "still_on_page": null
+        },
+        "documents[6].gre": {
+          "quote": "GRE, for select programs",
+          "still_on_page": null
+        },
+        "timeline.results": {
+          "quote": "Week of October 19 – Students will receive notification of the awards.",
+          "still_on_page": null
+        },
+        "timeline.disbursement": {
+          "quote": "November 1 – Students receive stipend payment for the fall term.",
+          "still_on_page": null
+        },
+        "coverage.monthly_stipend": {
+          "quote": "PhD student funding packages may include stipends for living expenses, as outlined in the student's Notice of Financial Support.",
+          "still_on_page": null
+        },
+        "documents[0].transcripts": {
+          "quote": "Transcripts",
+          "still_on_page": null
+        },
+        "coverage.health_insurance": {
+          "quote": "The Harvard Kenneth C. Griffin Graduate School of Arts and Sciences (Harvard Griffin GSAS) offers incoming PhD students a comprehensive package of financial support including tuition, health insurance fees, and basic living expenses.",
+          "still_on_page": null
+        },
+        "documents[5].writing_samples": {
+          "quote": "Writing samples, for select programs",
+          "still_on_page": null
+        },
+        "documents[3].personal_statement": {
+          "quote": "Personal statement, for select programs",
+          "still_on_page": null
+        },
+        "documents[2].statement_of_purpose": {
+          "quote": "Statement of purpose",
+          "still_on_page": null
+        },
+        "eligibility.accepted_language_tests": {
+          "quote": "Applicants who are non-native English speakers may be required to demonstrate English proficiency by submitting scores from an English Language test (TOEFL or IELTS).",
+          "still_on_page": null
+        },
+        "documents[1].three_letters_of_recommendation": {
+          "quote": "Three letters of recommendation",
+          "still_on_page": null
+        },
+        "eligibility.requires_university_admission_first": {
+          "quote": "Consideration for financial aid, if available, is part of the application for admission.",
+          "still_on_page": null
+        },
+        "documents[4].demonstration_of_english_proficiency": {
+          "quote": "Demonstration of English proficiency",
+          "still_on_page": null
+        }
+      },
+      "page_says_about_eligibility": []
+    },
+    {
+      "id": "2eb651a3-5181-47be-a78c-879e701ad097",
+      "title": "Language Study Fellowships",
+      "country": "USA",
+      "url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/language-study-fellowships",
+      "page_readable": true,
+      "page_chars": 5230,
+      "last_extraction": {
+        "fetched_at": "2026-08-10T11:57:50.323+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": "2026-03-05",
+        "opens_date": null,
+        "cycle_label": "2026",
+        "award_duration": "summer",
+        "number_of_awards": null,
+        "degree_levels": [
+          "PhD"
+        ],
+        "fields_of_study": [
+          "humanities",
+          "social sciences"
+        ],
+        "coverage_matrix": {
+          "tuition": {
+            "detail": "a single tuition waiver for one language course at the Harvard Summer School",
+            "covered": true
+          }
+        },
+        "restricted_to_nationalities": null,
+        "language_test_required": null,
+        "min_work_experience_years": null,
+        "max_age": null,
+        "verification_status": "ai_extracted",
+        "last_verified_at": "2026-08-10T11:57:50.323+00:00"
+      },
+      "stored_quotes": {
+        "cycle_label": {
+          "quote": "March 5, 2026",
+          "still_on_page": false
+        },
+        "deadline_date": {
+          "quote": "March 5, 2026, at noon",
+          "still_on_page": false
+        },
+        "award_duration": {
+          "quote": "This opportunity is for use in the summer following the G1, G2, or G3 year, but under special circumstances, students in later years may apply.",
+          "still_on_page": true
+        },
+        "fields_of_study": {
+          "quote": "The Summer School Tuition Fellowships enable students in the humanities or social sciences to engage in language study at the Harvard Summer School in Cambridge",
+          "still_on_page": true
+        },
+        "coverage.tuition": {
+          "quote": "Winners of the Summer School Tuition Fellowships will receive a single tuition waiver for one language course at the Harvard Summer School.",
+          "still_on_page": true
+        },
+        "timeline.deadline": {
+          "quote": "March 5, 2026, at noon",
+          "still_on_page": false
+        },
+        "language_training_included": {
+          "quote": "The Summer School Tuition Fellowships enable students in the humanities or social sciences to engage in language study at the Harvard Summer School in Cambridge, either to prepare for their department foreign language exam or to get ready for language needs related to the dissertation.",
+          "still_on_page": true
+        },
+        "documents[1].a_one_page_proposal": {
+          "quote": "a one-page proposal, double-spaced, describing the need for the language study",
+          "still_on_page": true
+        },
+        "documents[0].the_application_form": {
+          "quote": "the application form (automatically generated by CARAT )",
+          "still_on_page": true
+        },
+        "documents[2].a_current_transcript_from_harvard": {
+          "quote": "a current transcript from Harvard (when applying for internal Harvard fellowships, students do not need to submit an official transcript from the Registrar’s Office; they may submit a copy of their grade report available online from my.harvard ).",
+          "still_on_page": true
+        }
+      },
+      "page_says_about_eligibility": [
+        "ge exam or to get ready for language needs related to the dissertation. summer school tuition fellowships are open to all harvard griffin gsas students; however, priority will be given to phd students who require summer language study for their dissertation research. this opportu",
+        "dent services student success admitted students incoming students housing news calendar resources purpose and eligibility the summer school tuition fellowships enable students in the humanities or social sciences to engage in language study at the harvard summer school in cambrid",
+        "harvard griffin gsas financial aid provision of a harvard griffin gsas summer research award does not affect eligibility for the tuition waiver. application instructions for the student submit the following materials in carat by the deadline: march 4, 2027, at noon: the applicat"
+      ]
+    },
+    {
+      "id": "d20f03f1-0ec9-40e6-92ca-b266b9cd90de",
+      "title": "Distinguished Humphrey Fellowship Program",
+      "country": "USA",
+      "url": "https://www.humphreyfellowship.org/our-network/other-partners/distinguished-humphrey-fellowship-program",
+      "page_readable": true,
+      "page_chars": 3463,
+      "last_extraction": {
+        "fetched_at": "2026-08-29T11:06:29.473+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": null,
+        "opens_date": null,
+        "cycle_label": null,
+        "award_duration": "ten-month",
+        "number_of_awards": null,
+        "degree_levels": [
+          "Masters"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {
+          "airfare": {
+            "detail": null,
+            "covered": true
+          },
+          "tuition": {
+            "detail": null,
+            "covered": true
+          },
+          "monthly_stipend": {
+            "detail": null,
+            "covered": true
+          },
+          "health_insurance": {
+            "detail": null,
+            "covered": true
+          },
+          "settling_in_allowance": {
+            "detail": null,
+            "covered": true
+          }
+        },
+        "restricted_to_nationalities": null,
+        "language_test_required": null,
+        "min_work_experience_years": 5,
+        "max_age": null,
+        "verification_status": "ai_extracted",
+        "last_verified_at": "2026-08-10T11:46:34.533+00:00"
+      },
+      "stored_quotes": {
+        "award_duration": {
+          "quote": "This ten-month Fellowship program is offered to mid-career professionals with a proven track record of leadership...",
+          "still_on_page": false
+        },
+        "coverage.airfare": {
+          "quote": "Air travel (international travel to and from the U.S. for the Program and domestic travel to required program events)",
+          "still_on_page": false
+        },
+        "coverage.tuition": {
+          "quote": "Payment of tuition and fees at the assigned host university",
+          "still_on_page": false
+        },
+        "timeline.program_start": {
+          "quote": "Humphrey Fellows start their program in the U.S. between August and September of the same year.",
+          "still_on_page": false
+        },
+        "coverage.monthly_stipend": {
+          "quote": "A maintenance (living) allowance, including a one-time settling-in allowance",
+          "still_on_page": false
+        },
+        "coverage.health_insurance": {
+          "quote": "Accident and sickness coverage",
+          "still_on_page": false
+        },
+        "language_training_included": {
+          "quote": "The presentations are the culmination of the eight-week program of intensive English language and professional training that prepares fellows for their year-long Humphrey Fellowship.",
+          "still_on_page": false
+        },
+        "coverage.settling_in_allowance": {
+          "quote": "A maintenance (living) allowance, including a one-time settling-in allowance",
+          "still_on_page": false
+        },
+        "timeline.nominations_submission": {
+          "quote": "U.S. Embassies and Commissions must submit their nominations to the Institute of International Education in Washington D.C. mid-September.",
+          "still_on_page": false
+        },
+        "timeline.selection_announcement": {
+          "quote": "Selection of Fellows are announced in March the following year",
+          "still_on_page": false
+        },
+        "documents[2].official_transcripts": {
+          "quote": "Official transcripts in English: Ensure all transcripts uploaded by the applicant are official, valid documents. Transcripts must list courses taken and grades received. Diplomas need only be uploaded if the transcript does not show proof that the degree was obtained.",
+          "still_on_page": false
+        },
+        "eligibility.accepted_language_tests": {
+          "quote": "I am not proficient in English as measured by the Test of English as a Foreign Language (TOEFL). Am I eligible to apply? Please contact the U.S. Embassy (Public Affairs Section) or Binational Fulbright Commission in your country regarding eligibility. Testing alternatives such as International English Language Testing System (IELTS) or Duolingo English Test can be utilized for all candidates.",
+          "still_on_page": false
+        },
+        "eligibility.min_work_experience_years": {
+          "quote": "Have a minimum of five years of full-time professional experience",
+          "still_on_page": false
+        },
+        "documents[1].two_letters_of_recommendation": {
+          "quote": "Two letters of recommendation in English; one must be from the applicant’s current employer.",
+          "still_on_page": false
+        },
+        "eligibility.requires_government_nomination": {
+          "quote": "Humphrey Fellows who meet the eligibility requirements apply for the program through their Binational Fulbright Commissions or Public Affairs Section of the U.S. Embassy in their home countries.",
+          "still_on_page": false
+        },
+        "documents[0].complete_answers_to_all_questions": {
+          "quote": "Complete answers to all questions; essay responses in English must thoroughly address the prompt.",
+          "still_on_page": false
+        }
+      },
+      "page_says_about_eligibility": [
+        "stinguished humphrey fellowship program associate campus partners professional affiliation hosts how to apply eligibility fellowship components u.s. embassies & commissions frequently asked questions humphrey fellows on-program guide dhfp fellow resources humphrey alumni east asi"
+      ]
+    },
+    {
+      "id": "e257aea2-545a-47d1-9eb7-e742c9bf72b6",
+      "title": "Fulbright Foreign Language Teaching Assistant Program",
+      "country": "USA",
+      "url": "https://foreign.fulbrightonline.org/host-institutions/flta-program/flta-thinking-of-applying",
+      "page_readable": true,
+      "page_chars": 9777,
+      "last_extraction": {
+        "fetched_at": "2026-08-29T10:57:27.729+00:00",
+        "model": "gemini/gemini-flash-lite-latest"
+      },
+      "claims": {
+        "deadline_date": null,
+        "opens_date": null,
+        "cycle_label": "2027-28 academic year",
+        "award_duration": "one academic year",
+        "number_of_awards": "approximately 300 FLTAs",
+        "degree_levels": [
+          "Masters"
+        ],
+        "fields_of_study": [],
+        "coverage_matrix": {
+          "tuition": {
+            "detail": "tuition and fee waivers covering all costs related to the two courses per semester that FLTAs must take",
+            "covered": true
+          },
+          "visa_fees": {
+            "detail": "J-1 visa sponsorship",
+            "covered": true
+          },
+          "accommodation": {
+            "detail": "An in-kind contribution of free housing or meal plan, AND/OR $800 - $1,000 per month to be used towards housing, food, and other costs",
+            "covered": true
+          },
+          "monthly_stipend": {
+            "detail": "$800 - $1,000 per month to be used towards housing, food, and other costs",
+            "covered": true
+          },
+          "health_insurance": {
+            "detail": null,
+            "covered": true
+          }
+        },
+        "restricted_to_nationalities": null,
+        "language_test_required": true,
+        "min_work_experience_years": null,
+        "max_age": null,
+        "verification_status": "ai_extracted",
+        "last_verified_at": "2026-08-29T10:57:27.729+00:00"
+      },
+      "stored_quotes": {
+        "cycle_label": {
+          "quote": "The institutional application for academic year 2027-28 is expected to launch in fall 2026.",
+          "still_on_page": true
+        },
+        "award_duration": {
+          "quote": "Fulbright FLTAs are funded for one academic year.",
+          "still_on_page": true
+        },
+        "coverage.tuition": {
+          "quote": "In order to host a Fulbright FLTA, institutions must provide tuition and fee waivers covering all costs related to the two courses per semester that FLTAs must take.",
+          "still_on_page": true
+        },
+        "number_of_awards": {
+          "quote": "In the upcoming academic year, approximately 300 FLTAs will live, study and teach at American colleges and universities across the United States.",
+          "still_on_page": true
+        },
+        "coverage.visa_fees": {
+          "quote": "Through the Fulbright grant the visiting student researcher will receive ASPE health benefit coverage and J-1 visa sponsorship.",
+          "still_on_page": false
+        },
+        "eligibility.min_ielts": {
+          "quote": "Are fluent in English, as demonstrated by a recent score of no less than 550 (Paper Based TOEFL), 79-80 (Internet Based TOEFL - IBT), or 6.0 (Overall Score International English Language Testing System - IELTS); test scores can be submitted to IIE by indicating the institutional code 2326 on the day of the test .",
+          "still_on_page": false
+        },
+        "coverage.accommodation": {
+          "quote": "An in-kind contribution of free housing or meal plan, AND/OR $800 - $1,000 per month to be used towards housing, food, and other costs",
+          "still_on_page": true
+        },
+        "coverage.monthly_stipend": {
+          "quote": "$800 - $1,000 per month to be used towards housing, food, and other costs",
+          "still_on_page": true
+        },
+        "coverage.health_insurance": {
+          "quote": "The U.S. Department of State's Bureau of Educational and Cultural Affairs (ECA) provides all Fulbright FLTA grant recipients with Fulbright enrichment activities and a health benefit plan .",
+          "still_on_page": true
+        },
+        "eligibility.min_toefl_ibt": {
+          "quote": "Are fluent in English, as demonstrated by a recent score of no less than 550 (Paper Based TOEFL), 79-80 (Internet Based TOEFL - IBT), or 6.0 (Overall Score International English Language Testing System - IELTS); test scores can be submitted to IIE by indicating the institutional code 2326 on the day of the test .",
+          "still_on_page": false
+        },
+        "timeline.announces_decisions": {
+          "quote": "From February through April, the team announces incoming admissions decisions as they are received and begins to finalize placements.",
+          "still_on_page": false
+        },
+        "timeline.finalize_placements": {
+          "quote": "From April through June the team finalizes placements on behalf of candidates.",
+          "still_on_page": false
+        },
+        "timeline.grant_documentation": {
+          "quote": "Between the months of May and June is when candidates' grant documentation (AKA \"Fulbright Terms of Appointment\") is being prepared.",
+          "still_on_page": false
+        },
+        "timeline.review_applications": {
+          "quote": "From September through October, IIE's Academic Placement team receives and reviews applications for selected candidates.",
+          "still_on_page": false
+        },
+        "timeline.prepare_submission_plans": {
+          "quote": "From October through December, the team prepares and finalizes submission plans, recommends any additional testing, and applies to programs on candidates' behalf.",
+          "still_on_page": false
+        },
+        "eligibility.language_test_required": {
+          "quote": "Are fluent in English, as demonstrated by a recent score of no less than 550 (Paper Based TOEFL), 79-80 (Internet Based TOEFL - IBT), or 6.0 (Overall Score International English Language Testing System - IELTS); test scores can be submitted to IIE by indicating the institutional code 2326 on the day of the test .",
+          "still_on_page": false
+        },
+        "eligibility.accepted_language_tests": {
+          "quote": "Are fluent in English, as demonstrated by a recent score of no less than 550 (Paper Based TOEFL), 79-80 (Internet Based TOEFL - IBT), or 6.0 (Overall Score International English Language Testing System - IELTS); test scores can be submitted to IIE by indicating the institutional code 2326 on the day of the test .",
+          "still_on_page": false
+        },
+        "timeline.update_figures_and_webinars": {
+          "quote": "Between July and August, the team updates final tuition and university financial support figures and begins to conduct webinar/video sessions with panelists for the upcoming placement cycle.",
+          "still_on_page": false
+        },
+        "timeline.negotiate_support_and_interviews": {
+          "quote": "From January through March, the team negotiates university financial support on behalf of candidates, provides additional documents that were missing from their original application, and coordinates any interviews requested by the institution.",
+          "still_on_page": false
+        },
+        "eligibility.requires_government_nomination": {
+          "quote": "All Fulbright Foreign Language Teaching Assistant (FLTA) program applicants must be nominated by a U.S. Embassy or a Fulbright Commission; independent applicants do not qualify.",
+          "still_on_page": false
+        }
+      },
+      "page_says_about_eligibility": [
+        "i am: choose... non-u.s. student current u.s. student u.s. citizen but not a student u.s. professor non-u.s. professor non-u.s. student if you are a non-u.s. citizen looking to applying for a fulbright grant to study in the",
+        "s. student u.s. citizen but not a student u.s. professor non-u.s. professor non-u.s. student if you are a non-u.s. citizen looking to applying for a fulbright grant to study in the united states you will apply to the fulbright commissions/foundations or u.s. embassy in your home",
+        "the fulbright commissions/foundations or u.s. embassy in your home country. current u.s. student if you are a u.s. citizen currently enrolled in an undergraduate or graduate degree program, please visit our fulbright u.s. student program site. u.s. citizen but not a student if yo",
+        "nrolled in an undergraduate or graduate degree program, please visit our fulbright u.s. student program site. u.s. citizen but not a student if you are a u.s. citizen, hold a bachelor's degree, and do not have a phd degree then you could be eligible for certain awards within the",
+        "ee program, please visit our fulbright u.s. student program site. u.s. citizen but not a student if you are a u.s. citizen, hold a bachelor's degree, and do not have a phd degree then you could be eligible for certain awards within the fulbright u.s. student program. please revie",
+        "please review the program summary for the country where you would like to apply. u.s. professor if you are a u.s. citizen and a professor at a u.s. institution and are interested in applying for a fulbright scholar award you will need to apply through fulbrightscholars.org . non"
+      ]
+    }
+  ]
+}

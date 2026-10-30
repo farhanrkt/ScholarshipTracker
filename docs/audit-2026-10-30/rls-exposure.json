@@ -1,0 +1,77 @@
+{
+  "as_of": "2026-10-30",
+  "method": "GET only, with the published anon key and no session. Write paths were read from supabase/migrations rather than probed, so nothing here touched production data.",
+  "relations": {
+    "admins": {
+      "status": 200,
+      "rows_visible": 0,
+      "total": 1
+    },
+    "extraction_review": {
+      "status": 206,
+      "rows_visible": 5,
+      "total": 5
+    },
+    "pipeline_job_lines": {
+      "status": 200,
+      "rows_visible": 0,
+      "total": 1431
+    },
+    "pipeline_jobs": {
+      "status": 200,
+      "rows_visible": 0,
+      "total": 23
+    },
+    "possible_duplicate_scholarships": {
+      "status": 200,
+      "rows_visible": 0,
+      "total": 0
+    },
+    "scholarship_candidates": {
+      "status": 200,
+      "rows_visible": 0,
+      "total": 44
+    },
+    "scholarship_completeness": {
+      "status": 206,
+      "rows_visible": 43,
+      "total": 43
+    },
+    "scholarship_extractions": {
+      "status": 200,
+      "rows_visible": 0,
+      "total": 141
+    },
+    "scholarship_provenance": {
+      "status": 200,
+      "rows_visible": 0,
+      "total": 0
+    },
+    "scholarship_sources": {
+      "status": 200,
+      "rows_visible": 0,
+      "total": 0
+    },
+    "scholarships": {
+      "status": 206,
+      "rows_visible": 43,
+      "total": 43
+    },
+    "scholarships_needing_review": {
+      "status": 206,
+      "rows_visible": 18,
+      "total": 18
+    },
+    "user_targets": {
+      "status": 200,
+      "rows_visible": 0,
+      "total": 2
+    }
+  },
+  "readable_anonymously": [
+    "extraction_review",
+    "scholarship_completeness",
+    "scholarships",
+    "scholarships_needing_review"
+  ]
+}

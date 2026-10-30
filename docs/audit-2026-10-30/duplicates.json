@@ -1,0 +1,213 @@
+{
+  "as_of": "2026-10-30",
+  "programmes": 43,
+  "clusters": 5,
+  "rows_in_clusters": 14,
+  "rows_removable_if_merged": 9,
+  "detail": [
+    {
+      "confidence": "certain",
+      "suggested_keep": "Chevening Scholarship",
+      "rows": [
+        {
+          "id": "5a1bb284-e148-4bef-bb0c-0084b5fbd5c4",
+          "title": "Chevening Scholarship",
+          "verification_status": "verified",
+          "deadline_date": "2026-10-06",
+          "official_portal_url": "https://www.chevening.org/scholarships/"
+        },
+        {
+          "id": "e7bec666-4fab-4a1a-a3e0-1672c42bfb1b",
+          "title": "Chevening Scholarships",
+          "verification_status": "verified",
+          "deadline_date": "2026-10-06",
+          "official_portal_url": "https://www.chevening.org/scholarships/who-can-apply/"
+        },
+        {
+          "id": "ea092815-f1c8-428a-bca4-ec11afbe4848",
+          "title": "Chevening Scholarships in Australia",
+          "verification_status": "verified",
+          "deadline_date": "2026-10-06",
+          "official_portal_url": "https://www.chevening.org/scholarship/australia"
+        },
+        {
+          "id": "1db2726e-a8f8-4db4-beeb-eb5938ad325f",
+          "title": "Chevening SIDS Scholarship",
+          "verification_status": "verified",
+          "deadline_date": "2026-10-06",
+          "official_portal_url": "https://www.chevening.org/sids-chevening-scholarship/"
+        }
+      ],
+      "pairs": [
+        {
+          "a": "Chevening Scholarship",
+          "b": "Chevening SIDS Scholarship",
+          "confidence": "likely",
+          "reason": "same site, and one title is the other plus a qualifier"
+        },
+        {
+          "a": "Chevening Scholarship",
+          "b": "Chevening Scholarships",
+          "confidence": "certain",
+          "reason": "identical titles once case and plurals are ignored"
+        },
+        {
+          "a": "Chevening Scholarship",
+          "b": "Chevening Scholarships in Australia",
+          "confidence": "likely",
+          "reason": "same site, and one title is the other plus a qualifier"
+        },
+        {
+          "a": "Chevening SIDS Scholarship",
+          "b": "Chevening Scholarships",
+          "confidence": "likely",
+          "reason": "same site, and one title is the other plus a qualifier"
+        },
+        {
+          "a": "Chevening Scholarships",
+          "b": "Chevening Scholarships in Australia",
+          "confidence": "likely",
+          "reason": "same site, and one title is the other plus a qualifier"
+        }
+      ]
+    },
+    {
+      "confidence": "likely",
+      "suggested_keep": "Chevening Fellowships",
+      "rows": [
+        {
+          "id": "758299b7-0678-4e85-81af-46d568974cd9",
+          "title": "Chevening Fellowships",
+          "verification_status": "verified",
+          "deadline_date": "2026-10-06",
+          "official_portal_url": "https://www.chevening.org/fellowships/"
+        },
+        {
+          "id": "f9a330d9-3f22-4364-8b2a-de8b41735b14",
+          "title": "Chevening LSE Fellowship",
+          "verification_status": "verified",
+          "deadline_date": "2026-10-06",
+          "official_portal_url": "https://www.chevening.org/fellowship/lse"
+        },
+        {
+          "id": "cbc13aa5-62c5-4190-92f7-695c03e236f8",
+          "title": "Chevening Oxford Centre for Islamic Studies Fellowship",
+          "verification_status": "verified",
+          "deadline_date": "2026-10-06",
+          "official_portal_url": "https://www.chevening.org/fellowship/ocis"
+        }
+      ],
+      "pairs": [
+        {
+          "a": "Chevening Fellowships",
+          "b": "Chevening Oxford Centre for Islamic Studies Fellowship",
+          "confidence": "likely",
+          "reason": "same site, and one title is the other plus a qualifier"
+        },
+        {
+          "a": "Chevening Fellowships",
+          "b": "Chevening LSE Fellowship",
+          "confidence": "likely",
+          "reason": "same site, and one title is the other plus a qualifier"
+        }
+      ]
+    },
+    {
+      "confidence": "likely",
+      "suggested_keep": "Hubert H. Humphrey Fellowship Program",
+      "rows": [
+        {
+          "id": "d20f03f1-0ec9-40e6-92ca-b266b9cd90de",
+          "title": "Distinguished Humphrey Fellowship Program",
+          "verification_status": "ai_extracted",
+          "deadline_date": null,
+          "official_portal_url": "https://www.humphreyfellowship.org/our-network/other-partners/distinguished-humphrey-fellowship-program"
+        },
+        {
+          "id": "722dc3cc-59a8-4ea4-a7f6-b9fbeb221339",
+          "title": "Hubert H. Humphrey Fellowship Program",
+          "verification_status": "ai_extracted",
+          "deadline_date": null,
+          "official_portal_url": "https://www.humphreyfellowship.org/how-to-apply/eligibility/"
+        },
+        {
+          "id": "bcd12663-b118-48ea-9e91-bfa5f3676f56",
+          "title": "Humphrey Fellowship Program",
+          "verification_status": "ai_extracted",
+          "deadline_date": null,
+          "official_portal_url": "https://www.humphreyfellowship.org/program-overview"
+        }
+      ],
+      "pairs": [
+        {
+          "a": "Humphrey Fellowship Program",
+          "b": "Hubert H. Humphrey Fellowship Program",
+          "confidence": "likely",
+          "reason": "same site, and one title is the other plus a qualifier"
+        },
+        {
+          "a": "Humphrey Fellowship Program",
+          "b": "Distinguished Humphrey Fellowship Program",
+          "confidence": "likely",
+          "reason": "same site, and one title is the other plus a qualifier"
+        }
+      ]
+    },
+    {
+      "confidence": "likely",
+      "suggested_keep": "Language Study Fellowships",
+      "rows": [
+        {
+          "id": "cd19bc17-786a-4de6-81ed-fb5c32ac1a60",
+          "title": "Foreign Language and Area Studies Fellowships",
+          "verification_status": "ai_extracted",
+          "deadline_date": null,
+          "official_portal_url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/foreign-language-area-studies-grants"
+        },
+        {
+          "id": "2eb651a3-5181-47be-a78c-879e701ad097",
+          "title": "Language Study Fellowships",
+          "verification_status": "ai_extracted",
+          "deadline_date": "2026-03-05",
+          "official_portal_url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/language-study-fellowships"
+        }
+      ],
+      "pairs": [
+        {
+          "a": "Foreign Language and Area Studies Fellowships",
+          "b": "Language Study Fellowships",
+          "confidence": "likely",
+          "reason": "same site, and one title is the other plus a qualifier"
+        }
+      ]
+    },
+    {
+      "confidence": "likely",
+      "suggested_keep": "Fulbright Foreign Student Program",
+      "rows": [
+        {
+          "id": "e257aea2-545a-47d1-9eb7-e742c9bf72b6",
+          "title": "Fulbright Foreign Language Teaching Assistant Program",
+          "verification_status": "ai_extracted",
+          "deadline_date": null,
+          "official_portal_url": "https://foreign.fulbrightonline.org/host-institutions/flta-program/flta-thinking-of-applying"
+        },
+        {
+          "id": "65f6616a-ebfa-495d-85ed-70c62fb91e3d",
+          "title": "Fulbright Foreign Student Program",
+          "verification_status": "ai_extracted",
+          "deadline_date": null,
+          "official_portal_url": "https://foreign.fulbrightonline.org/"
+        }
+      ],
+      "pairs": [
+        {
+          "a": "Fulbright Foreign Language Teaching Assistant Program",
+          "b": "Fulbright Foreign Student Program",
+          "confidence": "likely",
+          "reason": "same site, and one title is the other plus a qualifier"
+        }
+      ]
+    }
+  ]
+}

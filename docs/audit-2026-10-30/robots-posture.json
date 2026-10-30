@@ -1,0 +1,142 @@
+{
+  "as_of": "2026-10-30",
+  "our_user_agent": "ScholarTrackBot/1.0 (scholarship deadline verification; +https://github.com/)",
+  "our_floor_delay_ms": 800,
+  "hosts": [
+    {
+      "host": "foreign.fulbrightonline.org",
+      "sample_url": "https://foreign.fulbrightonline.org/host-institutions/flta-program/flta-thinking-of-applying",
+      "programmes": 2,
+      "allowed_for_our_token": true,
+      "declared_crawl_delay_ms": null,
+      "our_effective_delay_ms": 800,
+      "honoured": "n/a"
+    },
+    {
+      "host": "gsas.harvard.edu",
+      "sample_url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/foreign-language-area-studies-grants",
+      "programmes": 6,
+      "allowed_for_our_token": true,
+      "declared_crawl_delay_ms": null,
+      "our_effective_delay_ms": 800,
+      "honoured": "n/a"
+    },
+    {
+      "host": "knight-hennessy.stanford.edu",
+      "sample_url": "https://knight-hennessy.stanford.edu/admission/preparing-your-applications/your-applications",
+      "programmes": 1,
+      "allowed_for_our_token": true,
+      "declared_crawl_delay_ms": 30000,
+      "our_effective_delay_ms": 30000,
+      "honoured": "yes"
+    },
+    {
+      "host": "pdsoros.org",
+      "sample_url": "https://pdsoros.org/eligibility/",
+      "programmes": 1,
+      "allowed_for_our_token": true,
+      "declared_crawl_delay_ms": 10000,
+      "our_effective_delay_ms": 10000,
+      "honoured": "yes"
+    },
+    {
+      "host": "www.a-star.edu.sg",
+      "sample_url": "https://www.a-star.edu.sg/scholarships/home/scholarships/ags--scholarship",
+      "programmes": 2,
+      "allowed_for_our_token": true,
+      "declared_crawl_delay_ms": null,
+      "our_effective_delay_ms": 800,
+      "honoured": "n/a"
+    },
+    {
+      "host": "www.adb.org",
+      "sample_url": "https://www.adb.org/work-with-us/careers/japan-scholarship-program",
+      "programmes": 1,
+      "allowed_for_our_token": true,
+      "declared_crawl_delay_ms": null,
+      "our_effective_delay_ms": 800,
+      "honoured": "n/a"
+    },
+    {
+      "host": "www.campuschina.org",
+      "sample_url": "https://www.campuschina.org/",
+      "programmes": 1,
+      "allowed_for_our_token": true,
+      "declared_crawl_delay_ms": null,
+      "our_effective_delay_ms": 800,
+      "honoured": "n/a"
+    },
+    {
+      "host": "www.chevening.org",
+      "sample_url": "https://www.chevening.org/scholarships/application-timeline/",
+      "programmes": 7,
+      "allowed_for_our_token": true,
+      "declared_crawl_delay_ms": null,
+      "our_effective_delay_ms": 800,
+      "honoured": "n/a"
+    },
+    {
+      "host": "www.gatescambridge.org",
+      "sample_url": "https://www.gatescambridge.org/apply/timeline/",
+      "programmes": 1,
+      "allowed_for_our_token": true,
+      "declared_crawl_delay_ms": null,
+      "our_effective_delay_ms": 800,
+      "honoured": "n/a"
+    },
+    {
+      "host": "www.humphreyfellowship.org",
+      "sample_url": "https://www.humphreyfellowship.org/program-overview",
+      "programmes": 3,
+      "allowed_for_our_token": true,
+      "declared_crawl_delay_ms": null,
+      "our_effective_delay_ms": 800,
+      "honoured": "n/a"
+    },
+    {
+      "host": "www.iie.org",
+      "sample_url": "https://www.iie.org/programs/ibbfellowship/application",
+      "programmes": 12,
+      "allowed_for_our_token": true,
+      "declared_crawl_delay_ms": null,
+      "our_effective_delay_ms": 800,
+      "honoured": "n/a"
+    },
+    {
+      "host": "www.nus.edu.sg",
+      "sample_url": "https://www.nus.edu.sg/oam/scholarships/freshmen-international-students",
+      "programmes": 1,
+      "allowed_for_our_token": true,
+      "declared_crawl_delay_ms": null,
+      "our_effective_delay_ms": 800,
+      "honoured": "n/a"
+    },
+    {
+      "host": "www.rotary.org",
+      "sample_url": "https://www.rotary.org/en/get-involved/our-programs/peace-fellowships",
+      "programmes": 1,
+      "allowed_for_our_token": true,
+      "declared_crawl_delay_ms": 10000,
+      "our_effective_delay_ms": 10000,
+      "honoured": "yes"
+    },
+    {
+      "host": "www.studyinjapan.go.jp",
+      "sample_url": "https://www.studyinjapan.go.jp/en/planning/scholarships/jasso-scholarships/",
+      "programmes": 3,
+      "allowed_for_our_token": true,
+      "declared_crawl_delay_ms": null,
+      "our_effective_delay_ms": 800,
+      "honoured": "n/a"
+    },
+    {
+      "host": "www.studyinkorea.go.kr",
+      "sample_url": "https://www.studyinkorea.go.kr/",
+      "programmes": 1,
+      "allowed_for_our_token": true,
+      "declared_crawl_delay_ms": null,
+      "our_effective_delay_ms": 800,
+      "honoured": "n/a"
+    }
+  ]
+}
