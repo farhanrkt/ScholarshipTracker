@@ -1,0 +1,58 @@
+# The checks that were only ever run by hand.
+#
+# Vercel already builds every pull request, which is why "no CI" needed
+# qualifying: `next build` runs, and it type-checks on the way through. What has
+# never run anywhere is the lint and the 327 tests. A pull request could go
+# green on Vercel with a failing suite and nothing would say so.
+#
+# NO SECRETS, and none should ever be added. The suite was run with every
+# Supabase and model key scrubbed from the environment and all 327 still pass,
+# so this workflow has no reason to hold credentials — and a workflow that holds
+# none cannot leak any.
+
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Read-only. Nothing here writes to the repository, and a token that cannot
+# write cannot be talked into writing.
+permissions:
+  contents: read
+
+# A second push to the same branch makes the first run pointless.
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          # .nvmrc rather than a literal, so local and CI cannot drift apart.
+          # The version is not arbitrary: the tests are TypeScript handed
+          # straight to `node --test`, which needs type stripping on by default.
+          node-version-file: .nvmrc
+          cache: npm
+
+      - id: install
+        run: npm ci
+
+      # Three steps rather than one `npm run check`, which chains with && and
+      # stops at the first failure — a type error would hide both the lint and
+      # the tests. Carrying on past a failure means one push answers all three
+      # questions instead of three pushes answering one each.
+      - run: npm run typecheck
+
+      - if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run lint
+
+      - if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm test
