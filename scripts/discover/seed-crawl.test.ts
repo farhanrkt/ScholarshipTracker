@@ -58,6 +58,10 @@ describe("recognising a programme we already have", () => {
     );
 
     assert.match(match?.reason ?? "", /likely match/);
+    // Reported, but not acted on — see the `likely` describe below. This pair
+    // really is one programme; the rule that found it is wrong more often than
+    // it is right, so a person decides.
+    assert.equal(match?.confidence, "likely");
   });
 
   test("a fellowship is not the scholarship of the same name", () => {
@@ -125,4 +129,97 @@ describe("recognising a programme we already have", () => {
       null,
     );
   });
+});
+
+/**
+ * Which matches discovery acts on by itself.
+ *
+ * `certain` means the fingerprints are equal, and the caller drops the
+ * candidate. `likely` means "same site, and one title is the other plus a
+ * qualifier" — which, read against all 14 grouped rows in the live catalogue
+ * (docs/duplicate-verdicts.md), was right once in six. It is right about the
+ * two Humphrey rows and wrong about the five below, each a separate award with
+ * its own eligibility.
+ *
+ * So the caller stages a `likely` and lets /admin/duplicates ask a person. The
+ * asymmetry is the whole argument: a duplicate row is visible and one click to
+ * fix, while a dropped programme leaves no trace anywhere and is gone for good.
+ */
+describe("only an exact match is acted on", () => {
+  test("an exact title is certain", () => {
+    assert.equal(
+      matchKnownProgramme(
+        knowledgeOf(["Chevening Scholarships", CHEVENING]),
+        "Chevening Scholarships",
+        CHEVENING,
+      )?.confidence,
+      "certain",
+    );
+  });
+
+  test("a plural is certain — this is the pair that made two rows", () => {
+    assert.equal(
+      matchKnownProgramme(
+        knowledgeOf(["Chevening Scholarships", CHEVENING]),
+        "Chevening Scholarship",
+        CHEVENING,
+      )?.confidence,
+      "certain",
+    );
+  });
+
+  // One case per row the old threshold would have silently refused to stage.
+  // The funder's own words for each are quoted in docs/duplicate-verdicts.md.
+  for (const [name, known, candidate, url] of [
+    [
+      // "from a Commonwealth Small Island Developing State (SIDS)", and listed
+      // beside the standard award on chevening.org/scholarships/.
+      "Chevening SIDS",
+      ["Chevening Scholarships", CHEVENING],
+      "Chevening SIDS Scholarship",
+      "https://www.chevening.org/sids-chevening-scholarship/",
+    ],
+    [
+      // Five months at the Oxford Centre for Islamic Studies, and its
+      // eligibility list names Indonesia. The one this catalogue most needs.
+      "Chevening OCIS",
+      ["Chevening Fellowships", "https://www.chevening.org/fellowships/"],
+      "Chevening Oxford Centre for Islamic Studies Fellowship",
+      "https://www.chevening.org/fellowship/ocis/",
+    ],
+    [
+      // "Be a citizen of China, currently live in the country".
+      "Chevening LSE",
+      ["Chevening Fellowships", "https://www.chevening.org/fellowships/"],
+      "Chevening LSE Fellowship",
+      "https://www.chevening.org/fellowship/lse/",
+    ],
+    [
+      // Harvard's own navigation lists these as siblings under Summer
+      // Fellowships.
+      "Harvard's two language fellowships",
+      ["Language Study Fellowships", "https://gsas.harvard.edu/academics/fellowships/a"],
+      "Foreign Language and Area Studies Fellowships",
+      "https://gsas.harvard.edu/academics/fellowships/b",
+    ],
+    [
+      // "Learn how to apply to the Fulbright Foreign Student and FLTA
+      // programs" — Fulbright's own front page, naming two.
+      "Fulbright FLTA",
+      ["Fulbright Foreign Student Program", "https://foreign.fulbrightonline.org/"],
+      "Fulbright Foreign Language Teaching Assistant Program",
+      "https://foreign.fulbrightonline.org/host-institutions/flta-program/",
+    ],
+  ] as const) {
+    test(`${name} is reported as likely, never certain`, () => {
+      const match = matchKnownProgramme(
+        knowledgeOf(known as [string, string]),
+        candidate,
+        url,
+      );
+
+      assert.notEqual(match, null, "the reviewer should still be told");
+      assert.equal(match?.confidence, "likely");
+    });
+  }
 });
