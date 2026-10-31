@@ -20,10 +20,14 @@ import {
 import {
   PARAM,
   SORT_OPTIONS,
+  TOGGLE_DEFAULTS,
   TOGGLE_DEFINITIONS,
   TOGGLE_KEYS,
+  readToggle,
+  writeToggle,
   type SortOption,
   type ToggleDefinition,
+  type ToggleKey,
 } from "@/lib/filters";
 import { displayCountry } from "@/lib/format";
 import { DEGREE_LEVELS } from "@/lib/types/database";
@@ -90,7 +94,9 @@ export function FilterPanel({ countries, resultCount }: FilterPanelProps) {
   const activeCount =
     selectedCountries.size +
     selectedDegrees.size +
-    TOGGLE_KEYS.filter((key) => searchParams.get(key) === "1").length +
+    TOGGLE_KEYS.filter(
+      (key) => readToggle(searchParams.get(key), key) !== TOGGLE_DEFAULTS[key],
+    ).length +
     (searchParams.get(PARAM.q) ? 1 : 0);
 
   function toggleListValue(param: string, value: string, selected: Set<string>) {
@@ -104,11 +110,8 @@ export function FilterPanel({ countries, resultCount }: FilterPanelProps) {
     });
   }
 
-  function setToggle(key: string, checked: boolean) {
-    commit((params) => {
-      if (checked) params.set(key, "1");
-      else params.delete(key);
-    });
+  function setToggle(key: ToggleKey, checked: boolean) {
+    commit((params) => writeToggle(params, key, checked));
   }
 
   function clearAll() {
@@ -228,7 +231,7 @@ export function FilterPanel({ countries, resultCount }: FilterPanelProps) {
                   <Checkbox
                     id={definition.key}
                     className="mt-0.5"
-                    checked={searchParams.get(definition.key) === "1"}
+                    checked={readToggle(searchParams.get(definition.key), definition.key)}
                     onCheckedChange={(checked) =>
                       setToggle(definition.key, checked === true)
                     }

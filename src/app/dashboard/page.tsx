@@ -11,6 +11,7 @@ import {
 import { fetchTrackedScholarshipIds } from "@/lib/data/targets";
 import {
   countActiveFilters,
+  isFiltered,
   parseFilters,
   type RawSearchParams,
 } from "@/lib/filters";
@@ -64,7 +65,7 @@ export default async function DashboardPage({
             <ActiveFilters resultCount={scholarships.length} />
 
             {scholarships.length === 0 ? (
-              <EmptyState hasFilters={activeCount > 0} />
+              <EmptyState hasFilters={isFiltered(filters)} />
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {scholarships.map((scholarship) => (
