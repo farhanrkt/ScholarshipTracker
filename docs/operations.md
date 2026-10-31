@@ -74,17 +74,28 @@ Discovery's output. Promote creates a dateless `unverified` skeleton;
 extraction fills it in afterwards. Reject with a note if it is not a programme,
 is out of scope, or duplicates a row you already have.
 
-Watch for near-duplicates of existing rows — dedupe is exact-match on a
-normalised title, so `Chevening Scholarship` and `Chevening Scholarships` both
-get through. See [troubleshooting.md](troubleshooting.md#near-duplicate-rows).
+Watch for near-duplicates of existing rows. Dedupe folds case, punctuation and
+plurals into a fingerprint, and **only an identical fingerprint stops a
+candidate** — so `Chevening Scholarship` no longer buys a second row, while
+`Chevening SIDS Scholarship` is staged for you to judge. That is deliberate:
+read against the whole catalogue, the near-match rule was right once in six,
+and
+a candidate you reject costs one click, where a programme discovery declined
+by itself leaves no trace anywhere. See
+[troubleshooting.md](troubleshooting.md#near-duplicate-rows).
 
 ### Duplicates — `/admin/duplicates`
 
-Rows that look like the same programme twice. Discovery dedupes on an exact
-normalised title, which is how the catalogue came to hold `Chevening
-Scholarship` beside `Chevening Scholarships`, three Humphrey rows and three MEXT
-rows — a student scrolling the dashboard meets the same award repeatedly and
-cannot tell which entry to track.
+Rows that look like the same programme twice. Exact matching on a lowercased
+title is how the catalogue came to hold `Chevening Scholarship` beside
+`Chevening Scholarships`, three Humphrey rows and three MEXT rows — a student
+scrolling the dashboard meets the same award repeatedly and cannot tell which
+entry to track.
+
+**The badges count pairs, not rows.** A group carries one badge per confidence
+present — `1 certain`, `3 likely` — because a group's own label is its
+*strongest* pair. One plural inside a group of four does not make the other
+three duplicates. Judge a group by its weakest pair.
 
 **These are suggestions from a string comparison, not findings.** Nothing here
 can tell a genuinely separate award from a longer way of writing the same name:

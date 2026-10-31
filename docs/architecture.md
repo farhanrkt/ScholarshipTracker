@@ -9,15 +9,18 @@
 | Backend | Supabase (PostgreSQL + RLS) |
 | Auth | Supabase anonymous auth — no sign-up wall |
 | Language | TypeScript, `strict` mode |
-| Deploy | Vercel (app) + local machine (crawlers) |
+| Deploy | Vercel — the app and the crawlers both |
 
 The app is two programs that share one database:
 
 - **The web app** (`src/`) reads scholarships and writes only a user's own
   tracking rows. It never holds a privileged key.
 - **The pipeline** (`scripts/`) crawls funder websites and writes proposals into
-  staging tables using the service-role key. It runs on a developer machine, not
-  on the deployed host. See [pipeline.md](pipeline.md).
+  staging tables. It runs two ways: `npm run extract` on a developer machine,
+  holding the service-role key, and on Vercel — `/admin/pipeline` and the weekly
+  cron — signed in as an ordinary account in the `admins` table, so RLS applies
+  to every write. The key never reaches the deployed app. See
+  [pipeline.md](pipeline.md).
 
 Nothing the pipeline produces is visible in the app until a human applies it.
 
@@ -108,9 +111,15 @@ literal `null`, which is not SQL `NULL` and would silently break `is.null`.
 
 ## Mutations
 
-Server Actions only. The two `/api` routes that exist are there because
-something outside React has to reach them: the auth callback (a browser
-redirect) and the pipeline runner (a streaming response).
+Server Actions only. A route handler exists only where something outside React
+has to reach it — five under `/api`, and one that is not:
+
+| Route | Why it cannot be an action |
+| --- | --- |
+| `/api/admin/pipeline`, `tick`, `cancel` | a run is a row driven by repeated calls, not one request |
+| `/api/admin/pipeline/log` | the console reads it while the run is still going |
+| `/api/cron/refresh` | Vercel Cron calls it with a bearer secret, outside any session |
+| `/auth/callback` | a browser redirect carrying `?code` — and the one that is **not** under `/api` |
 
 Every action returns `{ success, data?, error? }` (`ActionResult<T>` in
 `src/lib/types/actions.ts`) and never throws across the boundary.
@@ -127,18 +136,18 @@ anon key and the data.
 | --- | --- |
 | `scholarships` | readable by everyone; insert restricted to admins; no public write |
 | `user_targets` | every policy is `auth.uid() = user_id` |
-| `scholarship_extractions` | RLS on, **no policies** — deny-all |
+| `scholarship_extractions` | nothing for anon; admins read, stage and resolve (`003:53,59`, `012:35`) |
 | `scholarship_candidates` | admins only |
 | `scholarship_sources` | admins only |
 | `admins` | not reachable with the anon key |
 
 Views need the same care and do not get it by default. A view reads its
 underlying tables with its **owner's** rights unless it declares
-`security_invoker`, so a view over a deny-all table hands out exactly what the
-policy just withheld. `scholarship_completeness` (migration 016) reads
-`scholarship_extractions` and declares it; migration 012 declined to add a view
-over `pipeline_jobs` at all rather than rely on remembering. Any new view over a
-staging table must do one or the other.
+`security_invoker`, so a view over a table the caller cannot read hands out
+exactly what the policy just withheld. `scholarship_completeness`
+(migration 016) reads `scholarship_extractions` and declares it; migration 012
+declined to add a view over `pipeline_jobs` at all rather than rely on
+remembering. Any new view over a staging table must do one or the other.
 
 Two rules that must not be relaxed:
 
@@ -146,9 +155,13 @@ Two rules that must not be relaxed:
   `scripts/`, is never prefixed `NEXT_PUBLIC_`, and is never imported by
   anything under `src/`. It does not belong in the deployed environment at all
   — see [deployment.md](deployment.md).
-- **Staging tables are deny-all on purpose.** `scholarship_extractions` holds
-  unreviewed model output. The app must not be able to read it, or unreviewed
-  guesses would reach users through a bug rather than a decision.
+- **Staging tables carry no public policy on purpose.**
+  `scholarship_extractions` holds unreviewed model output, so anon and ordinary
+  authenticated sessions get nothing. Three named admin policies (`003:53,59`,
+  `012:35`) are what `/admin/review` runs on: the table is admins-only, not
+  deny-all. Without that distinction the review UI could not exist — and a view
+  over it that forgets `security_invoker` still hands out what those policies
+  withhold.
 
 ## Defensive rendering
 

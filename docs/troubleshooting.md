@@ -72,16 +72,21 @@ left it on.
 ### Near-duplicate rows
 
 `Chevening Scholarship` vs `Chevening Scholarships`, two Fulbright rows, two MEXT
-rows. Dedupe is exact-match on a normalised title, so one character of difference
-creates a second row.
+rows. These came from exact matching on a lowercased title, where one character
+of difference bought a second row.
 
-**Today:** catch them at `/admin/candidates` before promoting. Merge existing
-duplicates by hand, keeping the row with the better provenance.
+**That pair cannot recur.** Dedupe compares a fingerprint — case, punctuation
+and plurals folded (`titleFingerprint`, `discover/candidates.ts:208`). Rows that
+already exist are merged at `/admin/duplicates` (migration 014), which moves
+trackers, second sources and extraction history across before it deletes.
 
-**If you want it fixed properly:** the right shape is a near-duplicate *warning*
-on the candidate card, not automatic merging — `Chevening Fellowships` and
-`Chevening Scholarships` are genuinely different programmes, and silently merging
-real awards is worse than showing two rows.
+**A near-match is reported, never acted on.** Same funder's site and one title
+being the other plus a qualifier earns a line in the discovery log, and the
+candidate is staged anyway. `Chevening Fellowships` and `Chevening Scholarships`
+are different awards; so is `Chevening SIDS Scholarship`; so is the Oxford
+Centre for Islamic Studies fellowship, which is the only one of them an
+Indonesian can apply for. Merging real programmes is worse than showing two
+rows, and worst inside discovery, where nothing records what was declined.
 
 ### `UK` and `United Kingdom` both in the filter sidebar
 
@@ -189,7 +194,9 @@ A size-related failure now gets one automatic retry on the densest half of the
 passages. If it still fails:
 
 - `The operation was aborted due to timeout` — raise `GEMINI_TIMEOUT_MS` (300s
-  by default), or lower `--pages` so there is less to read.
+  by default on the CLI, but forced to **90s** on the deployed app so a model
+  call cannot outlive the function: `lib/pipeline/runner.ts:74`), or lower
+  `--pages` so there is less to read.
 - Truncation — the response hit the output ceiling. Same remedies.
 - Run with `--concurrency 1`. Three programmes in flight means three model
   calls competing, and the timeout is per call.
@@ -217,10 +224,13 @@ call. Lower `--pages` for a cheap pass, or raise `CRAWL_DELAY_MS` to be gentler.
 If it hangs with no output, remember the scripts buffer stdout when piped to a
 file; run them in a terminal or via `/admin/pipeline` to see progress live.
 
-**The model timeout dominates the worst case.** It is 300s, and the profile call
-gets a second go on half the passages, so one programme can spend
+**The model timeout dominates the worst case.** On the CLI it is 300s, and the
+profile call gets a second go on half the passages, so one programme can spend
 300 (cycle) + 300 (profile) + 300 (retry) = 15 minutes before giving up. Three
 Chevening programmes took 15:07 wall-clock for 2.4s of CPU — all of it waiting.
+On Vercel the same arithmetic runs against 90s (`lib/pipeline/runner.ts:74`),
+which is why a deployed run is a row ticked repeatedly rather than one long
+request.
 
 That number is deliberate: at 180s every Chevening profile call failed, and at
 300s they all succeeded. But if you are doing a quick pass rather than a

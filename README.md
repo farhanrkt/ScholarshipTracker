@@ -56,13 +56,21 @@ supabase/migrations/009_is_profiled.sql
 supabase/migrations/010_award_scope.sql
 supabase/migrations/011_cross_verification.sql
 supabase/migrations/012_pipeline_jobs.sql
+supabase/migrations/013_answered_eligibility.sql
+supabase/migrations/014_merge_duplicates.sql
+supabase/migrations/015_multi_country_and_stale_dates.sql
+supabase/migrations/016_not_stated_and_gap_causes.sql
+supabase/migrations/017_completeness_performance.sql
 supabase/seed.sql
 ```
 
 `000_apply_all_pending.sql` bundles 002–004 for a fresh project, but predates
-005–012 — run those after it. **012 is what lets the deployed app run the
-crawlers**; without it the pipeline console says so, and everything else still
-works. Details in [data-model.md](docs/data-model.md#migrations).
+005–017 — run those after it. Two of them are load-bearing rather than
+incremental: **012 is what lets the deployed app run the crawlers** (without it
+the pipeline console says so, and everything else still works), and **016 is
+what lets the UI tell a funder's silence from an unread field** — the
+`not_stated` column behind the coverage grid and the eligibility list. Details
+in [data-model.md](docs/data-model.md#migrations).
 
 **2. Enable anonymous sign-ins**: Authentication → Sign In / Providers → **Allow
 anonymous sign-ins**. Nothing works without this; it is what mints the ghost

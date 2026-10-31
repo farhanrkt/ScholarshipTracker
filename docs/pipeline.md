@@ -927,11 +927,17 @@ set wins, in the order below; `--provider gemini|groq|anthropic` overrides.
 
 | Provider | Env | Default model | Prompt budget | Shape of the limit |
 | --- | --- | --- | --- | --- |
-| **Gemini** (first) | `GEMINI_API_KEY` | `gemini-3.5-flash` | 100,000 chars | ~15 requests/min, generous tokens |
+| **Gemini** (first) | `GEMINI_API_KEY` | `gemini-flash-lite-latest` | 100,000 chars | ~15 requests/min, generous tokens |
 | Groq | `GROQ_API_KEY` | `llama-3.3-70b-versatile` | derived from `GROQ_TPM` (~31k chars at 12k TPM) | 12k tokens/min + a daily cap |
 | Claude | `ANTHROPIC_API_KEY` | `claude-opus-5` | 60,000 chars | paid, no rate squeeze |
 
 Override models with `GEMINI_MODEL`, `GROQ_MODEL`, `ANTHROPIC_MODEL`.
+
+Gemini's default is the lite model behind the `-latest` alias rather than a
+pinned version, because free-tier quotas are **per model**: a pinned id quietly
+stops being the one Google grants free capacity on
+(`providers/gemini.ts:15-24`). Leave `GEMINI_MODEL` unset unless you have a
+reason — a value in `.env.local` wins over that default.
 
 **Gemini is first because free-tier *shape* decides what is possible at volume.**
 A single discovery run exhausted Groq's daily token allowance after about fifty
