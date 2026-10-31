@@ -211,3 +211,35 @@ export function describeJob(args: JobArgs): string {
   if (args.dryRun) parts.push("DRY RUN");
   return parts.join(" · ");
 }
+
+/* -------------------------------------------------------------------------- */
+/* Who ran it                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The prefix that marks a run as the schedule's rather than a person's.
+ *
+ * Load-bearing, not decoration. `/api/admin/pipeline` writes the signed-in
+ * admin's email into `pipeline_jobs.created_by`, and the refresh account is
+ * allowed to BE a person's own account — `docs/deployment.md` recommends a
+ * dedicated one, but a sole admin reusing theirs needs no allowlist change and
+ * that is a fair trade. The moment they do, a scheduled run and a clicked one
+ * write the same string, and the question that found a nine-week outage — how
+ * many of these twenty-three jobs came from the cron? — stops having an answer.
+ *
+ * So a scheduled run says it was scheduled, and still names the account it
+ * acted as, since attributable writes are the other half of why the cron signs
+ * in as a user rather than carrying a service-role key.
+ */
+export const SCHEDULED_BY = "scheduled refresh";
+
+/**
+ * `created_by` for an unattended run.
+ *
+ * Beside the prefix on purpose: a monitor that matches `SCHEDULED_BY%` has to
+ * match what the route actually writes, and two copies of that string in two
+ * directories would drift into a monitor that silently never fires.
+ */
+export function scheduledBy(email: string): string {
+  return `${SCHEDULED_BY} (${email})`;
+}

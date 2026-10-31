@@ -6,11 +6,17 @@
  * that would have said so. Read-only; run it after switching the cron on to
  * confirm it worked, and on a schedule afterwards so silence is noticed.
  *
+ * "Has anything run?" and "did the SCHEDULE run?" are asked separately, which
+ * matters when the refresh account is also the admin's own account: a person
+ * clicking the button in /admin would otherwise keep this green over a cron
+ * that has been dead for months.
+ *
  *   node --env-file=.env.local scripts/audit/refresh-health.ts
  *
  * Exits 1 when the refresh looks dead, so it can back an alert unchanged.
  */
 
+import { SCHEDULED_BY, STALE_AFTER_DAYS } from "../../src/lib/pipeline/jobs.ts";
 import { daysBetween, supabaseAdmin } from "./lib.ts";
 
 /**
@@ -19,9 +25,6 @@ import { daysBetween, supabaseAdmin } from "./lib.ts";
  * page anyone.
  */
 const SILENT_AFTER_DAYS = 8;
-
-/** The window the catalogue is supposed to turn over in. */
-const STALE_AFTER_DAYS = 90;
 
 async function main() {
   const supabase = supabaseAdmin();
@@ -51,9 +54,7 @@ async function main() {
     );
     if (latest.error) console.log(`                  error: ${String(latest.error).split("\n")[0].slice(0, 90)}`);
     if (age > SILENT_AFTER_DAYS) {
-      problems.push(
-        `no pipeline job for ${age} days (the cron is weekly; anything over ${SILENT_AFTER_DAYS} means it is not running)`,
-      );
+      problems.push(`nothing has run at all for ${age} days, scheduled or by hand`);
     }
   }
 
@@ -62,6 +63,36 @@ async function main() {
   );
   if (failedRecently.length > 0) {
     problems.push(`${failedRecently.length} of the last ${jobs?.length} jobs failed`);
+  }
+
+  /* -- Did the schedule run, or did somebody press the button? --------- */
+
+  // `SCHEDULED_BY` is the prefix the cron route writes into `created_by`, so
+  // this asks the one question a job count cannot: is the thing that is
+  // supposed to run unattended actually running?
+  const { data: scheduled } = await supabase
+    .from("pipeline_jobs")
+    .select("created_at, status")
+    .like("created_by", `${SCHEDULED_BY}%`)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const lastScheduled = scheduled?.[0];
+  if (!lastScheduled) {
+    console.log("  last scheduled  never");
+    problems.push(
+      "no run has ever come from the schedule — see docs/deployment.md for the three variables it needs",
+    );
+  } else {
+    const age = daysBetween(lastScheduled.created_at, now);
+    console.log(
+      `  last scheduled  ${lastScheduled.created_at.slice(0, 10)} (${age}d ago) · ${lastScheduled.status}`,
+    );
+    if (age > SILENT_AFTER_DAYS) {
+      problems.push(
+        `the schedule has not run for ${age} days (weekly cron; over ${SILENT_AFTER_DAYS} means it is not firing)`,
+      );
+    }
   }
 
   /* -- Is the catalogue actually moving? ------------------------------- */

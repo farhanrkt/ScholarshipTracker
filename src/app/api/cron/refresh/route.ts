@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-import { describeJob, parseJobRequest } from "@/lib/pipeline/jobs";
+import { describeJob, parseJobRequest, scheduledBy } from "@/lib/pipeline/jobs";
 import { planUnits, runTick, type JobRow } from "@/lib/pipeline/runner";
 
 /**
@@ -77,7 +77,7 @@ function authorised(request: Request): boolean {
  * failure nobody is watching should say which.
  */
 async function signInAsRefreshAccount(): Promise<
-  { ok: true; client: SupabaseClient } | { ok: false; reason: string }
+  { ok: true; client: SupabaseClient; email: string } | { ok: false; reason: string }
 > {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -105,7 +105,7 @@ async function signInAsRefreshAccount(): Promise<
     return { ok: false, reason: `The refresh account could not sign in: ${error.message}` };
   }
 
-  return { ok: true, client };
+  return { ok: true, client, email };
 }
 
 export async function GET(request: Request) {
@@ -159,7 +159,7 @@ export async function GET(request: Request) {
       units: plan.units.map((unit) => ({ ...unit })),
       total: plan.units.length,
       status: "queued",
-      created_by: process.env.CRON_SUPABASE_EMAIL ?? "scheduled refresh",
+      created_by: scheduledBy(session.email),
     })
     .select("*")
     .single();
