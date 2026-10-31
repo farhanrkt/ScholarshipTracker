@@ -1016,7 +1016,7 @@ Environment knobs for the fetch layer, all optional:
 | --- | --- | --- |
 | `CRAWL_DELAY_MS` | 800 | Minimum gap between request starts to one host |
 | `CRAWL_HOST_CONCURRENCY` | 2 | Connections open to one host at once |
-| `CRAWL_USER_AGENT` | ScholarTrackBot/1.0 | How we announce ourselves |
+| `CRAWL_USER_AGENT` | `ScholarTrackBot/1.0 (… +https://github.com/farhanrkt/ScholarshipTracker)` | How we announce ourselves; the contact URL has to reach a page, not a site root ([README](../README.md#if-you-run-a-site-weve-crawled)) |
 | `CRAWL_FALLBACK_USER_AGENT` | browser-shaped | Used only after a host refuses the first |
 | `RENDER_SERVICE_URL` | unset | Headless renderer for pages no hydration payload rescues |
 | `RENDER_SERVICE_TOKEN` | unset | Bearer token for the above |

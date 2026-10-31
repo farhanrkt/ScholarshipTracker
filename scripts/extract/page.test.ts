@@ -360,6 +360,16 @@ describe("retry ceilings", () => {
 
 describe("being turned away", () => {
   /**
+   * A contact URL with a PATH, not just a scheme and a host.
+   *
+   * The assertion below used to read `/ScholarTrackBot/` while its own message
+   * promised it checked the contact URL, and under it the agent carried
+   * `+https://github.com/` for months — a URL that resolves, and that tells a
+   * webmaster nothing. Requiring a path is what tells those two apart.
+   */
+  const REACHABLE_CONTACT = /\+https:\/\/[^\s)]+\/[^\s)/]+/;
+
+  /**
    * A large share of the 4xx failures in a run are a WAF scoring the REQUEST,
    * not the URL: no Accept-Language, a bare bot token, no Sec-Fetch headers.
    * The page is public and robots.txt allows it — a person opening the same
@@ -390,8 +400,19 @@ describe("being turned away", () => {
     assert.match(
       userAgents[1] ?? "",
       /ScholarTrackBot/,
-      "the retry must still identify us and carry the contact URL",
+      "the retry must still identify us by name",
     );
+
+    for (const [which, agent] of [
+      ["first request", userAgents[0]],
+      ["retry", userAgents[1]],
+    ] as const) {
+      assert.match(
+        agent ?? "",
+        REACHABLE_CONTACT,
+        `the ${which} must carry a contact URL a webmaster can open`,
+      );
+    }
   });
 
   test("a host that refuses twice is not asked a third time", async () => {

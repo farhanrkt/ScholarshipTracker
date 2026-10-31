@@ -10,9 +10,20 @@ import {
 import { amphtmlUrl, hydrateText, renderPage, renderServiceUrl } from "./hydrate.ts";
 import { structuredText } from "./structured.ts";
 
+/**
+ * Where a webmaster who has seen us in their logs can reach a person.
+ *
+ * It was `https://github.com/` — GitHub's front door, which answers nobody's
+ * question. A contact URL that resolves to a site root is a placeholder with a
+ * scheme on it, so this points at the repository: it says what the crawler is
+ * for, what rate it runs at, and how to exclude it, and its issue tracker is a
+ * route to a human that does not publish anybody's address.
+ */
+const CONTACT_URL = "https://github.com/farhanrkt/ScholarshipTracker";
+
 const USER_AGENT =
   process.env.CRAWL_USER_AGENT ||
-  "ScholarTrackBot/1.0 (scholarship deadline verification; +https://github.com/)";
+  `ScholarTrackBot/1.0 (scholarship deadline verification; +${CONTACT_URL})`;
 
 /**
  * The second identity, used ONLY after a host has refused the first one.
@@ -30,7 +41,7 @@ const USER_AGENT =
 const BROWSER_USER_AGENT =
   process.env.CRAWL_FALLBACK_USER_AGENT ||
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) " +
-    "Chrome/124.0.0.0 Safari/537.36 ScholarTrackBot/1.0 (+https://github.com/)";
+    `Chrome/124.0.0.0 Safari/537.36 ScholarTrackBot/1.0 (+${CONTACT_URL})`;
 
 /**
  * Be a polite client: one request at a time per host, with a gap between them.
