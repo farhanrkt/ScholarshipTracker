@@ -1,0 +1,149 @@
+{
+  "as_of": "2026-10-30",
+  "read_at": "2026-10-31T08:10:20.469Z",
+  "clusters": 5,
+  "pages": 14,
+  "failed": 0,
+  "detail": [
+    {
+      "cluster": 1,
+      "id": "5a1bb284-e148-4bef-bb0c-0084b5fbd5c4",
+      "title": "Chevening Scholarship",
+      "url": "https://www.chevening.org/scholarships/",
+      "final_url": "https://www.chevening.org/scholarships/",
+      "sha256": "fd61f2b39a2687c96087c7c4bd12dcd72f47b137c7db333eeb5a171861476b9f",
+      "chars": 6333,
+      "file": "1-chevening-scholarship.txt"
+    },
+    {
+      "cluster": 1,
+      "id": "e7bec666-4fab-4a1a-a3e0-1672c42bfb1b",
+      "title": "Chevening Scholarships",
+      "url": "https://www.chevening.org/scholarships/who-can-apply/",
+      "final_url": "https://www.chevening.org/scholarships/who-can-apply/",
+      "sha256": "aa8f8d2bb5cec70dd2c125bff96083fc8f7cb80f0a1270b4e0275f0878811061",
+      "chars": 5657,
+      "file": "1-chevening-scholarships.txt"
+    },
+    {
+      "cluster": 1,
+      "id": "ea092815-f1c8-428a-bca4-ec11afbe4848",
+      "title": "Chevening Scholarships in Australia",
+      "url": "https://www.chevening.org/scholarship/australia",
+      "final_url": "https://www.chevening.org/scholarship/australia/",
+      "sha256": "a108f0072d6a2a5f62f77aa5231bc0272aeb45afd3a219345dd6fd7851393335",
+      "chars": 3451,
+      "file": "1-chevening-scholarships-in-australia.txt"
+    },
+    {
+      "cluster": 1,
+      "id": "1db2726e-a8f8-4db4-beeb-eb5938ad325f",
+      "title": "Chevening SIDS Scholarship",
+      "url": "https://www.chevening.org/sids-chevening-scholarship/",
+      "final_url": "https://www.chevening.org/sids-chevening-scholarship/",
+      "sha256": "458885476157ff14704aa2ecac22d0ea2bee2ef39022d8dc04baffc582903139",
+      "chars": 4564,
+      "file": "1-chevening-sids-scholarship.txt"
+    },
+    {
+      "cluster": 2,
+      "id": "758299b7-0678-4e85-81af-46d568974cd9",
+      "title": "Chevening Fellowships",
+      "url": "https://www.chevening.org/fellowships/",
+      "final_url": "https://www.chevening.org/fellowships/",
+      "sha256": "c8be9cb7530eee7fe02752272b20d6d2299eced4a7a3fc720fd617f67dae66df",
+      "chars": 4610,
+      "file": "2-chevening-fellowships.txt"
+    },
+    {
+      "cluster": 2,
+      "id": "f9a330d9-3f22-4364-8b2a-de8b41735b14",
+      "title": "Chevening LSE Fellowship",
+      "url": "https://www.chevening.org/fellowship/lse",
+      "final_url": "https://www.chevening.org/fellowship/lse/",
+      "sha256": "eddd2bfd0d54936bd86753867762e514d61e5c50fba27e97bd765860f0de2f69",
+      "chars": 5221,
+      "file": "2-chevening-lse-fellowship.txt"
+    },
+    {
+      "cluster": 2,
+      "id": "cbc13aa5-62c5-4190-92f7-695c03e236f8",
+      "title": "Chevening Oxford Centre for Islamic Studies Fellowship",
+      "url": "https://www.chevening.org/fellowship/ocis",
+      "final_url": "https://www.chevening.org/fellowship/ocis/",
+      "sha256": "1340955b4931c210c4c45f42fc76604cb49280ccda91a19c3b71dbdea9278491",
+      "chars": 7023,
+      "file": "2-chevening-oxford-centre-for-islamic-studies-fellowship.txt"
+    },
+    {
+      "cluster": 3,
+      "id": "d20f03f1-0ec9-40e6-92ca-b266b9cd90de",
+      "title": "Distinguished Humphrey Fellowship Program",
+      "url": "https://www.humphreyfellowship.org/our-network/other-partners/distinguished-humphrey-fellowship-program",
+      "final_url": "https://www.humphreyfellowship.org/our-network/other-partners/distinguished-humphrey-fellowship-program/",
+      "sha256": "a05ae15379c6d333fc60080b736cf7a70038a1a40f29ea7a6049176688d111d1",
+      "chars": 3647,
+      "file": "3-distinguished-humphrey-fellowship-program.txt"
+    },
+    {
+      "cluster": 3,
+      "id": "722dc3cc-59a8-4ea4-a7f6-b9fbeb221339",
+      "title": "Hubert H. Humphrey Fellowship Program",
+      "url": "https://www.humphreyfellowship.org/how-to-apply/eligibility/",
+      "final_url": "https://www.humphreyfellowship.org/how-to-apply/eligibility/",
+      "sha256": "bc84c03e783ffb62c2341428841a2fcb183a81bedd020ca41a21aec630c4e75d",
+      "chars": 4421,
+      "file": "3-hubert-h-humphrey-fellowship-program.txt"
+    },
+    {
+      "cluster": 3,
+      "id": "bcd12663-b118-48ea-9e91-bfa5f3676f56",
+      "title": "Humphrey Fellowship Program",
+      "url": "https://www.humphreyfellowship.org/program-overview",
+      "final_url": "https://www.humphreyfellowship.org/program-overview/",
+      "sha256": "b304fda6ca4bab918c99d4f3cf1c1ebc2318bb4090f30c988afd86849a7f34fc",
+      "chars": 3862,
+      "file": "3-humphrey-fellowship-program.txt"
+    },
+    {
+      "cluster": 4,
+      "id": "cd19bc17-786a-4de6-81ed-fb5c32ac1a60",
+      "title": "Foreign Language and Area Studies Fellowships",
+      "url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/foreign-language-area-studies-grants",
+      "final_url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/foreign-language-area-studies-grants",
+      "sha256": "b9679f76cd257824b1e90634d5454bda941772bba4f1ac13ca9955f0b4ca2cd2",
+      "chars": 5474,
+      "file": "4-foreign-language-and-area-studies-fellowships.txt"
+    },
+    {
+      "cluster": 4,
+      "id": "2eb651a3-5181-47be-a78c-879e701ad097",
+      "title": "Language Study Fellowships",
+      "url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/language-study-fellowships",
+      "final_url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/language-study-fellowships",
+      "sha256": "6ad6905921c622d0cd9ba9ca64fde8dba2c8612a3abed82b2aee22bd79eda415",
+      "chars": 5573,
+      "file": "4-language-study-fellowships.txt"
+    },
+    {
+      "cluster": 5,
+      "id": "e257aea2-545a-47d1-9eb7-e742c9bf72b6",
+      "title": "Fulbright Foreign Language Teaching Assistant Program",
+      "url": "https://foreign.fulbrightonline.org/host-institutions/flta-program/flta-thinking-of-applying",
+      "final_url": "https://foreign.fulbrightonline.org/host-institutions/flta-program/flta-thinking-of-applying",
+      "sha256": "34ecea8f7cbe61659c28d2e18e12fdb0f2ac8bf285ae4675f9d0b94d1b6fb88a",
+      "chars": 9981,
+      "file": "5-fulbright-foreign-language-teaching-assistant-program.txt"
+    },
+    {
+      "cluster": 5,
+      "id": "65f6616a-ebfa-495d-85ed-70c62fb91e3d",
+      "title": "Fulbright Foreign Student Program",
+      "url": "https://foreign.fulbrightonline.org/",
+      "final_url": "https://foreign.fulbrightonline.org/",
+      "sha256": "143a20fe3ffa6debc701064304b246e9bf7bce58e5ce76e1d1f5ba57b4543957",
+      "chars": 2406,
+      "file": "5-fulbright-foreign-student-program.txt"
+    }
+  ]
+}
