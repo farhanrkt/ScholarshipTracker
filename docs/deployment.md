@@ -113,6 +113,26 @@ password set on it may not be enough for `signInWithPassword`. The first Monday
 will tell you. `scripts/audit/refresh-health.ts` reports `last scheduled`, which
 stays `never` until a run really comes from the cron.
 
+**Something has to watch this, because nobody will.** That same script runs
+daily in `.github/workflows/refresh-health.yml` and fails — and so mails you —
+when the refresh looks dead. It needs four repository secrets, under
+Settings → Secrets and variables → Actions:
+
+| Secret | Value |
+| --- | --- |
+| `SUPABASE_URL` | the same value as `NEXT_PUBLIC_SUPABASE_URL` |
+| `SUPABASE_ANON_KEY` | the same value as `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
+| `CRON_SUPABASE_EMAIL` | the refresh account, as above |
+| `CRON_SUPABASE_PASSWORD` | its password, as above |
+
+The first two are not secret — they ship in the browser bundle on every page
+load — and are secrets here only so that a public repository's workflow file is
+not one more signpost to the project. **No service-role key**, and none should
+be added: the check reads everything through the refresh account's own session,
+so CI holds nothing that can bypass a policy. Once the secrets are in, run it
+from the Actions tab rather than waiting a day to find out whether they
+were right.
+
 It **stages** proposals like any other run. Nothing reaches a scholarship row
 without a human applying it in `/admin/review`.
 

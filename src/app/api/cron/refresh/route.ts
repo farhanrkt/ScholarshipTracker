@@ -1,6 +1,5 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-
 import { describeJob, parseJobRequest, scheduledBy } from "@/lib/pipeline/jobs";
+import { signInAsRefreshAccount } from "@/lib/pipeline/refresh-account";
 import { planUnits, runTick, type JobRow } from "@/lib/pipeline/runner";
 
 /**
@@ -30,6 +29,11 @@ import { planUnits, runTick, type JobRow } from "@/lib/pipeline/runner";
  * applies to every write, the run is attributable to a named actor in
  * `pipeline_jobs.created_by`, and revoking it is removing one row from the
  * allowlist rather than rotating a key that bypasses the entire schema.
+ *
+ * That sign-in lives in `@/lib/pipeline/refresh-account` rather than here,
+ * because the check that watches this route has to perform the identical one.
+ * A watcher that authenticates differently from the thing it watches reports
+ * healthy over a cron that cannot log in.
  */
 
 export const runtime = "nodejs";
@@ -65,47 +69,6 @@ function authorised(request: Request): boolean {
 
   const header = request.headers.get("authorization");
   return header === `Bearer ${secret}`;
-}
-
-/**
- * A client bound to the refresh account's own session.
- *
- * The anon key plus a sign-in, exactly as a browser would do it — so every
- * statement this route runs is checked by the same policies that guard a human
- * admin. Returns a reason rather than throwing, because "the refresh account is
- * not configured" and "its password is wrong" want different fixes and a cron
- * failure nobody is watching should say which.
- */
-async function signInAsRefreshAccount(): Promise<
-  { ok: true; client: SupabaseClient; email: string } | { ok: false; reason: string }
-> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const email = process.env.CRON_SUPABASE_EMAIL;
-  const password = process.env.CRON_SUPABASE_PASSWORD;
-
-  if (!url || !key) {
-    return { ok: false, reason: "Supabase is not configured for this deployment." };
-  }
-  if (!email || !password) {
-    return {
-      ok: false,
-      reason:
-        "The scheduled refresh needs CRON_SUPABASE_EMAIL and CRON_SUPABASE_PASSWORD — " +
-        "a Supabase account on the `admins` allowlist. See docs/deployment.md.",
-    };
-  }
-
-  const client = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  const { error } = await client.auth.signInWithPassword({ email, password });
-  if (error) {
-    return { ok: false, reason: `The refresh account could not sign in: ${error.message}` };
-  }
-
-  return { ok: true, client, email };
 }
 
 export async function GET(request: Request) {

@@ -269,6 +269,36 @@ What counts as stale, and why the two rules differ:
 
 `Stale rows only` in the pipeline console runs the same selection by hand.
 
+**And when the refresh itself stops.** It already has, once: it stopped in
+August and nothing said so until an audit in October, by which time sixteen of
+the nineteen stored deadlines had passed. The run record was complete and
+correct the whole time — at `/admin/pipeline`, for somebody who went and looked.
+
+`.github/workflows/refresh-health.yml` runs `scripts/audit/refresh-health.ts`
+every morning and **fails** when the refresh looks dead. GitHub mails the owner
+when a scheduled workflow fails, so that mail is the alert; the report goes to
+the run summary, so the mail has something worth opening. It asks four things a
+job count cannot answer on its own:
+
+| | |
+| --- | --- |
+| Can the refresh account still sign in? | credentials that exist and no longer work are every future Monday returning 501, while the run record still looks fine |
+| Has *anything* run in 8 days? | one missed Monday is a blip, two is a failure |
+| Has anything come **from the schedule**? | a sole admin pressing the button in `/admin` keeps a job count green over a cron that has never fired — which is how twenty-three jobs hid a dead schedule |
+| Has any row been re-read in 30 days? | the one a student actually feels |
+
+It signs in as the refresh account rather than carrying the service-role key, so
+CI holds nothing that bypasses a policy, and so "that account has been disabled"
+becomes a detected failure instead of an invisible one. What it cannot see, it
+says it cannot see: under RLS an unreadable table reads as zero rows, and
+reporting that as "nothing has ever run" would be the loudest possible claim
+about data the check has just gone blind to.
+
+**Known limit.** GitHub stops running scheduled workflows on a public repository
+after 60 days without activity. A project that goes quiet takes its own watchdog
+with it — and quiet is exactly when you stop noticing. If this one goes dormant,
+move the check somewhere that does not depend on the repository being busy.
+
 Alongside it:
 
 - **Monthly** — `npm run discover` for new programmes; review candidates, then
