@@ -1,0 +1,238 @@
+{
+  "as_of": "2026-10-30",
+  "candidates_checked": 21,
+  "held": 7,
+  "missing": [
+    "LPDP (Indonesia Endowment Fund for Education)",
+    "Australia Awards",
+    "DAAD (Germany)",
+    "Erasmus Mundus",
+    "Swedish Institute",
+    "Commonwealth Scholarships",
+    "Rhodes",
+    "Stipendium Hungaricum",
+    "Türkiye Bursları",
+    "New Zealand Scholarships",
+    "Orange Knowledge Programme",
+    "Joint Japan/World Bank (JJ/WBGSP)",
+    "Taiwan ICDF",
+    "Clarendon (Oxford)"
+  ],
+  "held_detail": [
+    {
+      "candidate": "Chevening",
+      "rows": [
+        "Chevening Fellowships",
+        "Chevening Scholarship",
+        "Chevening SIDS Scholarship",
+        "Chevening Scholarships",
+        "Chevening Oxford Centre for Islamic Studies Fellowship",
+        "Chevening LSE Fellowship",
+        "Chevening Scholarships in Australia"
+      ]
+    },
+    {
+      "candidate": "Fulbright",
+      "rows": [
+        "Fulbright Foreign Language Teaching Assistant Program",
+        "Fulbright Foreign Student Program"
+      ]
+    },
+    {
+      "candidate": "MEXT (Japan)",
+      "rows": [
+        "Monbukagakusho Honors Scholarship for Privately Financed International Students",
+        "MEXT Scholarship - Research Student (Embassy Track)",
+        "Japanese Government (MEXT) Scholarship"
+      ]
+    },
+    {
+      "candidate": "GKS / KGSP (Korea)",
+      "rows": [
+        "Global Korea Scholarship (GKS-G) - Graduate"
+      ]
+    },
+    {
+      "candidate": "Gates Cambridge",
+      "rows": [
+        "Gates Cambridge Scholarship"
+      ]
+    },
+    {
+      "candidate": "Chinese Government Scholarship (CSC)",
+      "rows": [
+        "Chinese Government Scholarship (CSC) - Type A"
+      ]
+    },
+    {
+      "candidate": "ADB-Japan Scholarship (JSP)",
+      "rows": [
+        "ADB-Japan Scholarship Program (JSP)"
+      ]
+    }
+  ],
+  "catalogue_rows_not_on_candidate_list": [
+    {
+      "title": "Iris Burton Bulls ROTC Fellowship",
+      "country": "USA",
+      "url": "https://www.iie.org/programs/ibbfellowship/application/eligibility",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Foreign Language and Area Studies Fellowships",
+      "country": "USA",
+      "url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/foreign-language-area-studies-grants",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "ASEAN Undergraduate Scholarship (NUS)",
+      "country": "Singapore",
+      "url": "https://www.nus.edu.sg/oam/scholarships/freshmen-international-students",
+      "verification_status": "unverified"
+    },
+    {
+      "title": "Medtronic Spark Scholarship",
+      "country": "USA",
+      "url": "https://www.iie.org/programs/medtronicsparkscholarship/eligibility",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Language Study Fellowships",
+      "country": "USA",
+      "url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/language-study-fellowships",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Knight-Hennessy Scholars (Stanford)",
+      "country": "USA",
+      "url": "https://knight-hennessy.stanford.edu/",
+      "verification_status": "verified"
+    },
+    {
+      "title": "Barsa Scholarships Program",
+      "country": "USA",
+      "url": "https://www.iie.org/programs/barsa-scholarships-program/eligibility",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "NextGen Service Fellowship",
+      "country": "USA",
+      "url": "https://www.iie.org/programs/nextgen-service-fellowship/eligibility-and-selection-criteria",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Dissertation Completion Fellowships",
+      "country": "USA",
+      "url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/dissertation-completion-fellowships",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Japan-IMF Scholarship Program",
+      "country": "USA",
+      "url": "https://www.iie.org/programs/japan-imf-scholarship-program/eligibility",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Humphrey Fellowship Program",
+      "country": "USA",
+      "url": "https://www.humphreyfellowship.org/program-overview",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Hubert H. Humphrey Fellowship Program",
+      "country": "USA",
+      "url": "https://www.humphreyfellowship.org/how-to-apply/eligibility/",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Distinguished Humphrey Fellowship Program",
+      "country": "USA",
+      "url": "https://www.humphreyfellowship.org/our-network/other-partners/distinguished-humphrey-fellowship-program",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Invensys Children of Employee Scholarship Programme",
+      "country": "USA",
+      "url": "https://www.iie.org/programs/invensys-scholarship-programme/about",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "The Top Up Stipend",
+      "country": "USA",
+      "url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students/fas-humanities-and-social-2",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "A*STAR Scholarships",
+      "country": "Singapore",
+      "url": "https://www.a-star.edu.sg/scholarships/home/scholarships",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Singapore International Graduate Award (SINGA)",
+      "country": "Singapore",
+      "url": "https://www.a-star.edu.sg/scholarships",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Professional Development Fund",
+      "country": "USA",
+      "url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "FAS Humanities and Social Sciences Summer Stipend Awards",
+      "country": "USA",
+      "url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students/fas-humanities-and-social-1",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "GE Vernova STAR Scholarship",
+      "country": "USA",
+      "url": "https://www.iie.org/programs/ge-vernova-star-scholarship/eligibility-and-selection",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Richard Rockefeller Fellowship",
+      "country": "USA",
+      "url": "https://www.iie.org/about/offices/east-asia-and-the-pacific/beijing/programs/2020-richard-rockefeller-fellowship",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Google DeepMind AI Master’s Scholarships",
+      "country": "USA",
+      "url": "https://www.iie.org/programs/google-deepmind-ai-masters-scholarships/eligibility-and-application-process",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Freeman-ASIA Award",
+      "country": "USA",
+      "url": "https://www.iie.org/programs/freeman-asia/about/award-details",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Rotary Peace Fellowship",
+      "country": "Multiple",
+      "url": "https://www.rotary.org/en/get-involved/our-programs/peace-fellowships",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "The Paul & Daisy Soros Fellowship for New Americans",
+      "country": "USA",
+      "url": "https://pdsoros.org/about-the-fellowship",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Leonora Lindsley Memorial Fellowship",
+      "country": "USA",
+      "url": "https://www.iie.org/programs/leonora-lindsley-memorial-fellowship/about",
+      "verification_status": "ai_extracted"
+    },
+    {
+      "title": "Centroamérica en Ascenso Fellowship - Non-Degree Fellowship Programs",
+      "country": "USA",
+      "url": "https://www.iie.org/programs/centroamerica-en-ascenso/fellowship-tracks/non-degree-fellowship-programs",
+      "verification_status": "ai_extracted"
+    }
+  ]
+}

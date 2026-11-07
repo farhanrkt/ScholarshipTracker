@@ -1,0 +1,735 @@
+{
+  "as_of": "2026-10-30",
+  "links_checked": 64,
+  "tally": {
+    "ok": 53,
+    "redirected": 8,
+    "dead": 2,
+    "blocked": 0,
+    "error": 1
+  },
+  "results": [
+    {
+      "url": "https://www.chevening.org/fellowships/",
+      "kind": "official_portal_url",
+      "title": "Chevening Fellowships",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.chevening.org/fellowships/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.chevening.org/scholarships/application-timeline/",
+      "kind": "source_url",
+      "title": "Chevening Fellowships",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.chevening.org/scholarships/application-timeline/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.gatescambridge.org/",
+      "kind": "official_portal_url",
+      "title": "Gates Cambridge Scholarship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.gatescambridge.org/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.gatescambridge.org/apply/timeline/",
+      "kind": "source_url",
+      "title": "Gates Cambridge Scholarship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.gatescambridge.org/apply/timeline/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.campuschina.org/",
+      "kind": "official_portal_url",
+      "title": "Chinese Government Scholarship (CSC) - Type A",
+      "allowed_by_robots": true,
+      "status": null,
+      "redirects": [],
+      "verdict": "error",
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://www.iie.org/programs/ibbfellowship/application/eligibility",
+      "kind": "official_portal_url",
+      "title": "Iris Burton Bulls ROTC Fellowship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/ibbfellowship/application/eligibility",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.iie.org/programs/ibbfellowship/application",
+      "kind": "source_url",
+      "title": "Iris Burton Bulls ROTC Fellowship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/ibbfellowship/application",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/foreign-language-area-studies-grants",
+      "kind": "official_portal_url",
+      "title": "Foreign Language and Area Studies Fellowships",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/foreign-language-area-studies-grants",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://www.nus.edu.sg/oam/scholarships/freshmen-international-students",
+      "kind": "official_portal_url",
+      "title": "ASEAN Undergraduate Scholarship (NUS)",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.nus.edu.sg/oam/scholarships/freshmen-international-students",
+      "content_type": "text/html"
+    },
+    {
+      "url": "https://www.chevening.org/scholarships/",
+      "kind": "official_portal_url",
+      "title": "Chevening Scholarship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.chevening.org/scholarships/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.chevening.org/scholarships/who-can-apply/",
+      "kind": "source_url",
+      "title": "Chevening Scholarship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.chevening.org/scholarships/who-can-apply/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.studyinjapan.go.jp/en/planning/scholarships/jasso-scholarships/",
+      "kind": "official_portal_url",
+      "title": "Monbukagakusho Honors Scholarship for Privately Financed International Students",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.studyinjapan.go.jp/en/planning/scholarships/jasso-scholarships/",
+      "content_type": "text/html"
+    },
+    {
+      "url": "https://www.iie.org/programs/medtronicsparkscholarship/eligibility",
+      "kind": "official_portal_url",
+      "title": "Medtronic Spark Scholarship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/medtronicsparkscholarship/eligibility",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.iie.org/programs/medtronicsparkscholarship/application",
+      "kind": "source_url",
+      "title": "Medtronic Spark Scholarship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/medtronicsparkscholarship/application",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/language-study-fellowships",
+      "kind": "official_portal_url",
+      "title": "Language Study Fellowships",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/summer-fellowships/language-study-fellowships",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://www.studyinkorea.go.kr/",
+      "kind": "official_portal_url",
+      "title": "Global Korea Scholarship (GKS-G) - Graduate",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [
+        "https://www.studyinkorea.go.kr/ko/main.do;jsessionid=hNaywvWwU0Eo_IydD8mDknw80kYvdM-wiYPvkH_0.studyinkorea20"
+      ],
+      "verdict": "redirected",
+      "final_url": "https://www.studyinkorea.go.kr/ko/main.do;jsessionid=hNaywvWwU0Eo_IydD8mDknw80kYvdM-wiYPvkH_0.studyinkorea20",
+      "content_type": "text/html;charset=UTF-8"
+    },
+    {
+      "url": "https://www.chevening.org/sids-chevening-scholarship/",
+      "kind": "official_portal_url",
+      "title": "Chevening SIDS Scholarship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.chevening.org/sids-chevening-scholarship/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.chevening.org/scholarships/application-timeline/",
+      "kind": "source_url",
+      "title": "Chevening SIDS Scholarship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.chevening.org/scholarships/application-timeline/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://knight-hennessy.stanford.edu/",
+      "kind": "official_portal_url",
+      "title": "Knight-Hennessy Scholars (Stanford)",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://knight-hennessy.stanford.edu/",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://knight-hennessy.stanford.edu/admission/preparing-your-applications/your-applications",
+      "kind": "source_url",
+      "title": "Knight-Hennessy Scholars (Stanford)",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://knight-hennessy.stanford.edu/admission/preparing-your-applications/your-applications",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://www.iie.org/programs/barsa-scholarships-program/eligibility",
+      "kind": "official_portal_url",
+      "title": "Barsa Scholarships Program",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/barsa-scholarships-program/eligibility",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.adb.org/work-with-us/careers/japan-scholarship-program",
+      "kind": "official_portal_url",
+      "title": "ADB-Japan Scholarship Program (JSP)",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.adb.org/work-with-us/careers/japan-scholarship-program",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.iie.org/programs/nextgen-service-fellowship/eligibility-and-selection-criteria",
+      "kind": "official_portal_url",
+      "title": "NextGen Service Fellowship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/nextgen-service-fellowship/eligibility-and-selection-criteria",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.iie.org/programs/nextgen-service-fellowship/timeline",
+      "kind": "source_url",
+      "title": "NextGen Service Fellowship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/nextgen-service-fellowship/timeline",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/dissertation-completion-fellowships",
+      "kind": "official_portal_url",
+      "title": "Dissertation Completion Fellowships",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://gsas.harvard.edu/academics/fellowships/internal-fellowships/dissertation-completion-fellowships",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://www.iie.org/programs/japan-imf-scholarship-program/eligibility",
+      "kind": "official_portal_url",
+      "title": "Japan-IMF Scholarship Program",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/japan-imf-scholarship-program/eligibility",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.iie.org/wp-content/uploads/2026/06/FY26-1923550_JISP_Annual_Flyer_2027-2029_ENG-v2.pdf",
+      "kind": "source_url",
+      "title": "Japan-IMF Scholarship Program",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/wp-content/uploads/2026/06/FY26-1923550_JISP_Annual_Flyer_2027-2029_ENG-v2.pdf",
+      "content_type": "application/pdf"
+    },
+    {
+      "url": "https://foreign.fulbrightonline.org/host-institutions/flta-program/flta-thinking-of-applying",
+      "kind": "official_portal_url",
+      "title": "Fulbright Foreign Language Teaching Assistant Program",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://foreign.fulbrightonline.org/host-institutions/flta-program/flta-thinking-of-applying",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://foreign.fulbrightonline.org/",
+      "kind": "official_portal_url",
+      "title": "Fulbright Foreign Student Program",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://foreign.fulbrightonline.org/",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://foreign.fulbrightonline.org/host-institutions/flta-program/flta-thinking-of-applying",
+      "kind": "source_url",
+      "title": "Fulbright Foreign Student Program",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://foreign.fulbrightonline.org/host-institutions/flta-program/flta-thinking-of-applying",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://www.humphreyfellowship.org/program-overview",
+      "kind": "official_portal_url",
+      "title": "Humphrey Fellowship Program",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [
+        "https://www.humphreyfellowship.org/program-overview/"
+      ],
+      "verdict": "redirected",
+      "final_url": "https://www.humphreyfellowship.org/program-overview/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.humphreyfellowship.org/how-to-apply/eligibility/",
+      "kind": "official_portal_url",
+      "title": "Hubert H. Humphrey Fellowship Program",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.humphreyfellowship.org/how-to-apply/eligibility/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.chevening.org/scholarships/who-can-apply/",
+      "kind": "official_portal_url",
+      "title": "Chevening Scholarships",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.chevening.org/scholarships/who-can-apply/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.chevening.org/scholarships/application-timeline/",
+      "kind": "source_url",
+      "title": "Chevening Scholarships",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.chevening.org/scholarships/application-timeline/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.humphreyfellowship.org/our-network/other-partners/distinguished-humphrey-fellowship-program",
+      "kind": "official_portal_url",
+      "title": "Distinguished Humphrey Fellowship Program",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [
+        "https://www.humphreyfellowship.org/our-network/other-partners/distinguished-humphrey-fellowship-program/"
+      ],
+      "verdict": "redirected",
+      "final_url": "https://www.humphreyfellowship.org/our-network/other-partners/distinguished-humphrey-fellowship-program/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.iie.org/programs/invensys-scholarship-programme/about",
+      "kind": "official_portal_url",
+      "title": "Invensys Children of Employee Scholarship Programme",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/invensys-scholarship-programme/about",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.chevening.org/fellowship/ocis",
+      "kind": "official_portal_url",
+      "title": "Chevening Oxford Centre for Islamic Studies Fellowship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [
+        "https://www.chevening.org/fellowship/ocis/"
+      ],
+      "verdict": "redirected",
+      "final_url": "https://www.chevening.org/fellowship/ocis/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.chevening.org/fellowship/ocis/",
+      "kind": "source_url",
+      "title": "Chevening Oxford Centre for Islamic Studies Fellowship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.chevening.org/fellowship/ocis/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.studyinjapan.go.jp/en/planning/scholarship/",
+      "kind": "official_portal_url",
+      "title": "MEXT Scholarship - Research Student (Embassy Track)",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [
+        "http://www.studyinjapan.go.jp/en/planning/scholarships/",
+        "https://www.studyinjapan.go.jp/en/planning/scholarships/"
+      ],
+      "verdict": "redirected",
+      "final_url": "https://www.studyinjapan.go.jp/en/planning/scholarships/",
+      "content_type": "text/html"
+    },
+    {
+      "url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students/fas-humanities-and-social-2",
+      "kind": "official_portal_url",
+      "title": "The Top Up Stipend",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students/fas-humanities-and-social-2",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://gsas.harvard.edu/apply",
+      "kind": "source_url",
+      "title": "The Top Up Stipend",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://gsas.harvard.edu/apply",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://www.chevening.org/fellowship/lse",
+      "kind": "official_portal_url",
+      "title": "Chevening LSE Fellowship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [
+        "https://www.chevening.org/fellowship/lse/"
+      ],
+      "verdict": "redirected",
+      "final_url": "https://www.chevening.org/fellowship/lse/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.chevening.org/apply/page/2/",
+      "kind": "source_url",
+      "title": "Chevening LSE Fellowship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.chevening.org/apply/page/2/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.a-star.edu.sg/scholarships/home/scholarships",
+      "kind": "official_portal_url",
+      "title": "A*STAR Scholarships",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.a-star.edu.sg/scholarships/home/scholarships",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://www.a-star.edu.sg/scholarships/home/scholarships/ags--scholarship",
+      "kind": "source_url",
+      "title": "A*STAR Scholarships",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.a-star.edu.sg/scholarships/home/scholarships/ags--scholarship",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://www.a-star.edu.sg/scholarships",
+      "kind": "official_portal_url",
+      "title": "Singapore International Graduate Award (SINGA)",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.a-star.edu.sg/scholarships",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students",
+      "kind": "official_portal_url",
+      "title": "Professional Development Fund",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students/professional-development-fund",
+      "kind": "source_url",
+      "title": "Professional Development Fund",
+      "allowed_by_robots": true,
+      "status": 404,
+      "redirects": [
+        "https://gsas.harvard.edu/caslogin?destination=/financial-support/funding-and-aid/financial-support-phd-students/professional-development-fund"
+      ],
+      "verdict": "dead",
+      "final_url": "https://gsas.harvard.edu/caslogin?destination=/financial-support/funding-and-aid/financial-support-phd-students/professional-development-fund",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://www.chevening.org/scholarship/australia",
+      "kind": "official_portal_url",
+      "title": "Chevening Scholarships in Australia",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [
+        "https://www.chevening.org/scholarship/australia/"
+      ],
+      "verdict": "redirected",
+      "final_url": "https://www.chevening.org/scholarship/australia/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.chevening.org/scholarships/application-timeline/",
+      "kind": "source_url",
+      "title": "Chevening Scholarships in Australia",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.chevening.org/scholarships/application-timeline/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students/fas-humanities-and-social-1",
+      "kind": "official_portal_url",
+      "title": "FAS Humanities and Social Sciences Summer Stipend Awards",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://gsas.harvard.edu/financial-support/funding-and-aid/financial-support-phd-students/fas-humanities-and-social-1",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://www.iie.org/programs/ge-vernova-star-scholarship/eligibility-and-selection",
+      "kind": "official_portal_url",
+      "title": "GE Vernova STAR Scholarship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/ge-vernova-star-scholarship/eligibility-and-selection",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.iie.org/programs/ge-vernova-star-scholarship/timeline-and-how-to-apply",
+      "kind": "source_url",
+      "title": "GE Vernova STAR Scholarship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/ge-vernova-star-scholarship/timeline-and-how-to-apply",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.iie.org/about/offices/east-asia-and-the-pacific/beijing/programs/2020-richard-rockefeller-fellowship",
+      "kind": "official_portal_url",
+      "title": "Richard Rockefeller Fellowship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/about/offices/east-asia-and-the-pacific/beijing/programs/2020-richard-rockefeller-fellowship",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.iie.org/programs/google-deepmind-ai-masters-scholarships/eligibility-and-application-process",
+      "kind": "official_portal_url",
+      "title": "Google DeepMind AI Master’s Scholarships",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/google-deepmind-ai-masters-scholarships/eligibility-and-application-process",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.iie.org/programs/google-deepmind-ai-masters-scholarships/iie-faq",
+      "kind": "source_url",
+      "title": "Google DeepMind AI Master’s Scholarships",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/google-deepmind-ai-masters-scholarships/iie-faq",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.iie.org/programs/freeman-asia/about/award-details",
+      "kind": "official_portal_url",
+      "title": "Freeman-ASIA Award",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/freeman-asia/about/award-details",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.iie.org/programs/freeman-asia/apply",
+      "kind": "source_url",
+      "title": "Freeman-ASIA Award",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/freeman-asia/apply",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.rotary.org/en/get-involved/our-programs/peace-fellowships",
+      "kind": "official_portal_url",
+      "title": "Rotary Peace Fellowship",
+      "allowed_by_robots": true,
+      "status": 429,
+      "redirects": [],
+      "verdict": "dead",
+      "final_url": "https://www.rotary.org/en/get-involved/our-programs/peace-fellowships",
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://pdsoros.org/about-the-fellowship",
+      "kind": "official_portal_url",
+      "title": "The Paul & Daisy Soros Fellowship for New Americans",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [
+        "https://pdsoros.org/about-the-fellowship/"
+      ],
+      "verdict": "redirected",
+      "final_url": "https://pdsoros.org/about-the-fellowship/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://pdsoros.org/eligibility/",
+      "kind": "source_url",
+      "title": "The Paul & Daisy Soros Fellowship for New Americans",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://pdsoros.org/eligibility/",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.iie.org/programs/leonora-lindsley-memorial-fellowship/about",
+      "kind": "official_portal_url",
+      "title": "Leonora Lindsley Memorial Fellowship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/leonora-lindsley-memorial-fellowship/about",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.iie.org/programs/centroamerica-en-ascenso/fellowship-tracks/non-degree-fellowship-programs",
+      "kind": "official_portal_url",
+      "title": "Centroamérica en Ascenso Fellowship - Non-Degree Fellowship Programs",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.iie.org/programs/centroamerica-en-ascenso/fellowship-tracks/non-degree-fellowship-programs",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "url": "https://www.studyinjapan.go.jp/en/planning/scholarships/mext-scholarships/",
+      "kind": "official_portal_url",
+      "title": "Japanese Government (MEXT) Scholarship",
+      "allowed_by_robots": true,
+      "status": 200,
+      "redirects": [],
+      "verdict": "ok",
+      "final_url": "https://www.studyinjapan.go.jp/en/planning/scholarships/mext-scholarships/",
+      "content_type": "text/html"
+    }
+  ]
+}
