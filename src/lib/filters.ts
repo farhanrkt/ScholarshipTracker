@@ -1,9 +1,16 @@
+// Relative, with the extension, rather than the usual `@/` alias — and that is
+// the whole reason this file could not be tested before. `COUNTRIES` and
+// `DEGREE_LEVELS` are VALUES, so Node has to resolve the specifier at runtime,
+// and `tsconfig` path aliases mean nothing to it. Every other tested module in
+// `src/lib` gets away with `@/` only because its imports are types, which type
+// stripping erases before Node ever sees them. See the same note in
+// `format.test.ts`.
 import {
   COUNTRIES,
   DEGREE_LEVELS,
   type Country,
   type DegreeLevel,
-} from "@/lib/types/database";
+} from "./types/database.ts";
 
 /* -------------------------------------------------------------------------- */
 /* Filter shape                                                               */
@@ -33,6 +40,21 @@ export interface ToggleDefinition {
   label: string;
   hint: string;
   group: "Eligibility" | "Funding" | "Commitment" | "Data quality";
+  /**
+   * On until the visitor turns it off.
+   *
+   * Exactly one toggle has this, and the reason is in the data rather than in
+   * taste. Sixteen of the nineteen published deadlines have already passed, so
+   * a list sorted by deadline opens on four closed American programmes and a
+   * student has to scroll through the past to reach anything they can still
+   * apply for. The first screen was answering a question nobody asked.
+   *
+   * A default is not a secret, and this one is deliberately noisy: the filter
+   * sits in the rail already checked, and `ActiveFilters` draws it as a chip
+   * whose X turns it off. The closed rows are always one click away and always
+   * visibly withheld.
+   */
+  defaultOn?: boolean;
 }
 
 export const TOGGLE_DEFINITIONS: ToggleDefinition[] = [
@@ -97,6 +119,7 @@ export const TOGGLE_DEFINITIONS: ToggleDefinition[] = [
     label: "Still open",
     hint: "Hide programmes whose deadline has already passed",
     group: "Commitment",
+    defaultOn: true,
   },
   {
     key: "verifiedOnly",
@@ -105,6 +128,48 @@ export const TOGGLE_DEFINITIONS: ToggleDefinition[] = [
     group: "Data quality",
   },
 ];
+
+/** What each toggle is when the URL does not mention it. */
+export const TOGGLE_DEFAULTS = Object.fromEntries(
+  TOGGLE_DEFINITIONS.map((definition) => [definition.key, definition.defaultOn === true]),
+) as Record<ToggleKey, boolean>;
+
+/**
+ * Reading one toggle out of a URL.
+ *
+ * Three-valued on purpose: "1" is on, "0" is off, and ABSENT is the default —
+ * which for every toggle but one is off, and for "Still open" must not be.
+ *
+ * Written once because it was written four times: the server parse, the
+ * checkbox in the rail, the rail's own badge count and the chips above the
+ * results each tested `=== "1"` separately. Four copies of that is how a
+ * checkbox ends up disagreeing with the list underneath it.
+ */
+export function readToggle(
+  raw: string | string[] | null | undefined,
+  key: ToggleKey,
+): boolean {
+  const value = typeof raw === "string" ? raw : undefined;
+  if (value === "1") return true;
+  if (value === "0") return false;
+  return TOGGLE_DEFAULTS[key];
+}
+
+/**
+ * Writing one back, leaving the URL as short as it can be.
+ *
+ * A value that equals the default is deleted rather than spelled out, so the
+ * default view is `/dashboard` with no query string at all and a shared link
+ * carries only what the sender actually chose.
+ */
+export function writeToggle(
+  params: URLSearchParams,
+  key: ToggleKey,
+  on: boolean,
+): void {
+  if (on === TOGGLE_DEFAULTS[key]) params.delete(key);
+  else params.set(key, on ? "1" : "0");
+}
 
 export const SORT_OPTIONS = [
   { value: "deadline", label: "Deadline (soonest first)" },
@@ -152,7 +217,7 @@ export function parseFilters(params: RawSearchParams): ScholarshipFilters {
   );
 
   const toggles = Object.fromEntries(
-    TOGGLE_KEYS.map((key) => [key, params[key] === "1"]),
+    TOGGLE_KEYS.map((key) => [key, readToggle(params[key], key)]),
   ) as Record<ToggleKey, boolean>;
 
   const rawSort = params[PARAM.sort];
@@ -171,12 +236,37 @@ export function parseFilters(params: RawSearchParams): ScholarshipFilters {
   };
 }
 
+/**
+ * How much the visitor has changed, for the badge on the Filters button.
+ *
+ * Deviations from the default, not switches that happen to be on: a fresh
+ * dashboard carries "Still open" and must still read as unfiltered, or the
+ * badge cries wolf on every first visit and stops meaning anything.
+ */
 export function countActiveFilters(filters: ScholarshipFilters): number {
   return (
     filters.countries.length +
     filters.degrees.length +
-    Object.values(filters.toggles).filter(Boolean).length +
+    TOGGLE_KEYS.filter((key) => filters.toggles[key] !== TOGGLE_DEFAULTS[key]).length +
     (filters.q ? 1 : 0)
+  );
+}
+
+/**
+ * Is anything narrowing the list at all, defaults included?
+ *
+ * A different question from `countActiveFilters`, and the empty state needs
+ * this one: "no results" means "there is no data" or "a filter removed it
+ * all", and a default-on filter empties a list exactly as thoroughly as a
+ * chosen one. Telling someone the table is empty when it holds forty-three
+ * rows is the worst available answer.
+ */
+export function isFiltered(filters: ScholarshipFilters): boolean {
+  return (
+    filters.countries.length > 0 ||
+    filters.degrees.length > 0 ||
+    filters.q !== "" ||
+    Object.values(filters.toggles).some(Boolean)
   );
 }
 
@@ -187,8 +277,6 @@ export function serialiseFilters(filters: ScholarshipFilters): string {
   if (filters.degrees.length) params.set(PARAM.degree, filters.degrees.join(","));
   if (filters.q) params.set(PARAM.q, filters.q);
   if (filters.sort !== "deadline") params.set(PARAM.sort, filters.sort);
-  for (const key of TOGGLE_KEYS) {
-    if (filters.toggles[key]) params.set(key, "1");
-  }
+  for (const key of TOGGLE_KEYS) writeToggle(params, key, filters.toggles[key]);
   return params.toString();
 }

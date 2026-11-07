@@ -4,7 +4,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 
 import { displayCountry } from "@/lib/format";
-import { PARAM, TOGGLE_DEFINITIONS, type ToggleKey } from "@/lib/filters";
+import {
+  PARAM,
+  TOGGLE_DEFAULTS,
+  TOGGLE_DEFINITIONS,
+  TOGGLE_KEYS,
+  readToggle,
+  writeToggle,
+} from "@/lib/filters";
 
 /**
  * What is currently filtering the list, and one click to undo any of it.
@@ -71,14 +78,29 @@ export function ActiveFilters({ resultCount }: { resultCount: number }) {
     }
   }
 
+  // A chip means "this is narrowing your list", which "Still open" does on a
+  // first visit without anyone having asked for it. Showing it is the whole
+  // reason the default is defensible: the sixteen closed programmes are always
+  // one X away, and never silently missing.
   for (const definition of TOGGLE_DEFINITIONS) {
-    if (searchParams.get(definition.key as ToggleKey) !== "1") continue;
+    if (!readToggle(searchParams.get(definition.key), definition.key)) continue;
     chips.push({
       key: definition.key,
       label: definition.label,
-      next: without((params) => params.delete(definition.key)),
+      next: without((params) => writeToggle(params, definition.key, false)),
     });
   }
+
+  // "Clear all" resets to the DEFAULT view, so it has nothing to do until the
+  // visitor has moved away from it. Offering it on a fresh page would promise
+  // to undo something they had not done.
+  const changed =
+    Boolean(searchParams.get(PARAM.q)) ||
+    Boolean(searchParams.get(PARAM.country)) ||
+    Boolean(searchParams.get(PARAM.degree)) ||
+    TOGGLE_KEYS.some(
+      (key) => readToggle(searchParams.get(key), key) !== TOGGLE_DEFAULTS[key],
+    );
 
   const go = (params: URLSearchParams) => {
     const query = params.toString();
@@ -121,13 +143,15 @@ export function ActiveFilters({ resultCount }: { resultCount: number }) {
             ))}
           </ul>
 
-          <button
-            type="button"
-            onClick={() => go(new URLSearchParams())}
-            className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded px-1 text-xs underline underline-offset-2 focus-visible:ring-2 focus-visible:outline-none"
-          >
-            Clear all
-          </button>
+          {changed && (
+            <button
+              type="button"
+              onClick={() => go(new URLSearchParams())}
+              className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded px-1 text-xs underline underline-offset-2 focus-visible:ring-2 focus-visible:outline-none"
+            >
+              Clear all
+            </button>
+          )}
         </>
       )}
     </div>
