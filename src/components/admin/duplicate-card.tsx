@@ -7,7 +7,11 @@ import { toast } from "sonner";
 import { mergeScholarships } from "@/app/actions/review";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { DuplicateCluster, DuplicateRow } from "@/lib/duplicates";
+import type {
+  DuplicateCluster,
+  DuplicateConfidence,
+  DuplicateRow,
+} from "@/lib/duplicates";
 import { cn } from "@/lib/utils";
 
 /**
@@ -44,6 +48,27 @@ export function DuplicateCard({ cluster }: { cluster: DuplicateCluster }) {
   const others = cluster.rows.filter(
     (row) => row.id !== keepId && !merged.includes(row.id),
   );
+
+  /**
+   * One badge per confidence present in the group, not the group's own.
+   *
+   * `DuplicateCluster.confidence` is the STRONGEST pair in the group, and says
+   * so in its own doc comment — it exists to order the review queue. Rendering
+   * it alone as the group's badge is how four Chevening rows came to be
+   * labelled `certain` on the strength of one plural, when three of them are
+   * different awards and one is the only fellowship in the group an Indonesian
+   * can apply for. A group is only as mergeable as its weakest pair, so the
+   * badge says how many of each there are and leaves the reading to the person.
+   */
+  const confidenceCounts = useMemo(() => {
+    const tally = new Map<DuplicateConfidence, number>();
+    for (const pair of cluster.pairs) {
+      tally.set(pair.confidence, (tally.get(pair.confidence) ?? 0) + 1);
+    }
+    return (["certain", "likely", "possible"] as const)
+      .map((confidence) => ({ confidence, count: tally.get(confidence) ?? 0 }))
+      .filter(({ count }) => count > 0);
+  }, [cluster.pairs]);
 
   /** Why THIS row was paired with the one being kept. */
   const reasonAgainstKeep = useMemo(() => {
@@ -83,9 +108,15 @@ export function DuplicateCard({ cluster }: { cluster: DuplicateCluster }) {
   return (
     <article className="flex flex-col gap-4 rounded-xl border p-4">
       <header className="flex flex-wrap items-center gap-2">
-        <Badge variant="outline" className={CONFIDENCE_STYLES[cluster.confidence]}>
-          {cluster.confidence}
-        </Badge>
+        {confidenceCounts.map(({ confidence, count }) => (
+          <Badge
+            key={confidence}
+            variant="outline"
+            className={CONFIDENCE_STYLES[confidence]}
+          >
+            {count} {confidence}
+          </Badge>
+        ))}
         <span className="text-muted-foreground text-xs">
           {cluster.rows.length} rows on this site
         </span>

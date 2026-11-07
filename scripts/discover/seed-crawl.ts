@@ -17,7 +17,10 @@ import type { Authority } from "./authority.ts";
 // One definition of "the same programme", shared with the merge page. A second
 // implementation here would drift, and the drift would show up as rows the
 // dashboard has and the duplicates page cannot see.
-import { compareProgrammes } from "../../src/lib/duplicates.ts";
+import {
+  compareProgrammes,
+  type DuplicateConfidence,
+} from "../../src/lib/duplicates.ts";
 
 /**
  * One seed, crawled and classified, with nowhere it insists on running.
@@ -106,10 +109,14 @@ export interface DiscoveryKnowledge {
  * comparison the merge page uses, so "already known" means one thing across the
  * app rather than two that drift apart.
  *
- * Only `certain` and `likely` count. `possible` is a prompt for a human on the
+ * `possible` is not reported at all — it belongs in front of a person on the
  * duplicates page, and acting on it here would silently discard real
  * programmes: nothing records what discovery declines to stage, so a wrong drop
  * is invisible and permanent.
+ *
+ * `certain` and `likely` are BOTH reported, and the caller does different
+ * things with them. Only `certain` stops a row being staged. See the note at
+ * the call site for why `likely` no longer does.
  */
 export function matchKnownProgramme(
   knowledge: DiscoveryKnowledge,
@@ -118,6 +125,7 @@ export function matchKnownProgramme(
 ): {
   row: { id: string; portalUrl: string } | null;
   reason: string;
+  confidence: Exclude<DuplicateConfidence, "possible">;
 } | null {
   const fingerprint = titleFingerprint(programmeName);
 
@@ -125,6 +133,7 @@ export function matchKnownProgramme(
     return {
       row: knowledge.rowByTitle.get(fingerprint) ?? null,
       reason: "same title",
+      confidence: "certain",
     };
   }
 
@@ -138,6 +147,7 @@ export function matchKnownProgramme(
     return {
       row: { id: row.id, portalUrl: row.portalUrl },
       reason: `${verdict.confidence} match for "${row.title}"`,
+      confidence: verdict.confidence,
     };
   }
 
@@ -485,13 +495,23 @@ export async function discoverSeed(options: {
       const sourceUrl = canonicalUrl(page);
       const known = matchKnownProgramme(knowledge, found.programme_name, sourceUrl);
 
-      if (known) {
+      // Only an exact fingerprint stops a row from being staged.
+      //
+      // A `likely` match used to stop one too, and it should not have. The rule
+      // reads "same site, and one title is the other plus a qualifier", and
+      // against the live catalogue it was right once in six
+      // (docs/duplicate-verdicts.md): right about the two Humphrey rows, wrong
+      // about Chevening SIDS, Chevening OCIS, Chevening LSE, Harvard's two
+      // language fellowships and Fulbright's FLTA. Every one of those is a
+      // separate award with its own eligibility, and the OCIS fellowship is the
+      // only one of its group an Indonesian can apply for.
+      //
+      // Nothing records what discovery declines to stage, so that was five real
+      // programmes it could never find again, with no trace. A duplicate ROW,
+      // by contrast, reaches /admin/duplicates and a person folds it in one
+      // click. The two errors are not the same size.
+      if (known?.confidence === "certain") {
         result.duplicates++;
-        if (known.reason !== "same title") {
-          // Worth saying out loud: this is the branch that used to stage a
-          // second row, and a wrong drop here leaves no record anywhere.
-          say(`    = ${found.programme_name} — ${known.reason}, not staged`);
-        }
 
         // Not a wasted fetch: this is another site describing a programme we
         // track, which is the input cross-verification needs and the reason this
@@ -525,6 +545,13 @@ export async function discoverSeed(options: {
           }
         }
         continue;
+      }
+
+      if (known) {
+        // Said out loud, because this is the line that used to read
+        // "not staged" and now does the opposite. The row goes in; the
+        // suspicion goes to the duplicates page with it.
+        say(`    ~ ${found.programme_name} — ${known.reason}, staging it anyway`);
       }
 
       const hostCountry = normaliseCountry(found.host_country) ?? seed.country ?? null;

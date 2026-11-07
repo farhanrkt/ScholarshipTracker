@@ -175,4 +175,28 @@ describe("grouping a catalogue", () => {
 
     assert.equal(clusters[0]?.confidence, "certain");
   });
+
+  test("a cluster's confidence is its strongest pair, not a verdict on the group", () => {
+    // The real shape, and the reason the card shows a count per confidence
+    // rather than this one word. Three of these four rows are different awards
+    // — SIDS is for Commonwealth small island states, Australia is a country
+    // page routing applicants to two other funders — and the group is labelled
+    // `certain` on the strength of the one plural inside it.
+    const clusters = findDuplicates([
+      row("Chevening Scholarship", CHEVENING),
+      row("Chevening Scholarships", "https://www.chevening.org/scholarships/who-can-apply/"),
+      row("Chevening Scholarships in Australia", "https://www.chevening.org/scholarship/australia"),
+      row("Chevening SIDS Scholarship", "https://www.chevening.org/sids-chevening-scholarship/"),
+    ]);
+
+    assert.equal(clusters.length, 1);
+    assert.equal(clusters[0]?.confidence, "certain");
+
+    const certain = clusters[0]!.pairs.filter((pair) => pair.confidence === "certain");
+    assert.equal(certain.length, 1, "exactly one pair earns the group its badge");
+    assert.ok(
+      clusters[0]!.pairs.length > certain.length,
+      "and the rest only look alike",
+    );
+  });
 });
