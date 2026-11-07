@@ -26,7 +26,7 @@ shapes mean and which invariants matter.
 | `promote_candidate(uuid)` | Creates a dateless `unverified` skeleton from a candidate. |
 | `reject_candidate(uuid, text)` | Marks a candidate rejected. |
 | `scholarship_completeness` | How full each row is, how much the funder does not publish, and how many blanks the pipeline could still fill. |
-| `merge_scholarships(uuid, uuid)` | Folds a duplicate row into the one being kept. The only `SECURITY DEFINER` function here. |
+| `merge_scholarships(uuid, uuid)` | Folds a duplicate row into the one being kept. The only `SECURITY DEFINER` function that writes. |
 | `is_admin()` / `why_not_admin()` | Allowlist check, and a diagnosis when it fails. |
 
 `apply_extraction` and friends are `SECURITY INVOKER`, so RLS still applies — a
@@ -275,7 +275,9 @@ document proposals.
 the one before, so applying them in order is correct and applying an earlier one
 afterwards would regress. Run them in order.
 
-**014 is the only `SECURITY DEFINER` function in the schema.** It has to be:
+**014 is the only `SECURITY DEFINER` function that writes.** (`is_admin()` and
+`why_not_admin()` are `SECURITY DEFINER` too, from 003 and 005 — they read the
+`admins` allowlist and nothing else.) It has to be:
 `user_targets` is owner-only under RLS, so no admin session can re-point someone
 else's saved programme, and `scholarships` has no DELETE policy at all. The
 `is_admin()` check as the function's first statement is what replaces those

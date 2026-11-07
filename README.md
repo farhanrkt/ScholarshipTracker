@@ -56,13 +56,21 @@ supabase/migrations/009_is_profiled.sql
 supabase/migrations/010_award_scope.sql
 supabase/migrations/011_cross_verification.sql
 supabase/migrations/012_pipeline_jobs.sql
+supabase/migrations/013_answered_eligibility.sql
+supabase/migrations/014_merge_duplicates.sql
+supabase/migrations/015_multi_country_and_stale_dates.sql
+supabase/migrations/016_not_stated_and_gap_causes.sql
+supabase/migrations/017_completeness_performance.sql
 supabase/seed.sql
 ```
 
 `000_apply_all_pending.sql` bundles 002–004 for a fresh project, but predates
-005–012 — run those after it. **012 is what lets the deployed app run the
-crawlers**; without it the pipeline console says so, and everything else still
-works. Details in [data-model.md](docs/data-model.md#migrations).
+005–017 — run those after it. Two of them are load-bearing rather than
+incremental: **012 is what lets the deployed app run the crawlers** (without it
+the pipeline console says so, and everything else still works), and **016 is
+what lets the UI tell a funder's silence from an unread field** — the
+`not_stated` column behind the coverage grid and the eligibility list. Details
+in [data-model.md](docs/data-model.md#migrations).
 
 **2. Enable anonymous sign-ins**: Authentication → Sign In / Providers → **Allow
 anonymous sign-ins**. Nothing works without this; it is what mints the ghost
@@ -142,6 +150,46 @@ plans a year of their life around, so:
   [`/admin/verify`](docs/operations.md#verifying-a-row--adminverify).
 
 The full trust model is in [pipeline.md § Grounding](docs/pipeline.md#grounding--the-control-everything-else-rests-on).
+
+## If you run a site we've crawled
+
+This page is the contact URL in our user agent, so you may have arrived here
+from your own logs. `ScholarTrackBot` reads scholarship pages so that the
+deadlines and eligibility we show students are quoted from the funder's own
+words instead of recalled by a model. It does not index, mirror or republish
+your pages — it stores a short quote beside the value the quote supports, with a
+link back to you.
+
+```
+ScholarTrackBot/1.0 (scholarship deadline verification; +https://github.com/farhanrkt/ScholarshipTracker)
+```
+
+- **Rate.** One request at a time per host, 800 ms between request starts, at
+  most two connections. A `Crawl-delay` in your `robots.txt` always wins, and a
+  host that publishes one drops us to a single connection.
+- **`robots.txt` is read before any request**, by a real parser — `Allow`,
+  longest-match-wins, `$` anchoring — enforced inside the fetch layer so no
+  caller can skip it.
+- **Volume.** A weekly re-read of the rows that have gone stale, capped at
+  `CRON_REFRESH_LIMIT` (12 by default), plus whatever a reviewer starts by hand.
+  Not a sweep.
+- **A second, browser-shaped agent** is used only after a host answers
+  401/403/406/451 to the first — a WAF scoring the shape of the request rather
+  than the URL. It still carries `ScholarTrackBot` and the same contact URL, so
+  you can identify and block us deliberately. `robots.txt` is obeyed before
+  either identity is used.
+
+**To be excluded**, add a group for `ScholarTrackBot` to your `robots.txt` and
+we stop:
+
+```
+User-agent: ScholarTrackBot
+Disallow: /
+```
+
+That takes effect on our next read of your `robots.txt`, with no appeal from us.
+If you would rather talk to a person, or something here looks wrong from your
+side, open an issue on this repository.
 
 ## Layout
 
