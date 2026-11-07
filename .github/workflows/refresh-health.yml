@@ -1,0 +1,90 @@
+# The thing that says so when the refresh stops.
+#
+# C1 in docs/audit-2026-10-30.md was not that the weekly refresh broke. It was
+# that it broke in August, nobody found out until an audit in October, and in
+# between the catalogue went on offering sixteen deadlines that had passed. The
+# run record was complete and correct the whole time — visible at
+# /admin/pipeline, to somebody who went and looked. This is the part that does
+# not need anybody to go and look.
+#
+# HOW IT ALERTS: by failing. GitHub mails the owner when a scheduled workflow
+# fails, so a red run is the whole mechanism — no paid monitor, no webhook, no
+# third party holding a credential. The report is written to the run summary so
+# the mail has something to link to.
+
+name: refresh-health
+
+on:
+  schedule:
+    # Daily, though the thing it watches is weekly, because the threshold and
+    # the frequency answer different questions. The threshold (8 days, in
+    # src/lib/pipeline/refresh-health.ts) decides how much silence is an
+    # outage. The frequency decides how long an outage goes unreported. Check
+    # weekly against an 8-day rule and a cron that dies on a Tuesday is first
+    # reported a fortnight later; daily, it is reported on day nine.
+    - cron: "0 7 * * *"
+  # So it can be run the minute the secrets below are set, rather than waiting
+  # a day to find out whether they were set correctly.
+  workflow_dispatch:
+
+# Read-only, like check.yml. This workflow opens nothing and writes nothing;
+# the alert is its own exit status.
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-health
+  cancel-in-progress: false
+
+jobs:
+  refresh-health:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          # .nvmrc rather than a literal, so local and CI cannot drift apart.
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Is the weekly refresh alive?
+        shell: bash
+        env:
+          # NO SERVICE-ROLE KEY, and none should ever be added. The check signs
+          # in as the refresh account — an ordinary login on the `admins`
+          # allowlist, the same one the cron uses — so everything it reads is
+          # checked by the same policies that guard a human admin. A key that
+          # bypasses every policy in the schema has no business in CI, and the
+          # check does not need one: see scripts/audit/refresh-health.ts.
+          #
+          # The first two are not secret. They ship in the browser bundle on
+          # every page load. They are secrets here only so that a public
+          # repository's workflow file is not one more signpost to the project.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          CRON_SUPABASE_EMAIL: ${{ secrets.CRON_SUPABASE_EMAIL }}
+          CRON_SUPABASE_PASSWORD: ${{ secrets.CRON_SUPABASE_PASSWORD }}
+        run: |
+          # This repository is public, so the summary and the log below are
+          # world-readable. What the script prints is counts, dates and job
+          # statuses — the same class of fact docs/audit-2026-10-30.md already
+          # publishes — with provider error text clipped to its first line and
+          # the allowlist reported as a number rather than as people.
+          #
+          # The warning silenced below is the one `npm test` already silences
+          # by name: these .ts files are ES modules in a package.json with no
+          # "type": "module", so node reparses them and says so, four lines at
+          # a time. Above a report whose whole job is to put the problem first,
+          # that is noise. Named rather than `--no-warnings`, so a warning
+          # nobody has seen before still reaches the log.
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          status=0
+          node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON \
+            scripts/audit/refresh-health.ts 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit $status
