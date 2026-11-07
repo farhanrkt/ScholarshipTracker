@@ -84,13 +84,34 @@ service-role key**:
 | `CRON_SUPABASE_PASSWORD` | That account's password |
 
 The route signs in with the anon key exactly as a browser would, so RLS checks
-every write it makes and the run is attributable in `pipeline_jobs.created_by`.
-Revoking it is deleting one row from `admins`, not rotating a key that bypasses
-the whole schema. Create the account through the normal sign-in flow, then:
+every write it makes and the run is attributable in `pipeline_jobs.created_by` —
+written with a `scheduled refresh` prefix, so an unattended run can never be
+mistaken for somebody pressing the button in `/admin`.
+
+**That account needs a password, and this app never sets one.** Sign-in here is a
+magic link over an anonymous session; `signInWithPassword` appears exactly once
+in `src/`, in this route. So "create it through the normal sign-in flow" is not
+enough on its own — set a password under Authentication → Users in the Supabase
+dashboard, or the route answers 501 with *The refresh account could not sign in*.
+
+A dedicated account keeps revocation cheap, one row rather than a rotated key:
 
 ```sql
 insert into admins (email, note) values ('refresh@yourdomain', 'scheduled refresh');
 ```
+
+**What this deployment does instead**, decided 31 October 2026: it reuses the
+founder's own admin account. `is_admin()` matches on `LOWER(email)` for a
+confirmed address (migration 005) and that row is already there, so nothing
+needs inserting. The cost is revocation — with no separate row to delete,
+stopping the schedule means rotating that account's password or dropping your
+own admin access. Worth revisiting if a second admin appears.
+
+One wrinkle when reusing an account that began as an anonymous session and had
+an email linked from the dashboard banner: it carries no `identities` row, and a
+password set on it may not be enough for `signInWithPassword`. The first Monday
+will tell you. `scripts/audit/refresh-health.ts` reports `last scheduled`, which
+stays `never` until a run really comes from the cron.
 
 It **stages** proposals like any other run. Nothing reaches a scholarship row
 without a human applying it in `/admin/review`.
