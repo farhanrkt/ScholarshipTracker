@@ -1,0 +1,68 @@
+-- ---------------------------------------------------------------------------
+-- 018: make the review views obey the policies they were written over
+--
+-- A Postgres view runs as its OWNER unless told otherwise. It reads its base
+-- tables with the owner's rights, and the base tables' row-level security never
+-- runs. Every policy in 003 and 012 is still sitting there; the view simply
+-- walks past them. 017 got this right — `scholarship_completeness` carries
+-- `WITH (security_invoker = true)` — but the four views written before it never
+-- did, and nothing ever failed loudly enough to say so.
+--
+-- ONE OF THEM ACTUALLY LEAKS. `extraction_review` selects from
+-- `scholarship_extractions`, whose only SELECT policy is "Admins read
+-- extractions" (003). With the published anon key and no session at all, that
+-- view returned five staged proposals on 30 October 2026: deadlines the funder
+-- has not announced, the quote behind each one, the model's notes, the source
+-- URL. Nothing there is dangerous on its own. It is simply not meant to be
+-- readable, and "deny-all except admins" is what the migration said.
+--
+-- THE OTHER THREE EXPOSE NOTHING TODAY, and are here anyway.
+-- `scholarships_needing_review`, `possible_duplicate_scholarships` and
+-- `scholarship_provenance` all read `scholarships`, which is public: every row
+-- they return is already served by /rest/v1/scholarships. They are fixed
+-- because the day `scholarships` stops being wholly public — hiding unverified
+-- rows, say — all three become the same bug at once and in silence, and whoever
+-- makes that change will be thinking about one table, not about four views
+-- written years apart.
+--
+-- ADMINS LOSE NOTHING. `security_invoker` applies the policies to the CALLER,
+-- and an admin session passes "Admins read extractions" through `is_admin()`.
+-- The service-role key and the SQL editor bypass RLS exactly as before, so the
+-- pipeline scripts and /admin are untouched.
+--
+-- Safe to run more than once, and on a database that never got one of these
+-- views.
+-- ---------------------------------------------------------------------------
+
+ALTER VIEW IF EXISTS extraction_review              SET (security_invoker = true);
+ALTER VIEW IF EXISTS scholarships_needing_review    SET (security_invoker = true);
+ALTER VIEW IF EXISTS possible_duplicate_scholarships SET (security_invoker = true);
+ALTER VIEW IF EXISTS scholarship_provenance         SET (security_invoker = true);
+
+-- ---------------------------------------------------------------------------
+-- Checking it worked
+--
+-- From the SQL editor, every view in `public` should now carry the option —
+-- `scholarship_completeness` already did:
+--
+--     SELECT c.relname, c.reloptions
+--       FROM pg_class c
+--       JOIN pg_namespace n ON n.oid = c.relnamespace
+--      WHERE n.nspname = 'public' AND c.relkind = 'v'
+--      ORDER BY c.relname;
+--
+-- From outside, with the published anon key and no session, which is the test
+-- that actually matters. `scripts/audit/rls-exposure.ts` runs it over every
+-- relation and writes the counts:
+--
+--     extraction_review             5 rows  ->   0 rows
+--     scholarships_needing_review  18 rows  ->  18 rows   (public either way)
+--     scholarships                 43 rows  ->  43 rows   (must not change —
+--                                                          this is the read
+--                                                          path Hermes uses)
+--
+-- To put it back, if something downstream turns out to have depended on the
+-- old behaviour:
+--
+--     ALTER VIEW extraction_review SET (security_invoker = false);
+-- ---------------------------------------------------------------------------
